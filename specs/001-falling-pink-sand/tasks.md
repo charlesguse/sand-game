@@ -211,3 +211,10 @@ Task: "Implement randomShade() in src/sim/shade.ts"
 - `src/sim/*` stays framework-free per constitution Principle III/IV — `PlayArea.svelte` calls it via plain function calls, never Svelte reactivity, on the per-frame hot path
 - Commit after each task or logical group
 - Stop at any checkpoint to validate a story independently
+
+---
+
+## Phase 7: Convergence
+
+- [ ] T031 Track drawing-stroke state (`lastGridPos`) per active `event.pointerId` in `src/lib/PlayArea.svelte` instead of one shared variable, so a second simultaneous touch cannot overwrite the first touch's last position (corrupting the drawing with a spurious connecting line) or end the first touch's stroke early when only one of two pressed pointers lifts, per spec Edge Cases: "Multiple simultaneous touches" (partial)
+- [ ] T032 In `src/lib/PlayArea.svelte`, pause brush deposition when the pointer exits the play area's bounds while pressed (without releasing pointer capture, so a press released outside the window still cannot get stuck "pouring") and reset `lastGridPos` on re-entry so drawing resumes without a stray line connecting the exit and re-entry points, per spec Edge Cases: "Pointer leaves the play area while pressed" (partial)
