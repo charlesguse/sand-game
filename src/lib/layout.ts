@@ -1,31 +1,34 @@
-export interface CanvasLayout {
-  scale: number;
-  displayWidth: number;
-  displayHeight: number;
+import type { BrushSize } from '../sim/types';
+
+export const GRID_WIDTH = 270;
+export const GRID_HEIGHT = 160;
+
+export const BRUSH_RADII: Record<BrushSize, number> = {
+  small: 2,
+  medium: 4,
+  large: 7,
+};
+
+export interface CanvasSize {
+  width: number;
+  height: number;
+  cellSize: number;
 }
 
-export function computeLayout(
-  gridWidth: number,
-  gridHeight: number,
+/** Largest integer cell size that fits width x height cells inside the given viewport, at least 1. */
+export function computeCanvasSize(
   viewportWidth: number,
   viewportHeight: number,
-): CanvasLayout {
-  const scale = Math.min(viewportWidth / gridWidth, viewportHeight / gridHeight);
+  gridWidth: number = GRID_WIDTH,
+  gridHeight: number = GRID_HEIGHT,
+): CanvasSize {
+  const cellSize = Math.max(
+    1,
+    Math.floor(Math.min(viewportWidth / gridWidth, viewportHeight / gridHeight)),
+  );
   return {
-    scale,
-    displayWidth: gridWidth * scale,
-    displayHeight: gridHeight * scale,
-  };
-}
-
-export function clientToGrid(
-  clientX: number,
-  clientY: number,
-  canvasRect: { left: number; top: number },
-  scale: number,
-): { x: number; y: number } {
-  return {
-    x: Math.floor((clientX - canvasRect.left) / scale),
-    y: Math.floor((clientY - canvasRect.top) / scale),
+    width: gridWidth * cellSize,
+    height: gridHeight * cellSize,
+    cellSize,
   };
 }
