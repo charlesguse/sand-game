@@ -48,10 +48,18 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100dvh;
   }
 
   main :global(.play-area-container) {
     flex: 1;
     min-height: 0;
+    min-width: 0;
+  }
+
+  @media (max-height: 480px) and (orientation: landscape) {
+    main {
+      flex-direction: row;
+    }
   }
 </style>

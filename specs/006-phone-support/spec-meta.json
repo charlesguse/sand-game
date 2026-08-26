@@ -2,7 +2,8 @@
   "issue": 15,
   "spec_dir": "specs/006-phone-support",
   "feature_num": "006",
-  "stage": "spec",
-  "iteration": 0,
-  "spec_branch": null
+  "stage": "review",
+  "iteration": 1,
+  "spec_branch": "spec/006-phone-support",
+  "pending_re_review_from": []
 }
