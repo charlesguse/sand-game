@@ -78,13 +78,13 @@ Single client-only project (established by 001–005): `src/sim/*` (framework-fr
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T012 [P] [US2] Add coordinate-mapping assertions to `tests/unit/lib/layout.test.ts`: reimplement `clientToGrid`'s formula (`scaleX = gridWidth / rect.width`, `scaleY = gridHeight / rect.height`, floored cell coords) as a pure test helper and assert a representative set of touch points — including all four edges of the play area — map to the expected cell at several of the table's on-screen scales, with no drift after a simulated resize (FR-012)
+- [X] T012 [P] [US2] Add coordinate-mapping assertions to `tests/unit/lib/layout.test.ts`: reimplement `clientToGrid`'s formula (`scaleX = gridWidth / rect.width`, `scaleY = gridHeight / rect.height`, floored cell coords) as a pure test helper and assert a representative set of touch points — including all four edges of the play area — map to the expected cell at several of the table's on-screen scales, with no drift after a simulated resize (FR-012)
 
 ### Implementation for User Story 2
 
 - [X] T013 [US2] In `src/lib/PlayArea.svelte`, update `clientToGrid` to read `grid.width`/`grid.height` from the live (reassignable) `grid` instance instead of the formerly-imported `GRID_WIDTH`/`GRID_HEIGHT` constants (research.md §10) — landed alongside T009/T010 since removing the fixed `GRID_WIDTH`/`GRID_HEIGHT` import made the old reference a compile error; no separate diff needed here
-- [ ] T014 [US2] In `index.html`, add `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;` to the existing `html, body` CSS rule alongside `overscroll-behavior: none; touch-action: none;` (FR-013, research.md §9)
-- [ ] T015 [US2] [P] In `src/lib/Toolbar.svelte`, add `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;` to `.control`'s styles so a long or fast tap never triggers a text-selection callout (FR-013)
+- [X] T014 [US2] In `index.html`, add `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;` to the existing `html, body` CSS rule alongside `overscroll-behavior: none; touch-action: none;` (FR-013, research.md §9)
+- [X] T015 [US2] [P] In `src/lib/Toolbar.svelte`, add `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;` to `.control`'s styles so a long or fast tap never triggers a text-selection callout (FR-013)
 
 **Checkpoint**: At this point, User Stories 1 AND 2 both work independently — touch drawing maps correctly to cells at any on-screen scale, and remaining browser-gesture interference is closed by CSS.
 

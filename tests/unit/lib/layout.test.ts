@@ -106,3 +106,110 @@ describe('layout — representative viewport table (FR-001, FR-002, FR-003, FR-0
     expect(field.displayHeight).toBeGreaterThanOrEqual(legacy.height);
   });
 });
+
+// Reimplements PlayArea.svelte's clientToGrid formula as a pure helper so touch-to-cell mapping
+// is verifiable without a browser/DOM (FR-012).
+function clientToGrid(
+  clientX: number,
+  clientY: number,
+  rect: { left: number; top: number; width: number; height: number },
+  gridWidth: number,
+  gridHeight: number,
+): { x: number; y: number } {
+  const scaleX = gridWidth / rect.width;
+  const scaleY = gridHeight / rect.height;
+  return {
+    x: Math.floor((clientX - rect.left) * scaleX),
+    y: Math.floor((clientY - rect.top) * scaleY),
+  };
+}
+
+describe('clientToGrid — touch-to-cell coordinate mapping (FR-012)', () => {
+  const SCALE_CASES = ['phone portrait', 'small phone', 'laptop', 'extreme aspect ratio'];
+
+  for (const label of SCALE_CASES) {
+    const viewport = VIEWPORT_TABLE.find((v) => v.label === label)!;
+    const field = computePlayField(viewport.width, viewport.height, isPhoneSized(viewport.width, viewport.height));
+    // A non-zero offset so the test also exercises rect.left/rect.top, not just scale.
+    const rect = { left: 37, top: 21, width: field.displayWidth, height: field.displayHeight };
+
+    describe(`${label} (${field.gridWidth}x${field.gridHeight} cells at ${field.cellSize.toFixed(2)}px)`, () => {
+      it('maps the top-left corner to cell (0, 0)', () => {
+        expect(clientToGrid(rect.left, rect.top, rect, field.gridWidth, field.gridHeight)).toEqual({ x: 0, y: 0 });
+      });
+
+      it('maps just inside the top-right corner to the last column, first row', () => {
+        const pos = clientToGrid(rect.left + rect.width - 0.001, rect.top, rect, field.gridWidth, field.gridHeight);
+        expect(pos).toEqual({ x: field.gridWidth - 1, y: 0 });
+      });
+
+      it('maps just inside the bottom-left corner to the first column, last row', () => {
+        const pos = clientToGrid(rect.left, rect.top + rect.height - 0.001, rect, field.gridWidth, field.gridHeight);
+        expect(pos).toEqual({ x: 0, y: field.gridHeight - 1 });
+      });
+
+      it('maps just inside the bottom-right corner to the last column, last row', () => {
+        const pos = clientToGrid(
+          rect.left + rect.width - 0.001,
+          rect.top + rect.height - 0.001,
+          rect,
+          field.gridWidth,
+          field.gridHeight,
+        );
+        expect(pos).toEqual({ x: field.gridWidth - 1, y: field.gridHeight - 1 });
+      });
+
+      it('maps the centre to the middle cell', () => {
+        const pos = clientToGrid(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+          rect,
+          field.gridWidth,
+          field.gridHeight,
+        );
+        expect(pos).toEqual({ x: Math.floor(field.gridWidth / 2), y: Math.floor(field.gridHeight / 2) });
+      });
+    });
+  }
+
+  it('has no drift after a simulated resize — mapping always uses the live grid/rect, never a stale pair', () => {
+    const before = VIEWPORT_TABLE.find((v) => v.label === 'phone portrait')!;
+    const after = VIEWPORT_TABLE.find((v) => v.label === 'phone landscape')!;
+
+    const fieldBefore = computePlayField(before.width, before.height, isPhoneSized(before.width, before.height));
+    const rectBefore = { left: 0, top: 0, width: fieldBefore.displayWidth, height: fieldBefore.displayHeight };
+    const centreBefore = clientToGrid(
+      rectBefore.width / 2,
+      rectBefore.height / 2,
+      rectBefore,
+      fieldBefore.gridWidth,
+      fieldBefore.gridHeight,
+    );
+    expect(centreBefore).toEqual({ x: Math.floor(fieldBefore.gridWidth / 2), y: Math.floor(fieldBefore.gridHeight / 2) });
+
+    // "Resize" to a different viewport — a correct implementation re-measures the rect and reads
+    // the (possibly re-derived) grid's current dimensions, never the pre-resize pair.
+    const fieldAfter = computePlayField(after.width, after.height, isPhoneSized(after.width, after.height));
+    const rectAfter = { left: 0, top: 0, width: fieldAfter.displayWidth, height: fieldAfter.displayHeight };
+    const centreAfter = clientToGrid(
+      rectAfter.width / 2,
+      rectAfter.height / 2,
+      rectAfter,
+      fieldAfter.gridWidth,
+      fieldAfter.gridHeight,
+    );
+    expect(centreAfter).toEqual({ x: Math.floor(fieldAfter.gridWidth / 2), y: Math.floor(fieldAfter.gridHeight / 2) });
+
+    // Using the stale pre-resize grid dimensions against the post-resize rect would drift away
+    // from the centre cell whenever the grid's shape actually changed — demonstrating why the
+    // live implementation must always read the current grid, not a cached one.
+    const staleCentre = clientToGrid(
+      rectAfter.width / 2,
+      rectAfter.height / 2,
+      rectAfter,
+      fieldBefore.gridWidth,
+      fieldBefore.gridHeight,
+    );
+    expect(staleCentre).not.toEqual({ x: Math.floor(fieldAfter.gridWidth / 2), y: Math.floor(fieldAfter.gridHeight / 2) });
+  });
+});
