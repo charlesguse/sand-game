@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,10 +32,10 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **3 open [NEEDS CLARIFICATION] markers** (the maximum this command allows). They are posted as questions on lifecycle issue #2 rather than blocking intake; answers get folded back into the spec.
-  1. **FR-010 — how completely must water "find its level"?** Sideways-only flow levels water inside a single open container but cannot push water back *up* into the far arm of a U-tube or a tall narrow neck. A pressure-style rule that lets water rise levels U-tubes correctly but costs more per frame. Scope + performance impact, and it changes what the leveling tests assert.
-  2. **FR-016 — does magic purple dirt pile more steeply than pink sand, or is it just purple sand?** The requester marked steeper piling as nice-to-have and plain sand behavior as acceptable, so both readings are live; steeper piling adds a distinct rule to specify, test, and eyeball.
-  3. **FR-026 — is a fixed per-cell blue shade enough, or is an animated shimmer required?** The request said "slight blue shade variation *or* shimmer". Static shading is the cheapest option and matches how sand grains already vary; animated shimmer is livelier but touches the per-frame render path (Principle IV).
+- **All 3 [NEEDS CLARIFICATION] markers are resolved.** They were posted as questions on lifecycle issue #2 rather than blocking intake, and the answers are folded into the spec and recorded under "Clarifications".
+  1. **FR-010 — how completely must water "find its level"?** → **Simple flow only.** Fall, diagonal slide, sideways spread; water never rises. Open containers level within themselves; U-tubes and narrow necks may rest unequal, and that is documented as accepted behavior rather than a defect. The leveling tests assert the simple-flow rules directly (SC-002, new SC-015).
+  2. **FR-016 — does magic purple dirt pile more steeply than pink sand, or is it just purple sand?** → **Just purple sand.** Identical movement rules, purple palette with per-grain shade variation. No distinct piling rule to specify or test; parity is asserted by US3 scenario 3 and SC-014.
+  3. **FR-026 — is a fixed per-cell blue shade enough, or is an animated shimmer required?** → **Fixed per-cell shade**, assigned at creation like sand grains. Animated shimmer is deferred to a possible later follow-up, gated on obvious frame-rate headroom; SC-006 takes precedence (Principle IV).
 - Decisions made without a marker, recorded in Assumptions rather than asked:
   - **Brush/element painting priority** — powder brushes may take a water cell, the water brush may not take a powder cell (FR-021/FR-022). Without this, a play area flooded with water would make the 🩷 brush appear broken, which would defeat User Story 2.
   - **Toolbar control count** — the previous spec's SC-006 capped the toy at 6 controls; three element buttons make 8. Recorded explicitly under "Superseded requirements" rather than silently violated, since the constitution forbids regressing earlier features.
