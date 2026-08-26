@@ -1,5 +1,13 @@
+import type { BrushSize } from '../sim/types';
+
 export const GRID_WIDTH = 270;
 export const GRID_HEIGHT = 160;
+
+export const BRUSH_RADII: Record<BrushSize, number> = {
+  small: 2,
+  medium: 4,
+  large: 7,
+};
 
 export interface CanvasSize {
   width: number;

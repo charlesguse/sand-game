@@ -31,13 +31,13 @@ Single client-only project at the repository root (per plan.md's Project Structu
 
 **Purpose**: Stand up the project scaffold — nothing below can run without it.
 
-- [ ] T001 Create `package.json` at repo root declaring `svelte` 5, `vite`, `@sveltejs/vite-plugin-svelte`, `vite-plugin-singlefile`, `vitest`, `typescript` as dependencies and `dev`/`build`/`test` npm scripts (per README.md's documented commands)
-- [ ] T002 [P] Create `tsconfig.json` at repo root for the Svelte 5 + TypeScript toolchain
-- [ ] T003 [P] Create `vite.config.ts` at repo root wiring `@sveltejs/vite-plugin-svelte` and `vite-plugin-singlefile` so `npm run build` emits exactly one `dist/index.html` (constitution Principle I, FR-031)
-- [ ] T004 [P] Create `vitest.config.ts` at repo root configured for a plain Node environment (no DOM/jsdom — constitution Principle V)
-- [ ] T005 [P] Create `index.html` at repo root as the Vite entry point that mounts `src/main.ts`
-- [ ] T006 Create `src/main.ts` mounting `App.svelte` into the page (depends on T005)
-- [ ] T007 [P] Create `src/lib/layout.ts` with canvas/grid sizing helpers for the play area (default grid 270×160 per research.md §7)
+- [X] T001 Create `package.json` at repo root declaring `svelte` 5, `vite`, `@sveltejs/vite-plugin-svelte`, `vite-plugin-singlefile`, `vitest`, `typescript` as dependencies and `dev`/`build`/`test` npm scripts (per README.md's documented commands)
+- [X] T002 [P] Create `tsconfig.json` at repo root for the Svelte 5 + TypeScript toolchain
+- [X] T003 [P] Create `vite.config.ts` at repo root wiring `@sveltejs/vite-plugin-svelte` and `vite-plugin-singlefile` so `npm run build` emits exactly one `dist/index.html` (constitution Principle I, FR-031)
+- [X] T004 [P] Create `vitest.config.ts` at repo root configured for a plain Node environment (no DOM/jsdom — constitution Principle V)
+- [X] T005 [P] Create `index.html` at repo root as the Vite entry point that mounts `src/main.ts`
+- [X] T006 Create `src/main.ts` mounting `App.svelte` into the page (depends on T005)
+- [X] T007 [P] Create `src/lib/layout.ts` with canvas/grid sizing helpers for the play area (default grid 270×160 per research.md §7)
 
 ---
 
@@ -47,18 +47,18 @@ Single client-only project at the repository root (per plan.md's Project Structu
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T008 Create `src/sim/types.ts` with `EMPTY=0`/`SAND=1`/`WATER=2`/`DIRT=3` constants, the `Element` union type, the `Grid` interface (`width`, `height`, `elements: Uint8Array`, `shades: Uint8Array`, `moved: Uint8Array`), `Tool` (`'sand'|'water'|'dirt'|'eraser'`), and `BrushSize` (`'small'|'medium'|'large'`) — per contracts/sim-core.md
-- [ ] T009 [P] Create `src/sim/element.ts` with `isPowder(e)` (true for `SAND`/`DIRT`) and `isLiquid(e)` (true for `WATER`) pure predicates (depends on T008)
-- [ ] T010 [P] Create `src/sim/shade.ts` with `randomShade(): number` returning an integer in `1–255`, never `0`
-- [ ] T011 [P] Create `src/sim/grid.ts` with `createGrid(width, height)`, `inBounds(grid, x, y)`, `getElement(grid, x, y)`, `getShade(grid, x, y)`, `setCell(grid, x, y, element, shade)`, `clearGrid(grid)`; out-of-bounds reads return `EMPTY`/`0`, out-of-bounds writes are no-ops (depends on T008)
-- [ ] T012 [P] Implement pink-sand-only movement in `src/sim/step.ts`: `step(grid)` scans bottom row to top, left to right within a row; a `SAND` cell falls into an empty cell directly below, else slides diagonally into an empty below-left/below-right cell (random tie-break when both qualify), else rests; off-grid neighbors are always treated as blocked (depends on T008, T009, T011)
-- [ ] T013 [P] Implement pink-sand-only painting in `src/sim/brush.ts`: `applyBrush`/`applyBrushLine` write `SAND` into `EMPTY` footprint cells only; the `'eraser'` tool writes `EMPTY` into every footprint cell regardless of current contents (depends on T008, T011)
-- [ ] T014 [P] `tests/unit/sim/grid.test.ts`: `createGrid` zeroes `elements`/`shades`/`moved`; `getElement`/`getShade`/`setCell` round-trip correctly; out-of-bounds reads/writes are safe no-ops; `clearGrid` zeroes `elements` without touching `width`/`height` (depends on T011)
-- [ ] T015 [P] `tests/unit/sim/step.test.ts`: pink sand falls one cell per step, slides diagonally when blocked straight down, rests when fully blocked, and stays inside the floor and side walls (depends on T012)
-- [ ] T016 [P] `tests/unit/sim/brush.test.ts`: the sand brush paints only into empty footprint cells, the eraser clears any occupied cell, and `clearGrid` empties a populated grid (depends on T013)
-- [ ] T017 [P] Create `src/lib/PlayArea.svelte`: a canvas sized via `layout.ts`, a `requestAnimationFrame` loop calling `step(grid)` once per frame and rendering via `putImageData` with a pink color ramp keyed by `shades[i]`, and pointer/touch handlers translating drag input into `applyBrush`/`applyBrushLine` calls (depends on T007, T010, T011, T012, T013)
-- [ ] T018 [P] Create `src/lib/Toolbar.svelte` with a 🩷 sand button, a 🧽 eraser button, a 🗑️ clear-all button, and small/medium/large brush-size buttons, each a large round emoji-labeled control (depends on T008)
-- [ ] T019 Create `src/App.svelte` wiring a `tool` `$state` (default `'sand'`) and a `brushSize` `$state` (default `'medium'`), rendering `Toolbar` and `PlayArea`, and calling `clearGrid` on 🗑️ without resetting `tool`/`brushSize` (depends on T017, T018)
+- [X] T008 Create `src/sim/types.ts` with `EMPTY=0`/`SAND=1`/`WATER=2`/`DIRT=3` constants, the `Element` union type, the `Grid` interface (`width`, `height`, `elements: Uint8Array`, `shades: Uint8Array`, `moved: Uint8Array`), `Tool` (`'sand'|'water'|'dirt'|'eraser'`), and `BrushSize` (`'small'|'medium'|'large'`) — per contracts/sim-core.md
+- [X] T009 [P] Create `src/sim/element.ts` with `isPowder(e)` (true for `SAND`/`DIRT`) and `isLiquid(e)` (true for `WATER`) pure predicates (depends on T008)
+- [X] T010 [P] Create `src/sim/shade.ts` with `randomShade(): number` returning an integer in `1–255`, never `0`
+- [X] T011 [P] Create `src/sim/grid.ts` with `createGrid(width, height)`, `inBounds(grid, x, y)`, `getElement(grid, x, y)`, `getShade(grid, x, y)`, `setCell(grid, x, y, element, shade)`, `clearGrid(grid)`; out-of-bounds reads return `EMPTY`/`0`, out-of-bounds writes are no-ops (depends on T008)
+- [X] T012 [P] Implement pink-sand-only movement in `src/sim/step.ts`: `step(grid)` scans bottom row to top, left to right within a row; a `SAND` cell falls into an empty cell directly below, else slides diagonally into an empty below-left/below-right cell (random tie-break when both qualify), else rests; off-grid neighbors are always treated as blocked (depends on T008, T009, T011)
+- [X] T013 [P] Implement pink-sand-only painting in `src/sim/brush.ts`: `applyBrush`/`applyBrushLine` write `SAND` into `EMPTY` footprint cells only; the `'eraser'` tool writes `EMPTY` into every footprint cell regardless of current contents (depends on T008, T011)
+- [X] T014 [P] `tests/unit/sim/grid.test.ts`: `createGrid` zeroes `elements`/`shades`/`moved`; `getElement`/`getShade`/`setCell` round-trip correctly; out-of-bounds reads/writes are safe no-ops; `clearGrid` zeroes `elements` without touching `width`/`height` (depends on T011)
+- [X] T015 [P] `tests/unit/sim/step.test.ts`: pink sand falls one cell per step, slides diagonally when blocked straight down, rests when fully blocked, and stays inside the floor and side walls (depends on T012)
+- [X] T016 [P] `tests/unit/sim/brush.test.ts`: the sand brush paints only into empty footprint cells, the eraser clears any occupied cell, and `clearGrid` empties a populated grid (depends on T013)
+- [X] T017 [P] Create `src/lib/PlayArea.svelte`: a canvas sized via `layout.ts`, a `requestAnimationFrame` loop calling `step(grid)` once per frame and rendering via `putImageData` with a pink color ramp keyed by `shades[i]`, and pointer/touch handlers translating drag input into `applyBrush`/`applyBrushLine` calls (depends on T007, T010, T011, T012, T013)
+- [X] T018 [P] Create `src/lib/Toolbar.svelte` with a 🩷 sand button, a 🧽 eraser button, a 🗑️ clear-all button, and small/medium/large brush-size buttons, each a large round emoji-labeled control (depends on T008)
+- [X] T019 Create `src/App.svelte` wiring a `tool` `$state` (default `'sand'`) and a `brushSize` `$state` (default `'medium'`), rendering `Toolbar` and `PlayArea`, and calling `clearGrid` on 🗑️ without resetting `tool`/`brushSize` (depends on T017, T018)
 
 **Checkpoint**: Baseline pink-sand toy works end-to-end (parity with the 001 feature this spec extends) — foundation ready for the four user stories.
 

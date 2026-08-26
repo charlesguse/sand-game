@@ -1,33 +1,49 @@
-import type { Grid } from './types';
-import { getCell, setCell, inBounds } from './grid';
+import { EMPTY, type Grid } from './types';
+import { isPowder } from './element';
 
+function tryMove(grid: Grid, fromIndex: number, toIndex: number): void {
+  grid.elements[toIndex] = grid.elements[fromIndex];
+  grid.shades[toIndex] = grid.shades[fromIndex];
+  grid.elements[fromIndex] = EMPTY;
+  grid.shades[fromIndex] = 0;
+}
+
+/** Advances the simulation by one tick, mutating the grid in place. */
 export function step(grid: Grid): void {
-  const { width, height } = grid;
+  const { width, height, elements } = grid;
 
-  for (let y = height - 2; y >= 0; y--) {
+  for (let y = height - 1; y >= 0; y--) {
     for (let x = 0; x < width; x++) {
-      const value = getCell(grid, x, y);
-      if (value === 0) continue;
+      const i = y * width + x;
+      const element = elements[i];
+      if (element === EMPTY) continue;
 
-      if (getCell(grid, x, y + 1) === 0) {
-        setCell(grid, x, y, 0);
-        setCell(grid, x, y + 1, value);
-        continue;
-      }
+      if (isPowder(element)) {
+        const belowY = y + 1;
+        const belowInBounds = belowY < height;
+        const belowIndex = belowInBounds ? belowY * width + x : -1;
 
-      const leftOpen = inBounds(grid, x - 1, y + 1) && getCell(grid, x - 1, y + 1) === 0;
-      const rightOpen = inBounds(grid, x + 1, y + 1) && getCell(grid, x + 1, y + 1) === 0;
+        if (belowInBounds && elements[belowIndex] === EMPTY) {
+          tryMove(grid, i, belowIndex);
+          continue;
+        }
 
-      if (leftOpen && rightOpen) {
-        const dx = Math.random() < 0.5 ? -1 : 1;
-        setCell(grid, x, y, 0);
-        setCell(grid, x + dx, y + 1, value);
-      } else if (leftOpen) {
-        setCell(grid, x, y, 0);
-        setCell(grid, x - 1, y + 1, value);
-      } else if (rightOpen) {
-        setCell(grid, x, y, 0);
-        setCell(grid, x + 1, y + 1, value);
+        const leftX = x - 1;
+        const rightX = x + 1;
+        const belowLeftOpen =
+          belowInBounds && leftX >= 0 && elements[belowY * width + leftX] === EMPTY;
+        const belowRightOpen =
+          belowInBounds && rightX < width && elements[belowY * width + rightX] === EMPTY;
+
+        if (belowLeftOpen && belowRightOpen) {
+          const goLeft = Math.random() < 0.5;
+          tryMove(grid, i, belowY * width + (goLeft ? leftX : rightX));
+        } else if (belowLeftOpen) {
+          tryMove(grid, i, belowY * width + leftX);
+        } else if (belowRightOpen) {
+          tryMove(grid, i, belowY * width + rightX);
+        }
+        // else: rest, no change.
       }
     }
   }

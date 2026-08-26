@@ -1,61 +1,49 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, inBounds, getCell, setCell, clearGrid } from '../../../src/sim/grid';
+import { createGrid, inBounds, getElement, getShade, setCell, clearGrid } from '../../../src/sim/grid';
+import { EMPTY, SAND } from '../../../src/sim/types';
 
-describe('createGrid', () => {
-  it('returns a fully-zeroed grid of the requested size', () => {
+describe('grid', () => {
+  it('createGrid zeroes elements, shades, and moved', () => {
     const grid = createGrid(4, 3);
     expect(grid.width).toBe(4);
     expect(grid.height).toBe(3);
-    expect(grid.cells.length).toBe(12);
-    expect(grid.cells.every((v) => v === 0)).toBe(true);
+    expect([...grid.elements]).toEqual(new Array(12).fill(0));
+    expect([...grid.shades]).toEqual(new Array(12).fill(0));
+    expect([...grid.moved]).toEqual(new Array(12).fill(0));
   });
-});
 
-describe('inBounds', () => {
-  const grid = createGrid(4, 3);
-
-  it('is true for cells inside the grid', () => {
+  it('inBounds is true only for cells within width/height', () => {
+    const grid = createGrid(3, 2);
     expect(inBounds(grid, 0, 0)).toBe(true);
-    expect(inBounds(grid, 3, 2)).toBe(true);
-  });
-
-  it('is false for cells outside the grid', () => {
+    expect(inBounds(grid, 2, 1)).toBe(true);
     expect(inBounds(grid, -1, 0)).toBe(false);
-    expect(inBounds(grid, 0, -1)).toBe(false);
-    expect(inBounds(grid, 4, 0)).toBe(false);
-    expect(inBounds(grid, 0, 3)).toBe(false);
-  });
-});
-
-describe('getCell/setCell', () => {
-  it('writes and reads a value in-bounds', () => {
-    const grid = createGrid(4, 3);
-    setCell(grid, 2, 1, 42);
-    expect(getCell(grid, 2, 1)).toBe(42);
+    expect(inBounds(grid, 3, 0)).toBe(false);
+    expect(inBounds(grid, 0, 2)).toBe(false);
   });
 
-  it('out-of-bounds reads return 0', () => {
-    const grid = createGrid(4, 3);
-    expect(getCell(grid, -1, 0)).toBe(0);
-    expect(getCell(grid, 100, 100)).toBe(0);
+  it('setCell/getElement/getShade round-trip correctly', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 1, 1, SAND, 42);
+    expect(getElement(grid, 1, 1)).toBe(SAND);
+    expect(getShade(grid, 1, 1)).toBe(42);
   });
 
-  it('out-of-bounds writes are no-ops', () => {
-    const grid = createGrid(4, 3);
-    setCell(grid, -1, 0, 5);
-    setCell(grid, 100, 100, 5);
-    expect(grid.cells.every((v) => v === 0)).toBe(true);
+  it('out-of-bounds reads return EMPTY/0, out-of-bounds writes are no-ops', () => {
+    const grid = createGrid(2, 2);
+    expect(getElement(grid, -1, 0)).toBe(EMPTY);
+    expect(getShade(grid, 5, 5)).toBe(0);
+    setCell(grid, -1, -1, SAND, 10);
+    setCell(grid, 5, 5, SAND, 10);
+    expect([...grid.elements]).toEqual(new Array(4).fill(0));
   });
-});
 
-describe('clearGrid', () => {
-  it('zeroes every cell but preserves width/height', () => {
-    const grid = createGrid(4, 3);
-    setCell(grid, 0, 0, 9);
-    setCell(grid, 3, 2, 7);
+  it('clearGrid zeroes elements without touching width/height', () => {
+    const grid = createGrid(2, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setCell(grid, 1, 1, SAND, 6);
     clearGrid(grid);
-    expect(grid.cells.every((v) => v === 0)).toBe(true);
-    expect(grid.width).toBe(4);
-    expect(grid.height).toBe(3);
+    expect([...grid.elements]).toEqual(new Array(4).fill(0));
+    expect(grid.width).toBe(2);
+    expect(grid.height).toBe(2);
   });
 });

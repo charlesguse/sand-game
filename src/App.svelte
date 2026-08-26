@@ -1,52 +1,52 @@
 <script lang="ts">
-  import type { Tool, BrushSize } from './sim/types';
-  import PlayArea from './lib/PlayArea.svelte';
   import Toolbar from './lib/Toolbar.svelte';
+  import PlayArea from './lib/PlayArea.svelte';
+  import type { Tool, BrushSize } from './sim/types';
 
-  let tool: Tool = $state('sand');
-  let brushSize: BrushSize = $state('medium');
-  let playArea: ReturnType<typeof PlayArea> | undefined;
+  let tool = $state<Tool>('sand');
+  let brushSize = $state<BrushSize>('medium');
+  let playArea: PlayArea;
+
+  function selectTool(next: Tool): void {
+    tool = next;
+  }
+
+  function selectBrushSize(next: BrushSize): void {
+    brushSize = next;
+  }
+
+  function clearAll(): void {
+    playArea.clearAll();
+  }
 </script>
 
 <main>
-  <header>🌈 Rainbow Sand 🦄</header>
+  <PlayArea bind:this={playArea} {tool} {brushSize} />
   <Toolbar
     {tool}
     {brushSize}
-    onSelectTool={(t) => (tool = t)}
-    onSelectBrushSize={(b) => (brushSize = b)}
-    onClear={() => playArea?.clear()}
+    onSelectTool={selectTool}
+    onSelectBrushSize={selectBrushSize}
+    onClearAll={clearAll}
   />
-  <PlayArea bind:this={playArea} {tool} {brushSize} />
 </main>
 
 <style>
-  header {
-    text-align: center;
-    font-size: 2rem;
-    font-weight: 800;
-    padding: 0.5rem 0;
-    background: linear-gradient(
-      90deg,
-      #ff9ecb,
-      #ffd6a5,
-      #fdffb6,
-      #caffbf,
-      #9bf6ff,
-      #a0c4ff,
-      #ffc6ff
-    );
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
+  :global(html, body) {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: sans-serif;
   }
 
   main {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    margin: 0;
-    overflow: hidden;
-    background: #fff5fa;
+  }
+
+  main :global(.play-area) {
+    flex: 1;
+    min-height: 0;
   }
 </style>
