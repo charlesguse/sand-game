@@ -29,7 +29,7 @@ Single client-only project (established by 001–005): `src/sim/*` (framework-fr
 
 **Purpose**: Nothing new to scaffold — this feature extends the existing 001–005 project (`package.json`, build tooling, `vitest` config all already in place, per plan.md/quickstart.md). No new dependency is added (research.md §12).
 
-- [ ] T001 Confirm `npm install` and `npm test` succeed from a clean checkout with all pre-existing `tests/unit/sim/*.test.ts` passing, establishing the pre-change baseline before any edits in this feature
+- [X] T001 Confirm `npm install` and `npm test` succeed from a clean checkout with all pre-existing `tests/unit/sim/*.test.ts` passing, establishing the pre-change baseline before any edits in this feature
 
 ---
 
