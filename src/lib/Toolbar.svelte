@@ -40,6 +40,25 @@
     </button>
   </div>
 
+  <div class="group objects">
+    <button
+      class="control"
+      class:selected={tool === 'rainbow'}
+      aria-label="Rainbow"
+      onclick={() => onSelectTool('rainbow')}
+    >
+      🌈
+    </button>
+    <button
+      class="control"
+      class:selected={tool === 'unicorn'}
+      aria-label="Unicorn"
+      onclick={() => onSelectTool('unicorn')}
+    >
+      🦄
+    </button>
+  </div>
+
   <div class="group actions">
     <button
       class="control"

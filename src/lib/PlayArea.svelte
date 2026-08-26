@@ -1,11 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, computeCanvasSize } from './layout';
+  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, OBJECT_FOOTPRINT_SIZE, computeCanvasSize } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
-  import { EMPTY, SAND, WATER, DIRT, type Tool, type BrushSize } from '../sim/types';
+  import {
+    createObjectsState,
+    placeObject,
+    applyRainbowConversions,
+    isUnicornTouched,
+    eraseObjectsInBrush,
+    eraseObjectsInBrushLine,
+    clearObjects,
+  } from '../sim/objects';
+  import {
+    type Particle,
+    PARTICLE_LIFETIME_MS,
+    spawnBurst,
+    spawnIdleSparkle,
+    tickParticles,
+  } from './particles';
+  import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type Tool, type BrushSize } from '../sim/types';
 
   interface Props {
     tool: Tool;
@@ -15,6 +31,14 @@
   let { tool, brushSize }: Props = $props();
 
   const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
+  const objectsState = createObjectsState();
+  const particles: Particle[] = [];
+
+  const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄' };
+
+  const BURST_COOLDOWN_MS = 2000;
+  const IDLE_INTERVAL_MS = 5000;
+  const unicornTimers = new Map<number, { lastBurstAt: number; lastIdleAt: number }>();
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -65,37 +89,103 @@
     [75, 15, 155],
   ];
 
-  function colorFor(element: number, shade: number): [number, number, number] {
+  // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
+  function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hh = h / 60;
+    const x = c * (1 - Math.abs((hh % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hh < 1) [r, g, b] = [c, x, 0];
+    else if (hh < 2) [r, g, b] = [x, c, 0];
+    else if (hh < 3) [r, g, b] = [0, c, x];
+    else if (hh < 4) [r, g, b] = [0, x, c];
+    else if (hh < 5) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    const m = l - c / 2;
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+
+  function colorFor(element: number, shade: number, hue: number): [number, number, number] {
     if (element === SAND) return PINK_RAMP[shade % PINK_RAMP.length];
     if (element === WATER) return BLUE_RAMP[shade % BLUE_RAMP.length];
     if (element === DIRT) return PURPLE_RAMP[shade % PURPLE_RAMP.length];
+    if (element === RAINBOW_SAND) return hslToRgb((hue / 255) * 360, 0.85, 0.6);
     return [255, 255, 255];
   }
 
+  function drawObjectGlyph(obj: { kind: string; x: number; y: number; size: number }): void {
+    ctx.font = `${obj.size}px sans-serif`;
+    ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
+  }
+
   function render(): void {
-    const { width, height, elements, shades } = grid;
+    const { width, height, elements, shades, hues } = grid;
     const data = imageData.data;
     for (let i = 0; i < width * height; i++) {
       const element = elements[i];
       const o = i * 4;
-      if (element === EMPTY) {
+      if (element === EMPTY || element === OBJECT) {
         data[o] = 255;
         data[o + 1] = 255;
         data[o + 2] = 255;
         data[o + 3] = 255;
         continue;
       }
-      const [r, g, b] = colorFor(element, shades[i]);
+      const [r, g, b] = colorFor(element, shades[i], hues[i]);
       data[o] = r;
       data[o + 1] = g;
       data[o + 2] = b;
       data[o + 3] = 255;
     }
     ctx.putImageData(imageData, 0, 0);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const obj of objectsState.rainbows) drawObjectGlyph(obj);
+    for (const obj of objectsState.unicorns) drawObjectGlyph(obj);
+
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
+      ctx.fillText(p.glyph, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  function frame(): void {
+  function updateUnicorns(now: number): void {
+    const liveIds = new Set(objectsState.unicorns.map((u) => u.id));
+    for (const id of unicornTimers.keys()) {
+      if (!liveIds.has(id)) unicornTimers.delete(id);
+    }
+
+    for (const unicorn of objectsState.unicorns) {
+      const atX = unicorn.x + unicorn.size / 2;
+      const atY = unicorn.y + unicorn.size / 2;
+      const timers = unicornTimers.get(unicorn.id) ?? { lastBurstAt: -Infinity, lastIdleAt: now };
+
+      if (isUnicornTouched(grid, unicorn) && now - timers.lastBurstAt >= BURST_COOLDOWN_MS) {
+        spawnBurst(particles, atX, atY, now);
+        timers.lastBurstAt = now;
+      }
+      if (now - timers.lastIdleAt >= IDLE_INTERVAL_MS) {
+        spawnIdleSparkle(particles, atX, atY, now);
+        timers.lastIdleAt = now;
+      }
+
+      unicornTimers.set(unicorn.id, timers);
+    }
+  }
+
+  let lastFrameNow = 0;
+
+  function frame(now: number): void {
+    lastFrameNow = now;
     step(grid);
+    applyRainbowConversions(grid, objectsState.rainbows);
+    updateUnicorns(now);
+    tickParticles(particles, now);
     render();
     requestAnimationFrame(frame);
   }
@@ -113,6 +203,13 @@
   function paintAt(pos: { x: number; y: number }): void {
     const radius = BRUSH_RADII[brushSize];
     const shade = randomShade();
+    if (tool === 'eraser') {
+      if (lastGridPos) {
+        eraseObjectsInBrushLine(grid, objectsState, lastGridPos, pos, radius);
+      } else {
+        eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
+      }
+    }
     if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
     } else {
@@ -122,9 +219,15 @@
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    const pos = clientToGrid(event.clientX, event.clientY);
+    if (tool === 'rainbow' || tool === 'unicorn') {
+      placeObject(grid, objectsState, tool, pos.x, pos.y);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     drawing = true;
     lastGridPos = null;
-    paintAt(clientToGrid(event.clientX, event.clientY));
+    paintAt(pos);
     canvas.setPointerCapture(event.pointerId);
   }
 
@@ -140,6 +243,8 @@
 
   export function clearAll(): void {
     clearGridState(grid);
+    clearObjects(objectsState);
+    particles.length = 0;
   }
 
   onMount(() => {

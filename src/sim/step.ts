@@ -1,24 +1,40 @@
-import { EMPTY, type Grid } from './types';
+import { EMPTY, RAINBOW_SAND, type Grid } from './types';
 import { isPowder, isLiquid } from './element';
+
+const HUE_STEP = 5;
 
 function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.elements[toIndex] = grid.elements[fromIndex];
   grid.shades[toIndex] = grid.shades[fromIndex];
+  grid.hues[toIndex] = grid.hues[fromIndex];
   grid.elements[fromIndex] = EMPTY;
   grid.shades[fromIndex] = 0;
+  grid.hues[fromIndex] = 0;
   grid.moved[fromIndex] = 1;
   grid.moved[toIndex] = 1;
+  if (grid.elements[toIndex] === RAINBOW_SAND) {
+    grid.hues[toIndex] = (grid.hues[toIndex] + HUE_STEP) % 256;
+  }
 }
 
 function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
   const aElement = grid.elements[aIndex];
   const aShade = grid.shades[aIndex];
+  const aHue = grid.hues[aIndex];
   grid.elements[aIndex] = grid.elements[bIndex];
   grid.shades[aIndex] = grid.shades[bIndex];
+  grid.hues[aIndex] = grid.hues[bIndex];
   grid.elements[bIndex] = aElement;
   grid.shades[bIndex] = aShade;
+  grid.hues[bIndex] = aHue;
   grid.moved[aIndex] = 1;
   grid.moved[bIndex] = 1;
+  if (grid.elements[aIndex] === RAINBOW_SAND) {
+    grid.hues[aIndex] = (grid.hues[aIndex] + HUE_STEP) % 256;
+  }
+  if (grid.elements[bIndex] === RAINBOW_SAND) {
+    grid.hues[bIndex] = (grid.hues[bIndex] + HUE_STEP) % 256;
+  }
 }
 
 function stepPowder(grid: Grid, x: number, y: number, i: number): void {
