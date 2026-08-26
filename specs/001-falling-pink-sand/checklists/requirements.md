@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,10 +32,9 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **2 open [NEEDS CLARIFICATION] markers** (limit is 3), both deliberately left for the requester:
-  1. *Assumptions → Grid resolution*: what default grid resolution (grains across the play area) balances chunky-visible grains against simulation cost.
-  2. *Edge Cases → Window resized or tablet rotated mid-play*: whether the existing drawing must survive a resize/rotation or may reset.
-  Neither blocks planning of the core simulation; both are answered on the lifecycle issue rather than interactively (CI run).
+- **0 open [NEEDS CLARIFICATION] markers.** Both markers were resolved by the requester's answers on lifecycle issue #1:
+  1. *Assumptions → Grid resolution* — answered **B (medium, ~250–300 cells across)**, with the instruction to drop toward ~200 across rather than sacrifice frame rate. Folded into the Grid resolution assumption, FR-005 (default resolution, fixed while the page is open), SC-003 (frame rate now measured at the default resolution), and the Grid entity.
+  2. *Edge Cases → Window resized or tablet rotated mid-play* — answered **A (preserve the drawing; keep the grid fixed and scale/letterbox it)**. Folded into the resize/rotation edge case, a new "Resize and orientation" requirement group (FR-033 preserve contents, FR-034 aspect-preserving rescale with letterboxing, FR-035 pointer mapping stays correct), and SC-011.
 - Validation iteration 1 findings, since addressed in the spec:
   - Delivery requirements (FR-029..FR-032) were rephrased to describe the artifact and its properties ("a single self-contained page", "runnable without a browser") rather than naming the toolchain, keeping the Content Quality item passing while still capturing the requester's hard constraints.
   - Success criteria that originally read as technical (frame budget, grid size) were restated as user-observable outcomes (SC-003, SC-005, SC-010).

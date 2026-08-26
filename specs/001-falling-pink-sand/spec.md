@@ -78,7 +78,7 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 - **Touch gestures on a tablet**: pressing and dragging inside the play area paints and never scrolls, pans, bounces, or triggers pinch-zoom or double-tap-zoom on the page.
 - **Multiple simultaneous touches**: a second finger touching the play area must not corrupt the drawing or crash the toy; the toy either paints from the additional touch or ignores it, but never gets stuck in a pressed state.
 - **Pointer released outside the window**: the toy does not stay stuck in "pouring" mode after the child lifts her finger off the edge of the screen.
-- **Window resized or tablet rotated mid-play**: [NEEDS CLARIFICATION: should the existing drawing be preserved (scaled or cropped) across a resize/rotation, or is it acceptable for the play area to reset to empty?]
+- **Window resized or tablet rotated mid-play**: the drawing is always preserved. The grid keeps its fixed size and its exact contents; only the on-screen presentation rescales to fit the new viewport, letterboxing (empty margin beside or above the play area) when the viewport's shape does not match the grid's. No sand is lost, added, or shifted between cells.
 - **Page reloaded**: the play area starts empty; no drawing is saved between sessions.
 
 ## Requirements *(mandatory)*
@@ -94,7 +94,7 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 
 **Sand simulation**
 
-- **FR-005**: The play area MUST be modeled as a fixed grid of cells, each cell either empty or holding one grain of sand.
+- **FR-005**: The play area MUST be modeled as a fixed grid of cells, each cell either empty or holding one grain of sand. The default resolution MUST be roughly 250–300 cells across the play area, and the grid's size in cells MUST NOT change while the page is open.
 - **FR-006**: On each simulation step, a grain with an empty cell directly below it MUST move into that cell.
 - **FR-007**: On each simulation step, a grain that cannot move down but has at least one empty cell diagonally below (left or right) MUST move into one of the available diagonal cells; when both are available the choice MUST be random, so piles slope instead of forming single-cell towers.
 - **FR-008**: A grain with no empty cell below or diagonally below MUST remain in place.
@@ -132,9 +132,15 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 - **FR-031**: The project MUST provide an automated test suite, runnable without a browser, that covers the falling, sliding, and resting rules (FR-006 through FR-010) directly against grid state.
 - **FR-032**: The project MUST provide a documented command to build and a documented command to run the tests, both succeeding from a clean checkout.
 
+**Resize and orientation**
+
+- **FR-033**: When the window is resized or the device is rotated, the toy MUST preserve the play area's contents exactly — the grid's dimensions in cells and the position and shade of every grain MUST be unchanged.
+- **FR-034**: On resize or rotation, the play area MUST be rescaled to fit the new viewport while preserving the grid's aspect ratio, leaving empty margin beside or above the play area (letterboxing) when the viewport's shape differs, so that FR-003 continues to hold and the page still does not scroll.
+- **FR-035**: Drawing MUST remain correct after a resize or rotation: pointer positions MUST continue to map to the cell under the pointer at the new on-screen scale.
+
 ### Key Entities
 
-- **Grid**: The fixed-size rectangular field of cells backing the play area. Knows its width and height in cells and the contents of every cell.
+- **Grid**: The fixed-size rectangular field of cells backing the play area (roughly 250–300 cells across by default). Knows its width and height in cells and the contents of every cell; its size in cells is independent of the viewport and does not change on resize.
 - **Cell**: One position in the grid; either empty or occupied by a single grain.
 - **Grain**: One unit of pink sand. Carries its own shade variation, which travels with it as it falls.
 - **Tool selection**: Which of sand or eraser is active, plus the active brush size. Persists across clear-all and across tool switches.
@@ -147,7 +153,7 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 
 - **SC-001**: A 4–5 year old can make pink sand appear within 5 seconds of seeing the page, with no adult instruction and without reading anything.
 - **SC-002**: Sand poured onto the floor forms a heap with sloped sides; no single-cell towers taller than 2 cells persist once the sand has settled.
-- **SC-003**: The toy renders at least 30 frames per second, targeting 60, on a mid-range laptop and on a tablet, with the play area at least half full of sand.
+- **SC-003**: The toy renders at least 30 frames per second, targeting 60, on a mid-range laptop and on a tablet, with the play area at least half full of sand at the default grid resolution (~250–300 cells across).
 - **SC-004**: While pressing and dragging anywhere on the play area on a tablet, the page never scrolls, zooms, or bounces — 0 unintended view changes across a 60-second continuous drawing session.
 - **SC-005**: A stroke drawn as a fast continuous drag leaves an unbroken trail of sand — no gaps between successive pointer samples.
 - **SC-006**: A child can reach any control (tool, brush size, clear) in a single tap from the play state; there are never more than 6 controls on screen.
@@ -155,6 +161,7 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 - **SC-008**: A production build produces exactly one output file, and opening that file directly from disk yields a fully playable toy with zero network requests.
 - **SC-009**: The automated test suite runs to completion without a browser and covers every falling/sliding/resting rule, including the blocked-on-all-sides case.
 - **SC-010**: Sand piles show at least 8 distinguishable pink shades across a full play area, all recognizable as pink.
+- **SC-011**: Rotating a tablet or resizing the window mid-play preserves 100% of the sand — every grain keeps its cell and its shade — and the play area still fits the viewport with no page scrolling.
 
 ### Visual checks for the maintainer *(no automated coverage)*
 
@@ -165,7 +172,7 @@ The child sees a row of big, round, emoji-labeled buttons. 🩷 sand is already 
 
 ## Assumptions
 
-- **Grid resolution**: [NEEDS CLARIFICATION: what grid resolution (grains across the play area) is the default? A coarser grid means chunky, very visible grains and headroom for performance; a finer grid means smoother, more sand-like piles but a heavier simulation.] Pending an answer, the assumption is a resolution chosen so that grains are individually visible to a small child while meeting SC-003.
+- **Grid resolution**: the default is a medium grid of roughly 250–300 cells across the play area. Grains stay individually visible to a small child, piles read as sand rather than as blocks, and 60fps is realistic on a mid-range laptop and a tablet. If profiling shows the frame rate is at risk, the resolution is reduced toward ~200 cells across in preference to accepting a lower frame rate — SC-003 takes precedence over resolution.
 - **Brush sizes**: small / medium / large are three clearly distinguishable footprint radii, with large roughly 4–5× the small footprint's width; exact values are an implementation choice as long as SC-005 and FR-025 hold.
 - **Pour rate**: holding still pours a continuous stream rather than depositing a single stamp; the rate is tuned so a large brush does not instantly fill the screen.
 - **Sand density**: the sand tool fills the brush footprint fully rather than sprinkling sparsely; this keeps behavior predictable for a small child.
