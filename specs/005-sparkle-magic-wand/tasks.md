@@ -130,8 +130,8 @@ Single client-only project (unchanged from 001–004): `src/sim/*` (framework-fr
 
 ## Phase 7: Convergence
 
-- [ ] T023 In `tests/unit/sim/step.test.ts`'s `describe('step — glitter travels with a grain', ...)` block, add a case that seeds a glittered, fully-rested grain (blocked on all sides, matching the existing "rests when fully blocked" pattern), calls `step()` many times (e.g. 50), and asserts `getGlitter(...)` is still `true` throughout — glitter never fades on its own with the passage of simulated time (FR-014, missing)
-- [ ] T024 In `tests/unit/sim/grid.test.ts`, add assertions that `setCell` resets `glitter[i]` to `0` when drawing a fresh element over a cell whose `glitter` bit was previously set via `setGlitter`, and that `clearGrid` zeroes the entire `glitter` array alongside `elements` — closing FR-027/FR-012's explicitly-required "erase/clear-all leaving no glitter state behind" automated coverage, which is currently only asserted indirectly (FR-012, missing)
+- [X] T023 In `tests/unit/sim/step.test.ts`'s `describe('step — glitter travels with a grain', ...)` block, add a case that seeds a glittered, fully-rested grain (blocked on all sides, matching the existing "rests when fully blocked" pattern), calls `step()` many times (e.g. 50), and asserts `getGlitter(...)` is still `true` throughout — glitter never fades on its own with the passage of simulated time (FR-014, missing)
+- [X] T024 In `tests/unit/sim/grid.test.ts`, add assertions that `setCell` resets `glitter[i]` to `0` when drawing a fresh element over a cell whose `glitter` bit was previously set via `setGlitter`, and that `clearGrid` zeroes the entire `glitter` array alongside `elements` — closing FR-027/FR-012's explicitly-required "erase/clear-all leaving no glitter state behind" automated coverage, which is currently only asserted indirectly (FR-012, missing)
 
 ---
 

@@ -407,6 +407,20 @@ describe('step — glitter travels with a grain', () => {
     expect(getElement(grid, 0, 1)).toBe(SAND);
     expect(getGlitter(grid, 0, 1)).toBe(true);
   });
+
+  it('glitter never fades on its own while a grain rests fully blocked over many steps', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, SAND, 5);
+    setGlitter(grid, 1, 0, 1);
+    setCell(grid, 0, 1, SAND, 6);
+    setCell(grid, 1, 1, SAND, 7);
+    setCell(grid, 2, 1, SAND, 8);
+    for (let i = 0; i < 50; i++) {
+      step(grid);
+      expect(getElement(grid, 1, 0)).toBe(SAND);
+      expect(getGlitter(grid, 1, 0)).toBe(true);
+    }
+  });
 });
 
 describe('step — objects are solid ground', () => {
