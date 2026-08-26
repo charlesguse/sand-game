@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import { EMPTY, SAND, WATER, DIRT } from '../../../src/sim/types';
@@ -220,22 +220,31 @@ describe('step — magic purple dirt (purple sand)', () => {
   }
 
   it('falls, slides, and rests under the identical rules as sand', () => {
-    const sandGrid = createGrid(10, 10);
-    const dirtGrid = createGrid(10, 10);
-    scatterLayout(sandGrid, SAND);
-    scatterLayout(dirtGrid, DIRT);
+    // Stub Math.random so both grids draw the identical tie-break sequence —
+    // this isolates "the movement rules are identical" from "two independent
+    // random streams happened to agree," which would otherwise make this
+    // assertion flaky whenever a diagonal tie-break actually occurs.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+    try {
+      const sandGrid = createGrid(10, 10);
+      const dirtGrid = createGrid(10, 10);
+      scatterLayout(sandGrid, SAND);
+      scatterLayout(dirtGrid, DIRT);
 
-    for (let i = 0; i < 50; i++) {
-      step(sandGrid);
-      step(dirtGrid);
-    }
-
-    for (let y = 0; y < 10; y++) {
-      for (let x = 0; x < 10; x++) {
-        const sandOccupied = getElement(sandGrid, x, y) !== EMPTY;
-        const dirtOccupied = getElement(dirtGrid, x, y) !== EMPTY;
-        expect(dirtOccupied).toBe(sandOccupied);
+      for (let i = 0; i < 50; i++) {
+        step(sandGrid);
+        step(dirtGrid);
       }
+
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          const sandOccupied = getElement(sandGrid, x, y) !== EMPTY;
+          const dirtOccupied = getElement(dirtGrid, x, y) !== EMPTY;
+          expect(dirtOccupied).toBe(sandOccupied);
+        }
+      }
+    } finally {
+      randomSpy.mockRestore();
     }
   });
 
