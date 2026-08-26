@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,10 +32,11 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **3 [NEEDS CLARIFICATION] markers remain open.** Per the pipeline's intake rules they are left in the spec and posted as questions on lifecycle issue #3 rather than blocking intake. None of them blocks planning of the other user stories.
-  1. **FR-005 — how many rainbows and unicorns may exist at once, and what happens at the cap?** The issue says "a few can exist at once" without a number. Affects scope (object bookkeeping), performance headroom, and the feel of the toy. Both candidate behaviors at the cap (replace oldest / ignore the tap) must be silent, per the never-punishing constraint.
-  2. **FR-007 — do objects float where tapped, or drop to rest on the ground/piles?** The issue says the unicorn "stands on the ground/piles" but also that the rainbow is "stamped" where tapped. These are different mechanics: a floating shelf is a placement rule, while dropping requires object gravity and a re-settle rule when the pile beneath changes. This directly shapes User Story 3.
-  3. **FR-021 — is rainbow sand's color fixed at conversion, cycling while falling, or cycling forever?** The issue asks for grains that "cycle/shimmer through rainbow colors as they fall and settle into rainbow-striped piles", which spans all three. Per-frame recoloring of every rainbow grain is the main frame-rate risk in this feature, and the equivalent question for water was resolved in favor of fixed shades in `002` (its FR-026). FR-030 is stated to take precedence over the answer.
+- **Clarifications resolved 2026-08-26** from the reply on issue #3; every checklist item above is now checked.
+- **All 3 [NEEDS CLARIFICATION] markers are now resolved** from the answer on lifecycle issue #3. 0 markers remain open, and the spec is ready for `/speckit-plan`.
+  1. **FR-005 — how many rainbows and unicorns may exist at once, and what happens at the cap?** → **Up to 3 of each type; the tap always places, and the oldest object of that same type silently disappears to make room.** The rationale given was that for a 4-year-old a button that silently stops responding is the worst outcome, and a small cap keeps the frame budget safe. Folded into FR-005, FR-012, FR-030, User Story 1 scenarios 1–2, User Story 2 scenarios 1–2, the cap and rapid-tap edge cases, SC-012, SC-019, FR-037, and Assumptions.
+  2. **FR-007 — do objects float where tapped, or drop to rest on the ground/piles?** → **Objects stay exactly where tapped, floating and solid.** One predictable rule; it makes the mid-air rainbow shelf a deliberate toy, and dropping would still leave objects hanging when a supporting pile is erased. Folded into FR-007, User Story 3 scenario 4, the floating-object edge case, SC-020, FR-037, the visual checks, and Assumptions.
+  3. **FR-021 — is rainbow sand's color fixed at conversion, cycling while falling, or cycling forever?** → **Cycle hue while the grain is moving, freeze it when the grain settles.** Cost is bounded by moving grains only, settled piles still read as rainbow stripes, and the sanctioned fallback if profiling strains FR-030 is fixing the hue at conversion — not shrinking the grid. Folded into FR-021, User Story 1 (narrative and scenarios 8–9), FR-030, SC-012, SC-021, the visual checks, and Assumptions.
 - Decisions made without a marker, recorded in Assumptions or Requirements rather than asked:
   - **Contact-based, one-cell-deep conversion zone** (FR-013) — an aura or radius would let a rainbow convert a whole pool from a distance, which contradicts the issue's "lands on a rainbow".
   - **Water converted by a rainbow becomes a powder** (FR-014) — it stops flowing. This is what the issue asks for, and it is called out in Assumptions because it means a rainbow can permanently consume water.
