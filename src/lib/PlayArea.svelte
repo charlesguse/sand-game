@@ -8,6 +8,7 @@
     computePlayField,
   } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
+  import { resizeGrid } from '../sim/resize';
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
@@ -38,6 +39,7 @@
     RAINBOW_SAND,
     OBJECT,
     type Grid,
+    type PlacedObject,
     type Tool,
     type BrushSize,
     type SceneId,
@@ -82,10 +84,58 @@
     return computePlayField(container.clientWidth, container.clientHeight, isPhone);
   }
 
+  // Repositions obj by (offsetX, offsetY), re-stamping its OBJECT footprint into newGrid only if
+  // the entire offset footprint fits; drops it from the returned list otherwise (never clipped).
+  function repositionObjects(
+    list: PlacedObject[],
+    newGrid: Grid,
+    offsetX: number,
+    offsetY: number,
+  ): PlacedObject[] {
+    const kept: PlacedObject[] = [];
+    for (const obj of list) {
+      const x = obj.x + offsetX;
+      const y = obj.y + offsetY;
+      if (x < 0 || x + obj.size > newGrid.width || y < 0 || y + obj.size > newGrid.height) continue;
+      for (let py = y; py < y + obj.size; py++) {
+        for (let px = x; px < x + obj.size; px++) {
+          newGrid.elements[py * newGrid.width + px] = OBJECT;
+        }
+      }
+      kept.push({ ...obj, x, y });
+    }
+    return kept;
+  }
+
   function resize(): void {
     const field = measureField();
+
+    if (field.gridWidth === grid.width && field.gridHeight === grid.height) {
+      // Not a re-derivation (FR-025): only the canvas's CSS display size changes.
+      displayWidth = field.displayWidth;
+      displayHeight = field.displayHeight;
+      return;
+    }
+
+    // Re-derivation (FR-026): swap to a freshly resized grid, carrying content at a fixed
+    // bottom-centre-anchored offset.
+    const { grid: newGrid, offsetX, offsetY } = resizeGrid(grid, field.gridWidth, field.gridHeight);
+    objectsState.rainbows = repositionObjects(objectsState.rainbows, newGrid, offsetX, offsetY);
+    objectsState.unicorns = repositionObjects(objectsState.unicorns, newGrid, offsetX, offsetY);
+
+    grid = newGrid;
+    canvas.width = grid.width;
+    canvas.height = grid.height;
+    imageData = ctx.createImageData(grid.width, grid.height);
+    flashMask = createFlashMask(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
+
+    if (drawing) {
+      // End any in-progress stroke cleanly rather than continuing it across the swap (FR-028).
+      drawing = false;
+      lastGridPos = null;
+    }
   }
 
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;

@@ -134,6 +134,27 @@ describe('computeToolbarLayout — every control fits and stays tappable on phon
   }
 });
 
+describe('re-derivation trigger — distinguishable by pure comparison of PlayField (FR-025 vs FR-026)', () => {
+  it('a small address-bar-collapse-like change that keeps the same grid dimensions is not a re-derivation trigger', () => {
+    const before = computePlayField(390, 844, true);
+    // A few px shorter, as an address bar might collapse/expand by — same drawing-region shape,
+    // same grid dimensions.
+    const after = computePlayField(390, 840, true);
+
+    expect(after.gridWidth).toBe(before.gridWidth);
+    expect(after.gridHeight).toBe(before.gridHeight);
+  });
+
+  it('a change that alters the computed grid dimensions is distinguishable as a re-derivation trigger', () => {
+    const portrait = computePlayField(390, 844, true);
+    const landscape = computePlayField(844, 390, true);
+
+    expect(
+      landscape.gridWidth !== portrait.gridWidth || landscape.gridHeight !== portrait.gridHeight,
+    ).toBe(true);
+  });
+});
+
 // Reimplements PlayArea.svelte's clientToGrid formula as a pure helper so touch-to-cell mapping
 // is verifiable without a browser/DOM (FR-012).
 function clientToGrid(
