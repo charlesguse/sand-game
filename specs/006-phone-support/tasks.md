@@ -142,9 +142,9 @@ Single client-only project (established by 001–005): `src/sim/*` (framework-fr
 
 **Purpose**: Final validation that the whole feature holds together — non-regression, build, and the manual/on-device checks quickstart.md calls out as the maintainer's job.
 
-- [ ] T032 Run `npm test` and confirm every pre-existing test in `tests/unit/sim/{grid,step,brush,objects,scenes,wand}.test.ts` still passes unchanged (FR-033, SC-018) — none of them import the removed `computeCanvasSize`
-- [ ] T033 Run `npm run build` and confirm `dist/index.html` is the only emitted file and is fully playable when opened directly from disk with no network requests (FR-034, SC-019)
-- [ ] T034 Perform the on-device checks from quickstart.md's "Manual-only checks" and "On-device / manual" sections on a real Android Chrome phone and a real iOS Safari phone (both orientations): play area reads as "the whole screen," fingertip swipes leave a chunky visible trail, all three brush sizes feel distinct, no scroll/bounce/pull-to-refresh/zoom/text-selection/long-press-menu, toolbar fully visible and tappable including with a notch/home-indicator, rotation preserves the drawing and ends strokes cleanly, and the laptop experience is unchanged (SC-007, SC-009, SC-010, SC-011a, SC-016, SC-017)
+- [X] T032 Run `npm test` and confirm every pre-existing test in `tests/unit/sim/{grid,step,brush,objects,scenes,wand}.test.ts` still passes unchanged (FR-033, SC-018) — none of them import the removed `computeCanvasSize`
+- [X] T033 Run `npm run build` and confirm `dist/index.html` is the only emitted file and is fully playable when opened directly from disk with no network requests (FR-034, SC-019)
+- [ ] T034 Perform the on-device checks from quickstart.md's "Manual-only checks" and "On-device / manual" sections on a real Android Chrome phone and a real iOS Safari phone (both orientations): play area reads as "the whole screen," fingertip swipes leave a chunky visible trail, all three brush sizes feel distinct, no scroll/bounce/pull-to-refresh/zoom/text-selection/long-press-menu, toolbar fully visible and tappable including with a notch/home-indicator, rotation preserves the drawing and ends strokes cleanly, and the laptop experience is unchanged (SC-007, SC-009, SC-010, SC-011a, SC-016, SC-017) — **requires a real Android Chrome phone and a real iOS Safari phone; cannot be performed in this headless environment, left for the maintainer**
 
 ---
 
