@@ -12,10 +12,11 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
     "allowJs": false,
     "checkJs": false,
     "noEmit": true,
-    "types": ["svelte"]
+    "types": ["svelte", "vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts"]
 }
