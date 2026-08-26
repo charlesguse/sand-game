@@ -117,9 +117,9 @@ This is a greenfield checkout — no `package.json` exists yet; Phase 1 creates 
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Extend `Toolbar.svelte` with three brush-size buttons (small/medium/large) whose rendered glyph sizes visibly increase in that order (FR-025), and give the active tool button and the active brush-size button a clearly distinct visual selected state (FR-024) (depends on T020)
-- [ ] T024 [US3] Add `brushSize` handling in `App.svelte`: map `'small'|'medium'|'large'` to radii 2/5/9 cells (data-model.md Brush table), default `'medium'`, and persist the selection across tool switches (FR-023, FR-026) (depends on T008, T023)
-- [ ] T025 [US3] Thread the active brush radius from `App.svelte` into `PlayArea.svelte`'s `applyBrush`/`applyBrushLine` calls so stroke width visibly changes with the selected brush size, with `'sand'`/`'medium'` active by default on load (FR-023) (depends on T017, T024)
+- [X] T023 [US3] Extend `Toolbar.svelte` with three brush-size buttons (small/medium/large) whose rendered glyph sizes visibly increase in that order (FR-025), and give the active tool button and the active brush-size button a clearly distinct visual selected state (FR-024) (depends on T020)
+- [X] T024 [US3] Add `brushSize` handling in `App.svelte`: map `'small'|'medium'|'large'` to radii 2/5/9 cells (data-model.md Brush table), default `'medium'`, and persist the selection across tool switches (FR-023, FR-026) (depends on T008, T023)
+- [X] T025 [US3] Thread the active brush radius from `App.svelte` into `PlayArea.svelte`'s `applyBrush`/`applyBrushLine` calls so stroke width visibly changes with the selected brush size, with `'sand'`/`'medium'` active by default on load (FR-023) (depends on T017, T024)
 
 **Checkpoint**: All three user stories are independently functional — draw, erase/clear, and tool/brush selection all work together.
 
