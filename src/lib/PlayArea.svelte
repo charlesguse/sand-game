@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Tool, BrushSize } from '../sim/types';
-  import { createGrid, clearGrid as clearGridCells } from '../sim/grid';
+  import { createGrid, clearGrid as clearGridCells, inBounds } from '../sim/grid';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
@@ -28,8 +28,9 @@
   let displayHeight = $state(GRID_HEIGHT);
   let scale = 1;
 
-  let strokeActive = false;
-  let lastGridPos: { x: number; y: number } | null = null;
+  // Keyed by pointerId so two simultaneous touches each keep their own
+  // last-drawn position instead of overwriting or ending each other's stroke.
+  const strokes = new Map<number, { lastGridPos: { x: number; y: number } | null }>();
 
   export function clear(): void {
     clearGridCells(grid);
@@ -51,30 +52,46 @@
 
   function handlePointerDown(event: PointerEvent): void {
     canvas.setPointerCapture(event.pointerId);
-    strokeActive = true;
     const pos = pointerToGrid(event);
-    applyBrush(grid, tool, pos.x, pos.y, BRUSH_RADIUS[brushSize], randomShade());
-    lastGridPos = pos;
+    if (inBounds(grid, pos.x, pos.y)) {
+      applyBrush(grid, tool, pos.x, pos.y, BRUSH_RADIUS[brushSize], randomShade());
+      strokes.set(event.pointerId, { lastGridPos: pos });
+    } else {
+      strokes.set(event.pointerId, { lastGridPos: null });
+    }
   }
 
   function handlePointerMove(event: PointerEvent): void {
-    if (!strokeActive || !lastGridPos) return;
+    const stroke = strokes.get(event.pointerId);
+    if (!stroke) return;
     const pos = pointerToGrid(event);
-    applyBrushLine(grid, tool, lastGridPos, pos, BRUSH_RADIUS[brushSize], randomShade());
-    lastGridPos = pos;
+    if (!inBounds(grid, pos.x, pos.y)) {
+      // Pointer left the play area while still pressed (capture keeps
+      // delivering move events): stop depositing but keep the capture, and
+      // drop lastGridPos so re-entry doesn't draw a line from the exit point.
+      stroke.lastGridPos = null;
+      return;
+    }
+    if (stroke.lastGridPos) {
+      applyBrushLine(grid, tool, stroke.lastGridPos, pos, BRUSH_RADIUS[brushSize], randomShade());
+    } else {
+      applyBrush(grid, tool, pos.x, pos.y, BRUSH_RADIUS[brushSize], randomShade());
+    }
+    stroke.lastGridPos = pos;
   }
 
-  function endStroke(): void {
-    strokeActive = false;
-    lastGridPos = null;
+  function endStroke(event: PointerEvent): void {
+    strokes.delete(event.pointerId);
   }
 
-  // While the pointer stays pressed at one spot, cells under the brush keep
+  // While a pointer stays pressed at one spot, cells under the brush keep
   // emptying out as sand falls away; re-apply once per frame (research.md §8)
   // so the tool keeps pouring instead of stalling after the first fill.
   function applyActiveStroke(): void {
-    if (!strokeActive || !lastGridPos) return;
-    applyBrush(grid, tool, lastGridPos.x, lastGridPos.y, BRUSH_RADIUS[brushSize], randomShade());
+    for (const stroke of strokes.values()) {
+      if (!stroke.lastGridPos) continue;
+      applyBrush(grid, tool, stroke.lastGridPos.x, stroke.lastGridPos.y, BRUSH_RADIUS[brushSize], randomShade());
+    }
   }
 
   function render(): void {
