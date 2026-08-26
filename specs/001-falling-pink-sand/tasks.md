@@ -95,13 +95,13 @@ This is a greenfield checkout — no `package.json` exists yet; Phase 1 creates 
 
 ### Tests for User Story 2
 
-- [ ] T019 [P] [US2] Unit tests for the eraser branch of `applyBrush` in `tests/unit/sim/brush.test.ts`: zeroes every cell (occupied or empty) inside the footprint, leaves cells outside the footprint untouched, and clips silently at grid bounds (FR-019, FR-020)
+- [X] T019 [P] [US2] Unit tests for the eraser branch of `applyBrush` in `tests/unit/sim/brush.test.ts`: zeroes every cell (occupied or empty) inside the footprint, leaves cells outside the footprint untouched, and clips silently at grid bounds (FR-019, FR-020)
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Create `src/lib/Toolbar.svelte` with 🩷 sand, 🧽 eraser, and 🗑️ clear buttons as large round emoji-labeled controls (FR-021, FR-022) (depends on T008)
-- [ ] T021 [US2] Wire `Toolbar.svelte` into `App.svelte` so tapping 🩷/🧽 updates the shared `tool` state, and thread the active tool into `PlayArea.svelte`'s `applyBrushLine` calls (already built for both tools per T015's contract) (depends on T020, T008, T017)
-- [ ] T022 [US2] Wire the 🗑️ button to call `clearGrid(grid)` immediately with no confirmation step, without altering the current `tool`/`brushSize` state (FR-027, FR-028) (depends on T007, T020, T021)
+- [X] T020 [US2] Create `src/lib/Toolbar.svelte` with 🩷 sand, 🧽 eraser, and 🗑️ clear buttons as large round emoji-labeled controls (FR-021, FR-022) (depends on T008)
+- [X] T021 [US2] Wire `Toolbar.svelte` into `App.svelte` so tapping 🩷/🧽 updates the shared `tool` state, and thread the active tool into `PlayArea.svelte`'s `applyBrushLine` calls (already built for both tools per T015's contract) (depends on T020, T008, T017)
+- [X] T022 [US2] Wire the 🗑️ button to call `clearGrid(grid)` immediately with no confirmation step, without altering the current `tool`/`brushSize` state (FR-027, FR-028) (depends on T007, T020, T021)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — drawing, erasing, and clearing all function.
 

@@ -1,15 +1,23 @@
 <script lang="ts">
   import type { Tool, BrushSize } from './sim/types';
   import PlayArea from './lib/PlayArea.svelte';
+  import Toolbar from './lib/Toolbar.svelte';
 
   let tool: Tool = $state('sand');
   let brushSize: BrushSize = $state('medium');
+  let playArea: ReturnType<typeof PlayArea> | undefined;
 </script>
 
 <main>
   <header>🌈 Rainbow Sand 🦄</header>
-  <!-- Toolbar mount point (wired in Phase 4) -->
-  <PlayArea {tool} {brushSize} />
+  <Toolbar
+    {tool}
+    {brushSize}
+    onSelectTool={(t) => (tool = t)}
+    onSelectBrushSize={(b) => (brushSize = b)}
+    onClear={() => playArea?.clear()}
+  />
+  <PlayArea bind:this={playArea} {tool} {brushSize} />
 </main>
 
 <style>
