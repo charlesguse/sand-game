@@ -53,11 +53,11 @@ This is a greenfield checkout — no `package.json` exists yet; Phase 1 creates 
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create `Grid`, `Tool`, `BrushSize` types in `src/sim/types.ts` per contracts/sim-core.md (`Grid.cells: Uint8ClampedArray`, row-major, `0` = empty)
-- [ ] T007 Implement `createGrid`, `inBounds`, `getCell`, `setCell`, `clearGrid` in `src/sim/grid.ts` (depends on T006) — `createGrid` returns a fully-zeroed grid; `getCell`/`setCell` are no-ops out of bounds (FR-009, FR-020); `clearGrid` zeroes `cells` in place without touching `width`/`height` (FR-027)
-- [ ] T008 Create `src/App.svelte` skeleton: header reading "🌈 Rainbow Sand 🦄", `tool`/`brushSize` `$state` (defaults `'sand'`/`'medium'`, FR-023), and placeholder mount points for `Toolbar` and `PlayArea`
-- [ ] T009 Create `src/main.ts` bootstrapping the Svelte app into `#app` (depends on T005, T008)
-- [ ] T010 [P] Create `src/lib/layout.ts` with the viewport→canvas scale + letterboxing math (`scale = min(viewportW/gridW, viewportH/gridH)`) per research.md §9 (FR-033–FR-035)
+- [X] T006 Create `Grid`, `Tool`, `BrushSize` types in `src/sim/types.ts` per contracts/sim-core.md (`Grid.cells: Uint8ClampedArray`, row-major, `0` = empty)
+- [X] T007 Implement `createGrid`, `inBounds`, `getCell`, `setCell`, `clearGrid` in `src/sim/grid.ts` (depends on T006) — `createGrid` returns a fully-zeroed grid; `getCell`/`setCell` are no-ops out of bounds (FR-009, FR-020); `clearGrid` zeroes `cells` in place without touching `width`/`height` (FR-027)
+- [X] T008 Create `src/App.svelte` skeleton: header reading "🌈 Rainbow Sand 🦄", `tool`/`brushSize` `$state` (defaults `'sand'`/`'medium'`, FR-023), and placeholder mount points for `Toolbar` and `PlayArea`
+- [X] T009 Create `src/main.ts` bootstrapping the Svelte app into `#app` (depends on T005, T008)
+- [X] T010 [P] Create `src/lib/layout.ts` with the viewport→canvas scale + letterboxing math (`scale = min(viewportW/gridW, viewportH/gridH)`) per research.md §9 (FR-033–FR-035)
 
 **Checkpoint**: Foundation ready — grid primitives exist and the app boots to an empty header/shell. User story implementation can now begin.
 
