@@ -1,6 +1,20 @@
-import { EMPTY, OBJECT, type Grid } from './types';
-import { setGlitter } from './grid';
+import { EMPTY, OBJECT, RAINBOW_SAND, type Grid } from './types';
+import { setCell, setGlitter } from './grid';
 import { forEachFootprintCell } from './brush';
+
+/** ~1-in-5 position-only lattice — never depends on Math.random() or call history (research.md §4). */
+function isSprinkleSite(x: number, y: number): boolean {
+  return (((x + 2 * y) % 5) + 5) % 5 === 0;
+}
+
+/** Position-keyed hash, distinct from the lattice test, so eligibility and color don't visibly correlate (research.md §5). */
+function positionalHue(x: number, y: number): number {
+  return ((x * 37 + y * 59) % 256 + 256) % 256;
+}
+
+function positionalShade(x: number, y: number): number {
+  return (((x * 11 + y * 17) % 255) + 255) % 255 + 1;
+}
 
 function applyWandCell(grid: Grid, x: number, y: number): void {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return;
@@ -8,6 +22,10 @@ function applyWandCell(grid: Grid, x: number, y: number): void {
   const element = grid.elements[i];
   if (element === OBJECT) return;
   if (element !== EMPTY) {
+    setGlitter(grid, x, y, 1);
+  } else if (isSprinkleSite(x, y)) {
+    setCell(grid, x, y, RAINBOW_SAND, positionalShade(x, y));
+    grid.hues[i] = positionalHue(x, y);
     setGlitter(grid, x, y, 1);
   }
 }
