@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createGrid, setCell, getElement } from '../../../src/sim/grid';
+import { createGrid, setCell, setGlitter, getElement, getGlitter } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT } from '../../../src/sim/types';
 
@@ -381,6 +381,31 @@ describe('step — rainbow sand', () => {
     step(grid);
     expect(getElement(grid, 1, 0)).toBe(RAINBOW_SAND);
     expect(grid.hues[0 * 3 + 1]).toBe(42);
+  });
+});
+
+describe('step — glitter travels with a grain', () => {
+  it('a falling glittered grain carries its glitter to the new position and leaves none behind', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 1, 0, SAND, 5);
+    setGlitter(grid, 1, 0, 1);
+    step(grid);
+    expect(getElement(grid, 1, 1)).toBe(SAND);
+    expect(getGlitter(grid, 1, 1)).toBe(true);
+    expect(getGlitter(grid, 1, 0)).toBe(false);
+  });
+
+  it('a swap between a glittered and a plain grain keeps each grain its own glittered state', () => {
+    // width 1 so there is no diagonal escape — isolates the straight-down swap.
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setGlitter(grid, 0, 0, 1);
+    setCell(grid, 0, 1, WATER, 6);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(WATER);
+    expect(getGlitter(grid, 0, 0)).toBe(false);
+    expect(getElement(grid, 0, 1)).toBe(SAND);
+    expect(getGlitter(grid, 0, 1)).toBe(true);
   });
 });
 

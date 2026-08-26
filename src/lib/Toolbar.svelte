@@ -70,6 +70,14 @@
       🧽
     </button>
     <button class="control" aria-label="Clear all" onclick={onClearAll}>🗑️</button>
+    <button
+      class="control"
+      class:selected={tool === 'wand'}
+      aria-label="Magic wand"
+      onclick={() => onSelectTool('wand')}
+    >
+      ✨
+    </button>
   </div>
 
   <div class="group scenes">
