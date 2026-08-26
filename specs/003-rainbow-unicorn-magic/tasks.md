@@ -29,7 +29,7 @@ Single client-only project (unchanged from 001/002): `src/sim/*` (framework-free
 
 **Purpose**: No new dependencies or scaffolding are needed — this feature extends the existing 001/002 project structure in place (plan.md: "no new top-level architecture"). This phase only confirms the starting state.
 
-- [ ] T001 Confirm `npm install && npm run build && npm test` all succeed on the current checkout before making any changes, so any later failure is attributable to this feature (baseline for FR-036/SC-013)
+- [X] T001 Confirm `npm install && npm run build && npm test` all succeed on the current checkout before making any changes, so any later failure is attributable to this feature (baseline for FR-036/SC-013)
 
 **Checkpoint**: Baseline confirmed green; proceed to Foundational phase.
 
