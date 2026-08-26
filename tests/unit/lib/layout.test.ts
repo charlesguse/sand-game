@@ -4,6 +4,7 @@ import {
   CELL_BUDGET,
   MEDIUM_STROKE_MIN_PX,
   MIN_CELL_SIZE,
+  MIN_TOUCH_TARGET,
   PHONE_MAX_SHORT_SIDE,
   isPhoneSized,
   computePlayField,
@@ -105,6 +106,32 @@ describe('layout — representative viewport table (FR-001, FR-002, FR-003, FR-0
     expect(field.displayWidth).toBeGreaterThanOrEqual(legacy.width);
     expect(field.displayHeight).toBeGreaterThanOrEqual(legacy.height);
   });
+});
+
+describe('computeToolbarLayout — every control fits and stays tappable on phone (FR-020, FR-020a, FR-035)', () => {
+  for (const viewport of VIEWPORT_TABLE.filter((v) => isPhoneSized(v.width, v.height))) {
+    describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
+      const toolbar = computeToolbarLayout(viewport.width, viewport.height, TOOLBAR_CONTROL_COUNT, TOOLBAR_GROUP_COUNT);
+
+      it('fits every control at or above the minimum touch target', () => {
+        expect(toolbar.fits).toBe(true);
+        expect(toolbar.controlSize).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+      });
+
+      it("does not push the play area below User Story 1's fill floors", () => {
+        const region = drawingRegionFor(viewport);
+        const field = computePlayField(region.width, region.height, true);
+
+        expect(field.displayWidth / region.width).toBeGreaterThanOrEqual(0.9);
+        expect(field.displayHeight / region.height).toBeGreaterThanOrEqual(0.9);
+
+        const isLandscape = viewport.width > viewport.height;
+        const fillFloor = isLandscape ? 0.6 : 0.65;
+        const viewportArea = viewport.width * viewport.height;
+        expect((field.displayWidth * field.displayHeight) / viewportArea).toBeGreaterThanOrEqual(fillFloor);
+      });
+    });
+  }
 });
 
 // Reimplements PlayArea.svelte's clientToGrid formula as a pure helper so touch-to-cell mapping

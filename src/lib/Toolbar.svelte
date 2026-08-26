@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Tool, BrushSize, SceneId } from '../sim/types';
+  import { MIN_TOUCH_TARGET } from './layout';
 
   interface Props {
     tool: Tool;
@@ -13,7 +14,7 @@
   let { tool, brushSize, onSelectTool, onSelectBrushSize, onSelectScene, onClearAll }: Props = $props();
 </script>
 
-<div class="toolbar">
+<div class="toolbar" style="--control-min: {MIN_TOUCH_TARGET}px">
   <div class="group elements">
     <button
       class="control"
@@ -126,6 +127,10 @@
     justify-content: center;
     gap: 1rem;
     padding: 0.75rem;
+    padding-top: calc(0.75rem + env(safe-area-inset-top));
+    padding-right: calc(0.75rem + env(safe-area-inset-right));
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding-left: calc(0.75rem + env(safe-area-inset-left));
     background: #fff0f6;
   }
 
@@ -142,6 +147,8 @@
     line-height: 1;
     width: 3.5rem;
     height: 3.5rem;
+    min-width: var(--control-min);
+    min-height: var(--control-min);
     border-radius: 50%;
     border: 3px solid transparent;
     background: white;
@@ -163,5 +170,22 @@
     border-color: #ff69b4;
     transform: scale(1.15);
     box-shadow: 0 0 10px #ff69b4aa;
+  }
+
+  @media (max-height: 480px) and (orientation: landscape) {
+    .toolbar {
+      flex-direction: column;
+      flex-wrap: wrap;
+    }
+
+    .control {
+      width: var(--control-min);
+      height: var(--control-min);
+      font-size: 1.5rem;
+    }
+
+    .control.size {
+      font-size: 1.1rem;
+    }
   }
 </style>

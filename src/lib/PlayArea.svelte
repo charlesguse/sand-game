@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { BRUSH_RADII, OBJECT_FOOTPRINT_SIZE, isPhoneSized, computePlayField } from './layout';
+  import {
+    BRUSH_RADII,
+    OBJECT_FOOTPRINT_SIZE,
+    RESIZE_SETTLE_MS,
+    isPhoneSized,
+    computePlayField,
+  } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { step } from '../sim/step';
@@ -70,8 +76,8 @@
   let displayHeight = $state(0);
 
   function measureField() {
-    const viewportW = window.innerWidth;
-    const viewportH = window.innerHeight;
+    const viewportW = window.visualViewport?.width ?? window.innerWidth;
+    const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const isPhone = isPhoneSized(viewportW, viewportH);
     return computePlayField(container.clientWidth, container.clientHeight, isPhone);
   }
@@ -80,6 +86,13 @@
     const field = measureField();
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
+  }
+
+  let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function scheduleResize(): void {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, RESIZE_SETTLE_MS);
   }
 
   // Pink ramp: 8 hand-picked shades from pale to hot pink, indexed by shades[i] % length.
@@ -327,10 +340,17 @@
     flashMask = createFlashMask(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
-    const observer = new ResizeObserver(resize);
+    const observer = new ResizeObserver(scheduleResize);
     observer.observe(container);
+    window.visualViewport?.addEventListener('resize', scheduleResize);
+    window.addEventListener('orientationchange', scheduleResize);
     requestAnimationFrame(frame);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(resizeTimer);
+      observer.disconnect();
+      window.visualViewport?.removeEventListener('resize', scheduleResize);
+      window.removeEventListener('orientationchange', scheduleResize);
+    };
   });
 </script>
 
