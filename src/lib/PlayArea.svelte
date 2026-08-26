@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, OBJECT_FOOTPRINT_SIZE, computeCanvasSize } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
+  import { loadScene as loadSceneState } from '../sim/scenes';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
@@ -21,7 +22,17 @@
     spawnIdleSparkle,
     tickParticles,
   } from './particles';
-  import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type Tool, type BrushSize } from '../sim/types';
+  import {
+    EMPTY,
+    SAND,
+    WATER,
+    DIRT,
+    RAINBOW_SAND,
+    OBJECT,
+    type Tool,
+    type BrushSize,
+    type SceneId,
+  } from '../sim/types';
 
   interface Props {
     tool: Tool;
@@ -244,6 +255,11 @@
   export function clearAll(): void {
     clearGridState(grid);
     clearObjects(objectsState);
+    particles.length = 0;
+  }
+
+  export function loadScene(sceneId: SceneId): void {
+    loadSceneState(sceneId, grid, objectsState);
     particles.length = 0;
   }
 
