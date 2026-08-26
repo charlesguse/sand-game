@@ -22,6 +22,14 @@
     >
       🩷
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'water'}
+      aria-label="Water"
+      onclick={() => onSelectTool('water')}
+    >
+      💧
+    </button>
   </div>
 
   <div class="group actions">

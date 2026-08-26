@@ -1,4 +1,4 @@
-import { EMPTY, SAND, type Grid, type Tool } from './types';
+import { EMPTY, SAND, WATER, type Grid, type Tool } from './types';
 import { setCell, inBounds } from './grid';
 
 function forEachFootprintCell(
@@ -33,6 +33,8 @@ function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number):
 
   if (tool === 'sand' && current === EMPTY) {
     setCell(grid, x, y, SAND, shade);
+  } else if (tool === 'water' && current === EMPTY) {
+    setCell(grid, x, y, WATER, shade);
   }
 }
 

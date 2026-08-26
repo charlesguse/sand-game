@@ -5,7 +5,7 @@
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
-  import { EMPTY, SAND, type Tool, type BrushSize } from '../sim/types';
+  import { EMPTY, SAND, WATER, type Tool, type BrushSize } from '../sim/types';
 
   interface Props {
     tool: Tool;
@@ -34,8 +34,19 @@
     [219, 39, 119],
   ];
 
+  // Blue ramp: 6 shades from pale sky to deep ocean, indexed by shades[i] % length.
+  const BLUE_RAMP: [number, number, number][] = [
+    [173, 216, 240],
+    [130, 190, 235],
+    [90, 165, 230],
+    [55, 140, 220],
+    [30, 110, 205],
+    [15, 80, 180],
+  ];
+
   function colorFor(element: number, shade: number): [number, number, number] {
     if (element === SAND) return PINK_RAMP[shade % PINK_RAMP.length];
+    if (element === WATER) return BLUE_RAMP[shade % BLUE_RAMP.length];
     return [255, 255, 255];
   }
 

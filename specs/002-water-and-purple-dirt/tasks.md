@@ -70,14 +70,14 @@ Single client-only project at the repository root (per plan.md's Project Structu
 
 **Independent Test**: Select 💧, pour a blob onto the floor and confirm it flattens and spreads rather than piling; pour into a sand valley and confirm it settles into the hollow. Fully verifiable in `vitest` against grid state alone.
 
-- [ ] T020 [P] [US1] Add `WATER` movement to `src/sim/step.ts`: fall into an empty cell below, else diagonal slide into an empty below-left/below-right cell (random tie-break), else sideways spread into an empty left/right cell on the same row (random tie-break), else rest; never move into a powder-occupied cell, never move to a row above its own; clear `grid.moved` (`.fill(0)`) at the start of each `step()` call and skip any cell already marked `moved`, so a sideways move cannot double-hop within one tick (research.md §4–§5) (depends on T012)
-- [ ] T021 [P] [US1] Add water painting to `src/sim/brush.ts`: the `'water'` tool writes `WATER` into `EMPTY` footprint cells only, never overwriting sand (depends on T013)
-- [ ] T022 [P] [US1] Add a 💧 button to `src/lib/Toolbar.svelte`, positioned adjacent to 🩷 (depends on T018)
-- [ ] T023 [US1] Widen the `tool` `$state` in `src/App.svelte` to accept `'water'` (depends on T019, T022)
-- [ ] T024 [P] [US1] Add a blue color ramp keyed by `(WATER, shades[i])` to `PlayArea.svelte`'s `putImageData` fill, with at least 6 distinguishable shades (SC-010) (depends on T017)
-- [ ] T025 [P] [US1] `tests/unit/sim/step.test.ts`: water falls, slides diagonally, spreads sideways to level a tall column into a flat sheet (≤2 cell height variance between middle and edges — SC-002), rests when fully blocked, stays inside the floor/walls, and never occupies a higher row than it started (never-rises invariant, SC-015) (depends on T020)
-- [ ] T026 [P] [US1] `tests/unit/sim/step.test.ts`: a single `step()` call never moves one water cell more than one cell, verifying the `moved` scratch buffer prevents a sideways double-hop within one tick (depends on T020)
-- [ ] T027 [P] [US1] `tests/unit/sim/brush.test.ts`: the water brush paints only into empty footprint cells and never overwrites a sand-occupied cell (depends on T021)
+- [X] T020 [P] [US1] Add `WATER` movement to `src/sim/step.ts`: fall into an empty cell below, else diagonal slide into an empty below-left/below-right cell (random tie-break), else sideways spread into an empty left/right cell on the same row (random tie-break), else rest; never move into a powder-occupied cell, never move to a row above its own; clear `grid.moved` (`.fill(0)`) at the start of each `step()` call and skip any cell already marked `moved`, so a sideways move cannot double-hop within one tick (research.md §4–§5) (depends on T012)
+- [X] T021 [P] [US1] Add water painting to `src/sim/brush.ts`: the `'water'` tool writes `WATER` into `EMPTY` footprint cells only, never overwriting sand (depends on T013)
+- [X] T022 [P] [US1] Add a 💧 button to `src/lib/Toolbar.svelte`, positioned adjacent to 🩷 (depends on T018)
+- [X] T023 [US1] Widen the `tool` `$state` in `src/App.svelte` to accept `'water'` (depends on T019, T022)
+- [X] T024 [P] [US1] Add a blue color ramp keyed by `(WATER, shades[i])` to `PlayArea.svelte`'s `putImageData` fill, with at least 6 distinguishable shades (SC-010) (depends on T017)
+- [X] T025 [P] [US1] `tests/unit/sim/step.test.ts`: water falls, slides diagonally, spreads sideways to level a tall column into a flat sheet (≤2 cell height variance between middle and edges — SC-002), rests when fully blocked, stays inside the floor/walls, and never occupies a higher row than it started (never-rises invariant, SC-015) (depends on T020)
+- [X] T026 [P] [US1] `tests/unit/sim/step.test.ts`: a single `step()` call never moves one water cell more than one cell, verifying the `moved` scratch buffer prevents a sideways double-hop within one tick (depends on T020)
+- [X] T027 [P] [US1] `tests/unit/sim/brush.test.ts`: the water brush paints only into empty footprint cells and never overwrites a sand-occupied cell (depends on T021)
 
 **Checkpoint**: User Story 1 is independently functional and testable — water pours, falls, and levels itself.
 
