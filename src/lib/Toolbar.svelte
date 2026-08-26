@@ -22,7 +22,7 @@
       aria-label="Pink sand"
       onclick={() => onSelectTool('sand')}
     >
-      🩷
+      💗
     </button>
     <button
       class="control"
