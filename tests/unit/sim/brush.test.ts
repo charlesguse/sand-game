@@ -84,3 +84,23 @@ describe('brush — magic purple dirt', () => {
     expect(grid.shades[2 * 5 + 2]).toBe(50);
   });
 });
+
+describe('brush — eraser and clear-all across every element', () => {
+  it('the eraser empties sand, water, and dirt cells alike inside its footprint', () => {
+    const grid = createGrid(5, 1);
+    setCell(grid, 0, 0, SAND, 5);
+    setCell(grid, 1, 0, WATER, 5);
+    setCell(grid, 2, 0, DIRT, 5);
+    applyBrush(grid, 'eraser', 2, 0, 3, 0);
+    for (let x = 0; x < 5; x++) expect(getElement(grid, x, 0)).toBe(EMPTY);
+  });
+
+  it('clearGrid empties a grid populated with all three elements', () => {
+    const grid = createGrid(3, 1);
+    setCell(grid, 0, 0, SAND, 5);
+    setCell(grid, 1, 0, WATER, 5);
+    setCell(grid, 2, 0, DIRT, 5);
+    clearGrid(grid);
+    expect([...grid.elements]).toEqual(new Array(3).fill(0));
+  });
+});
