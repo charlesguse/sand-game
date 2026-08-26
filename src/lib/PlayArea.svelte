@@ -5,7 +5,8 @@
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
-  import { EMPTY, SAND, WATER, DIRT, type Tool, type BrushSize } from '../sim/types';
+  import { createObjectsState, placeObject, applyRainbowConversions } from '../sim/objects';
+  import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type Tool, type BrushSize } from '../sim/types';
 
   interface Props {
     tool: Tool;
@@ -15,6 +16,9 @@
   let { tool, brushSize }: Props = $props();
 
   const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
+  const objectsState = createObjectsState();
+
+  const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄' };
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -65,37 +69,64 @@
     [75, 15, 155],
   ];
 
-  function colorFor(element: number, shade: number): [number, number, number] {
+  // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
+  function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hh = h / 60;
+    const x = c * (1 - Math.abs((hh % 2) - 1));
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (hh < 1) [r, g, b] = [c, x, 0];
+    else if (hh < 2) [r, g, b] = [x, c, 0];
+    else if (hh < 3) [r, g, b] = [0, c, x];
+    else if (hh < 4) [r, g, b] = [0, x, c];
+    else if (hh < 5) [r, g, b] = [x, 0, c];
+    else [r, g, b] = [c, 0, x];
+    const m = l - c / 2;
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+
+  function colorFor(element: number, shade: number, hue: number): [number, number, number] {
     if (element === SAND) return PINK_RAMP[shade % PINK_RAMP.length];
     if (element === WATER) return BLUE_RAMP[shade % BLUE_RAMP.length];
     if (element === DIRT) return PURPLE_RAMP[shade % PURPLE_RAMP.length];
+    if (element === RAINBOW_SAND) return hslToRgb((hue / 255) * 360, 0.85, 0.6);
     return [255, 255, 255];
   }
 
   function render(): void {
-    const { width, height, elements, shades } = grid;
+    const { width, height, elements, shades, hues } = grid;
     const data = imageData.data;
     for (let i = 0; i < width * height; i++) {
       const element = elements[i];
       const o = i * 4;
-      if (element === EMPTY) {
+      if (element === EMPTY || element === OBJECT) {
         data[o] = 255;
         data[o + 1] = 255;
         data[o + 2] = 255;
         data[o + 3] = 255;
         continue;
       }
-      const [r, g, b] = colorFor(element, shades[i]);
+      const [r, g, b] = colorFor(element, shades[i], hues[i]);
       data[o] = r;
       data[o + 1] = g;
       data[o + 2] = b;
       data[o + 3] = 255;
     }
     ctx.putImageData(imageData, 0, 0);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const obj of [...objectsState.rainbows, ...objectsState.unicorns]) {
+      ctx.font = `${obj.size}px sans-serif`;
+      ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
+    }
   }
 
   function frame(): void {
     step(grid);
+    applyRainbowConversions(grid, objectsState.rainbows);
     render();
     requestAnimationFrame(frame);
   }
@@ -122,9 +153,15 @@
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    const pos = clientToGrid(event.clientX, event.clientY);
+    if (tool === 'rainbow' || tool === 'unicorn') {
+      placeObject(grid, objectsState, tool, pos.x, pos.y);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     drawing = true;
     lastGridPos = null;
-    paintAt(clientToGrid(event.clientX, event.clientY));
+    paintAt(pos);
     canvas.setPointerCapture(event.pointerId);
   }
 

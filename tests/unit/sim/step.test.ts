@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, SAND, WATER, DIRT } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND } from '../../../src/sim/types';
 
 describe('step — pink sand', () => {
   it('falls one cell per step', () => {
@@ -313,5 +313,73 @@ describe('step — magic purple dirt (purple sand)', () => {
     for (let i = 0; i < 20; i++) step(grid);
     expect(getElement(grid, 0, 0)).toBe(DIRT);
     expect(getElement(grid, 0, 1)).toBe(SAND);
+  });
+});
+
+describe('step — rainbow sand', () => {
+  function scatterLayout(grid: ReturnType<typeof createGrid>, element: number): void {
+    const positions = [
+      [3, 0],
+      [4, 0],
+      [3, 1],
+      [7, 0],
+      [1, 2],
+    ];
+    for (const [x, y] of positions) setCell(grid, x, y, element, 5);
+  }
+
+  it('falls, slides, and rests under the identical rules as sand', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+    try {
+      const sandGrid = createGrid(10, 10);
+      const rainbowGrid = createGrid(10, 10);
+      scatterLayout(sandGrid, SAND);
+      scatterLayout(rainbowGrid, RAINBOW_SAND);
+
+      for (let i = 0; i < 50; i++) {
+        step(sandGrid);
+        step(rainbowGrid);
+      }
+
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          const sandOccupied = getElement(sandGrid, x, y) !== EMPTY;
+          const rainbowOccupied = getElement(rainbowGrid, x, y) !== EMPTY;
+          expect(rainbowOccupied).toBe(sandOccupied);
+        }
+      }
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it('sinks through water exactly like sand', () => {
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, RAINBOW_SAND, 5);
+    setCell(grid, 0, 1, WATER, 9);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(WATER);
+    expect(getElement(grid, 0, 1)).toBe(RAINBOW_SAND);
+  });
+
+  it('advances hue when it moves this tick', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 1, 0, RAINBOW_SAND, 5);
+    grid.hues[0 * 3 + 1] = 10;
+    step(grid);
+    expect(getElement(grid, 1, 1)).toBe(RAINBOW_SAND);
+    expect(grid.hues[1 * 3 + 1]).not.toBe(10);
+  });
+
+  it('freezes hue across a tick where it does not move (fully blocked)', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, RAINBOW_SAND, 5);
+    setCell(grid, 0, 1, RAINBOW_SAND, 6);
+    setCell(grid, 1, 1, RAINBOW_SAND, 7);
+    setCell(grid, 2, 1, RAINBOW_SAND, 8);
+    grid.hues[0 * 3 + 1] = 42;
+    step(grid);
+    expect(getElement(grid, 1, 0)).toBe(RAINBOW_SAND);
+    expect(grid.hues[0 * 3 + 1]).toBe(42);
   });
 });
