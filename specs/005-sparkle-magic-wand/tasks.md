@@ -29,7 +29,7 @@ Single client-only project (unchanged from 001–004): `src/sim/*` (framework-fr
 
 **Purpose**: No project initialization is needed — `package.json`, `vite.config.ts`, `vitest.config.ts`, and the 001–004 scaffold already exist and are unchanged by this feature (plan.md's Technical Context). This phase only adds the two additive type-level shapes every later task builds on.
 
-- [ ] T001 In `src/sim/types.ts`, add `'wand'` to the `Tool` union (`export type Tool = 'sand' | 'water' | 'dirt' | 'rainbow' | 'unicorn' | 'eraser' | 'wand';`) and add `readonly glitter: Uint8Array;` to the `Grid` interface, alongside `elements`/`shades`/`moved`/`hues` — addition only, no existing field or union member removed (contracts/wand-mechanics.md `src/sim/types.ts` section, data-model.md Grid/Tool sections)
+- [X] T001 In `src/sim/types.ts`, add `'wand'` to the `Tool` union (`export type Tool = 'sand' | 'water' | 'dirt' | 'rainbow' | 'unicorn' | 'eraser' | 'wand';`) and add `readonly glitter: Uint8Array;` to the `Grid` interface, alongside `elements`/`shades`/`moved`/`hues` — addition only, no existing field or union member removed (contracts/wand-mechanics.md `src/sim/types.ts` section, data-model.md Grid/Tool sections)
 
 **Checkpoint**: `Tool`/`Grid` compile with the new shapes; nothing yet allocates or reads `glitter`, and no UI offers `'wand'` as a selectable tool.
 

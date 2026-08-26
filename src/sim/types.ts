@@ -20,9 +20,10 @@ export interface Grid {
   readonly shades: Uint8Array;
   readonly moved: Uint8Array;
   readonly hues: Uint8Array;
+  readonly glitter: Uint8Array;
 }
 
-export type Tool = 'sand' | 'water' | 'dirt' | 'rainbow' | 'unicorn' | 'eraser';
+export type Tool = 'sand' | 'water' | 'dirt' | 'rainbow' | 'unicorn' | 'eraser' | 'wand';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
