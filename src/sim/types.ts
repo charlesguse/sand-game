@@ -24,6 +24,7 @@ export interface Grid {
 
 export type Tool = 'sand' | 'water' | 'dirt' | 'rainbow' | 'unicorn' | 'eraser';
 export type BrushSize = 'small' | 'medium' | 'large';
+export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
 export type ObjectKind = 'rainbow' | 'unicorn';
 

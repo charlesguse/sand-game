@@ -29,7 +29,7 @@ Single client-only project (unchanged from 001/002/003): `src/sim/*` (framework-
 
 **Purpose**: No project initialization is needed — `package.json`, `vite.config.ts`, `vitest.config.ts`, and the 001/002/003 scaffold already exist and are unchanged by this feature (plan.md's Technical Context). This phase only adds the one new type this feature introduces, shared by every later task.
 
-- [ ] T001 Add `export type SceneId = 'empty' | 'landscape1' | 'landscape2';` to `src/sim/types.ts`, alongside the existing `Tool`/`BrushSize`/`ObjectKind` type aliases — addition only, no existing export in the file changes (contracts/scene-generation.md `src/sim/types.ts` section)
+- [X] T001 Add `export type SceneId = 'empty' | 'landscape1' | 'landscape2';` to `src/sim/types.ts`, alongside the existing `Tool`/`BrushSize`/`ObjectKind` type aliases — addition only, no existing export in the file changes (contracts/scene-generation.md `src/sim/types.ts` section)
 
 **Checkpoint**: `SceneId` exists and compiles; nothing else in the codebase references it yet.
 
