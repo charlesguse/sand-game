@@ -111,3 +111,13 @@ export function removeObject(grid: Grid, state: ObjectsState, obj: PlacedObject)
     }
   }
 }
+
+/** True if any cell in the unicorn's zone holds an element (not EMPTY, not OBJECT). */
+export function isUnicornTouched(grid: Grid, unicorn: PlacedObject): boolean {
+  let touched = false;
+  forEachZoneCell(grid, unicorn, (i) => {
+    const element = grid.elements[i];
+    if (element !== EMPTY && element !== OBJECT) touched = true;
+  });
+  return touched;
+}

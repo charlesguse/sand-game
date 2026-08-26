@@ -1,11 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, computeCanvasSize } from './layout';
+  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, OBJECT_FOOTPRINT_SIZE, computeCanvasSize } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
-  import { createObjectsState, placeObject, applyRainbowConversions } from '../sim/objects';
+  import { createObjectsState, placeObject, applyRainbowConversions, isUnicornTouched } from '../sim/objects';
+  import {
+    type Particle,
+    PARTICLE_LIFETIME_MS,
+    spawnBurst,
+    spawnIdleSparkle,
+    tickParticles,
+  } from './particles';
   import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type Tool, type BrushSize } from '../sim/types';
 
   interface Props {
@@ -17,8 +24,13 @@
 
   const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
   const objectsState = createObjectsState();
+  const particles: Particle[] = [];
 
   const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄' };
+
+  const BURST_COOLDOWN_MS = 2000;
+  const IDLE_INTERVAL_MS = 5000;
+  const unicornTimers = new Map<number, { lastBurstAt: number; lastIdleAt: number }>();
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -122,11 +134,47 @@
       ctx.font = `${obj.size}px sans-serif`;
       ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
     }
+
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
+      ctx.fillText(p.glyph, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  function frame(): void {
+  function updateUnicorns(now: number): void {
+    const liveIds = new Set(objectsState.unicorns.map((u) => u.id));
+    for (const id of unicornTimers.keys()) {
+      if (!liveIds.has(id)) unicornTimers.delete(id);
+    }
+
+    for (const unicorn of objectsState.unicorns) {
+      const atX = unicorn.x + unicorn.size / 2;
+      const atY = unicorn.y + unicorn.size / 2;
+      const timers = unicornTimers.get(unicorn.id) ?? { lastBurstAt: -Infinity, lastIdleAt: now };
+
+      if (isUnicornTouched(grid, unicorn) && now - timers.lastBurstAt >= BURST_COOLDOWN_MS) {
+        spawnBurst(particles, atX, atY, now);
+        timers.lastBurstAt = now;
+      }
+      if (now - timers.lastIdleAt >= IDLE_INTERVAL_MS) {
+        spawnIdleSparkle(particles, atX, atY, now);
+        timers.lastIdleAt = now;
+      }
+
+      unicornTimers.set(unicorn.id, timers);
+    }
+  }
+
+  let lastFrameNow = 0;
+
+  function frame(now: number): void {
+    lastFrameNow = now;
     step(grid);
     applyRainbowConversions(grid, objectsState.rainbows);
+    updateUnicorns(now);
+    tickParticles(particles, now);
     render();
     requestAnimationFrame(frame);
   }

@@ -92,17 +92,17 @@ Single client-only project (unchanged from 001/002): `src/sim/*` (framework-free
 
 ### Tests for User Story 2 (required by FR-037) ⚠️
 
-- [ ] T021 [P] [US2] Test `isUnicornTouched` in `tests/unit/sim/objects.test.ts`: returns `true` when any zone cell holds `SAND`/`WATER`/`DIRT`/`RAINBOW_SAND`, `false` when every zone cell is `EMPTY` or `OBJECT`; multiple unicorns are evaluated independently (FR-023, contracts/sim-core.md `isUnicornTouched`)
+- [X] T021 [P] [US2] Test `isUnicornTouched` in `tests/unit/sim/objects.test.ts`: returns `true` when any zone cell holds `SAND`/`WATER`/`DIRT`/`RAINBOW_SAND`, `false` when every zone cell is `EMPTY` or `OBJECT`; multiple unicorns are evaluated independently (FR-023, contracts/sim-core.md `isUnicornTouched`)
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implement `isUnicornTouched(grid, unicorn)` in `src/sim/objects.ts` using the `forEachZoneCell` helper from T009: returns `true` if any zone cell's element is neither `EMPTY` nor `OBJECT` (depends on T009; contracts/sim-core.md `isUnicornTouched`, FR-023)
-- [ ] T023 [US2] Add 🦄 to the `Tool` selection in `src/lib/Toolbar.svelte` as a large round emoji-labeled button, alongside 🌈 within the 10-control cap (depends on T002; FR-001, FR-034)
-- [ ] T024 [US2] Extend `PlayArea.svelte`'s `handlePointerDown` object-tool branch (from T019) to also handle `'unicorn'`, calling `placeObject(grid, objectsState, 'unicorn', ...)` once per press (depends on T015, T019, T023; FR-002)
-- [ ] T025 [US2] In `PlayArea.svelte`'s render pass, draw each unicorn `PlacedObject`'s `🦄` glyph the same way rainbows are drawn (depends on T020, T024; research.md §7)
-- [ ] T026 [US2] Create `src/lib/particles.ts` (new, DOM-free) with the `Particle` interface (`glyph`, `x`, `y`, `spawnedAt`) and `spawnBurst(particles, atX, atY, now)`, `spawnIdleSparkle(particles, atX, atY, now)`, `tickParticles(particles, now)` — `tickParticles` advances position, drops expired particles, and enforces a documented cap by dropping new spawns or retiring the oldest (contracts/sim-core.md `particles.ts` section, FR-026, FR-027, FR-028)
-- [ ] T027 [US2] Wire `PlayArea.svelte`'s per-frame loop to call, for each unicorn, `isUnicornTouched(grid, unicorn)` to decide whether to `spawnBurst` (rate-limited per FR-024), an idle-sparkle interval timer calling `spawnIdleSparkle` (FR-025, at least once every 5s per SC-010), then `tickParticles`, using `performance.now()` (depends on T022, T026; research.md §10, contracts/sim-core.md Consumers section)
-- [ ] T028 [US2] In `PlayArea.svelte`'s render pass, draw live particles as fading emoji glyphs (`ctx.fillText`) after object glyphs (depends on T026, T027; FR-029)
+- [X] T022 [US2] Implement `isUnicornTouched(grid, unicorn)` in `src/sim/objects.ts` using the `forEachZoneCell` helper from T009: returns `true` if any zone cell's element is neither `EMPTY` nor `OBJECT` (depends on T009; contracts/sim-core.md `isUnicornTouched`, FR-023)
+- [X] T023 [US2] Add 🦄 to the `Tool` selection in `src/lib/Toolbar.svelte` as a large round emoji-labeled button, alongside 🌈 within the 10-control cap (depends on T002; FR-001, FR-034)
+- [X] T024 [US2] Extend `PlayArea.svelte`'s `handlePointerDown` object-tool branch (from T019) to also handle `'unicorn'`, calling `placeObject(grid, objectsState, 'unicorn', ...)` once per press (depends on T015, T019, T023; FR-002) — already generalized in T019's implementation (branches on both `'rainbow'`/`'unicorn'`); no further code change needed
+- [X] T025 [US2] In `PlayArea.svelte`'s render pass, draw each unicorn `PlacedObject`'s `🦄` glyph the same way rainbows are drawn (depends on T020, T024; research.md §7) — already generalized in T020's implementation (glyph lookup by `obj.kind` over both lists); no further code change needed
+- [X] T026 [US2] Create `src/lib/particles.ts` (new, DOM-free) with the `Particle` interface (`glyph`, `x`, `y`, `spawnedAt`) and `spawnBurst(particles, atX, atY, now)`, `spawnIdleSparkle(particles, atX, atY, now)`, `tickParticles(particles, now)` — `tickParticles` advances position, drops expired particles, and enforces a documented cap by dropping new spawns or retiring the oldest (contracts/sim-core.md `particles.ts` section, FR-026, FR-027, FR-028)
+- [X] T027 [US2] Wire `PlayArea.svelte`'s per-frame loop to call, for each unicorn, `isUnicornTouched(grid, unicorn)` to decide whether to `spawnBurst` (rate-limited per FR-024), an idle-sparkle interval timer calling `spawnIdleSparkle` (FR-025, at least once every 5s per SC-010), then `tickParticles`, using `performance.now()` (depends on T022, T026; research.md §10, contracts/sim-core.md Consumers section)
+- [X] T028 [US2] In `PlayArea.svelte`'s render pass, draw live particles as fading emoji glyphs (`ctx.fillText`) after object glyphs (depends on T026, T027; FR-029)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — unicorns celebrate on touch and idle-sparkle, with particles purely decorative and capped.
 

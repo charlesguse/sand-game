@@ -1,11 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
-import { applyRainbowConversions, createObjectsState, placeObject, removeObject } from '../../../src/sim/objects';
+import {
+  applyRainbowConversions,
+  createObjectsState,
+  placeObject,
+  removeObject,
+  isUnicornTouched,
+} from '../../../src/sim/objects';
 import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type PlacedObject } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
 
 function rainbowAt(x: number, y: number, size = 1, id = 0): PlacedObject {
   return { id, kind: 'rainbow', x, y, size };
+}
+
+function unicornAt(x: number, y: number, size = 1, id = 0): PlacedObject {
+  return { id, kind: 'unicorn', x, y, size };
 }
 
 describe('objects — applyRainbowConversions', () => {
@@ -132,5 +142,44 @@ describe('objects — placeObject/removeObject', () => {
     const rainbowOnlyX = rainbow.x;
     const rainbowOnlyY = rainbow.y;
     expect(getElement(grid, rainbowOnlyX, rainbowOnlyY)).toBe(EMPTY);
+  });
+});
+
+describe('objects — isUnicornTouched', () => {
+  it('returns true when any zone cell holds SAND/WATER/DIRT/RAINBOW_SAND', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, SAND, 5);
+    expect(isUnicornTouched(grid, unicornAt(2, 2, 1))).toBe(true);
+
+    const waterGrid = createGrid(5, 5);
+    setCell(waterGrid, 1, 1, WATER, 5);
+    expect(isUnicornTouched(waterGrid, unicornAt(2, 2, 1))).toBe(true);
+
+    const dirtGrid = createGrid(5, 5);
+    setCell(dirtGrid, 1, 1, DIRT, 5);
+    expect(isUnicornTouched(dirtGrid, unicornAt(2, 2, 1))).toBe(true);
+
+    const rainbowSandGrid = createGrid(5, 5);
+    setCell(rainbowSandGrid, 1, 1, RAINBOW_SAND, 5);
+    expect(isUnicornTouched(rainbowSandGrid, unicornAt(2, 2, 1))).toBe(true);
+  });
+
+  it('returns false when every zone cell is EMPTY or OBJECT', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, OBJECT, 0);
+    expect(isUnicornTouched(grid, unicornAt(2, 2, 1))).toBe(false);
+
+    const emptyGrid = createGrid(5, 5);
+    expect(isUnicornTouched(emptyGrid, unicornAt(2, 2, 1))).toBe(false);
+  });
+
+  it('evaluates multiple unicorns independently', () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 1, 1, SAND, 5);
+    const touchedUnicorn = unicornAt(2, 2, 1, 0);
+    const untouchedUnicorn = unicornAt(7, 7, 1, 1);
+
+    expect(isUnicornTouched(grid, touchedUnicorn)).toBe(true);
+    expect(isUnicornTouched(grid, untouchedUnicorn)).toBe(false);
   });
 });

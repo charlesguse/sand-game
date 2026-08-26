@@ -49,6 +49,14 @@
     >
       🌈
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'unicorn'}
+      aria-label="Unicorn"
+      onclick={() => onSelectTool('unicorn')}
+    >
+      🦄
+    </button>
   </div>
 
   <div class="group actions">
