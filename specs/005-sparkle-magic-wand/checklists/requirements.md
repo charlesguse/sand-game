@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,25 +32,31 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **3 [NEEDS CLARIFICATION] markers remain open** and are posted as questions on lifecycle
-  issue #5. They are deliberately the only three; everything else was decided with a
+- **All 3 [NEEDS CLARIFICATION] markers are now resolved.** They were answered on lifecycle
+  issue #5 and folded into the spec's `## Clarifications` section (session 2026-08-26); no
+  markers remain. They were deliberately the only three; everything else was decided with a
   documented assumption.
-  1. **FR-017 — what is the glitter sprinkled into empty space?** A new "glitter dust"
-     element with its own identity, or the existing rainbow sand placed already-glittered?
-     This is the only decision in the feature that can change the toy's element set, which
-     the constitution's product constraints deliberately keep small and gate behind a spec.
-     It also decides whether the sprinkle needs its own physics tuning ("very fine sand") or
-     inherits the existing powder behavior wholesale.
-  2. **FR-014 — is glitter permanent or does it fade?** Permanent is the simplest reading of
-     "glitter versions of themselves" and makes the conversion rule trivially testable, but a
-     fade keeps sparkle special and caps how much of the screen can be glittered at once. The
-     two readings produce visibly different toys, and the acceptance scenarios for User
-     Story 1 assume permanence until this is answered.
-  3. **FR-013 — does the wand give placed 🌈 and 🦄 objects a lasting glittered look?** The
-     issue only specifies the unicorn's celebration burst. Objects are emoji glyphs rather
-     than grains, so a lasting glittered appearance for them is a separate visual treatment
-     from the grain shimmer and a separate piece of work. Either answer leaves the wand
-     harmless to objects (FR-013 forbids damaging, moving, or removing them).
+  1. **FR-017 — what is the glitter sprinkled into empty space?** *Resolved: the toy's
+     existing rainbow sand, placed in an already-glittered state.* No new element type, so
+     the constitution's element-set gate is not engaged and there is no separate physics
+     tuning or interaction matrix. Sprinkled glitter is indistinguishable from rainbow sand
+     the wand glittered in place, and falls with rainbow sand's weight rather than feeling
+     lighter — an accepted trade for the smallest footprint. FR-016, the Key Entities entry,
+     the Superseded-requirements note, User Story 2, SC-008, and new SC-020 were updated to
+     match.
+  2. **FR-014 — is glitter permanent or does it fade?** *Resolved: permanent — glitter lasts
+     until the grain is erased, cleared, or replaced by a scene load, and never fades on its
+     own.* Because the simultaneous-flash cap in FR-022 is fixed, an individual grain flashes
+     less often as coverage grows, so a fully glittered screen twinkles gently rather than
+     frantically — no per-grain timer state, and nothing beyond what FR-022 already requires.
+     User Story 1 gained acceptance scenario 13 and the spec gained SC-019.
+  3. **FR-013 — does the wand give placed 🌈 and 🦄 objects a lasting glittered look?**
+     *Resolved: no.* The wand's lasting effect is purely a grain thing: a unicorn emits its
+     celebration burst (FR-018) and a rainbow is untouched; neither takes on a glittered
+     appearance. This keeps the conversion rule and its tests to the smallest testable core,
+     which is what the issue asks for in a stretch feature. The wand remains forbidden from
+     damaging, moving, resizing, or removing an object. The object edge case, User Story 3
+     scenario 6, and new SC-021 were updated to match.
 - Decisions made without a marker, recorded in Assumptions or Requirements rather than asked:
   - **Glitter is appearance only** (FR-007) — the issue's "they keep their physics but
     sparkle" is read strictly. This is what makes the conversion rule cheaply unit-testable

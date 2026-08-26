@@ -18,6 +18,14 @@
 >
 > This is a stretch feature: keep it small and simple; if any part threatens performance or the schedule, cut that part rather than gold-plating.
 
+## Clarifications
+
+### Session 2026-08-26
+
+- Q: What is the glitter the wand sprinkles into empty space — a new "glitter dust" element, or existing rainbow sand placed already-glittered? → A: The toy's existing rainbow sand, placed in an already-glittered state. No new element type is added; the element set stays as it is today. Sprinkled glitter is therefore indistinguishable from rainbow sand the wand glittered in place, and it falls exactly as rainbow sand does rather than feeling lighter. (FR-016, FR-017)
+- Q: Is glitter permanent for the life of a grain, or does it fade back to plain after a few seconds? → A: Permanent — glitter lasts until the grain is erased, cleared, or replaced by a scene load, and never fades on its own. Because the number of simultaneous sparkle flashes is capped at a fixed maximum, an individual glittered grain flashes less often as more of the screen becomes glittered, so a fully glittered play area twinkles gently rather than frantically. (FR-014, FR-022)
+- Q: Does the wand give placed 🌈 rainbows and 🦄 unicorns a lasting glittered appearance? → A: No. The wand's lasting effect is purely a grain thing: a unicorn emits its celebration burst and a rainbow is untouched, and neither takes on any lasting glittered look. (FR-013)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Turn what she already drew into glitter (Priority: P1)
@@ -42,12 +50,13 @@ The child has a pile of pink sand, a puddle of water, and a hill of magic purple
 10. **Given** glittered grains on screen, **When** the child taps 🗑️ clear-all, **Then** the play area is completely empty, with no glitter state left behind anywhere.
 11. **Given** a glittered pink-sand grain, **When** a 🌈 rainbow converts it to rainbow sand, **Then** it becomes rainbow sand *and stays glittered*.
 12. **Given** the wand is selected, **When** the child taps a different tool, **Then** that tool becomes the active one and exactly one tool is shown as selected, exactly as the toolbar already behaves.
+13. **Given** a glittered pile, **When** the child leaves it alone and the simulation keeps running for a long time, **Then** every one of those grains is still glittered — glitter never fades on its own, and only the 🧽 eraser, 🗑️ clear-all, or loading a scene takes it away.
 
 ---
 
 ### User Story 2 - Sprinkle glitter into thin air (Priority: P2)
 
-The child drags the wand across the empty sky above her pile. A light dusting of tiny multicoloured glitter grains appears under the wand — not a solid stripe of colour, just a scattering, like shaking a glitter pot. The specks fall gently, tumble down the sides of whatever they land on, and settle into a fine sparkly layer on top of her world. She can bury them, erase them, or let a rainbow catch them, and they behave like any other grain in the toy.
+The child drags the wand across the empty sky above her pile. A light dusting of tiny multicoloured glitter grains appears under the wand — not a solid stripe of colour, just a scattering, like shaking a glitter pot. The specks fall, tumble down the sides of whatever they land on, and settle into a sparkly layer on top of her world. She can bury them, erase them, or let a rainbow catch them, and they behave like any other grain in the toy — because they *are* one: sprinkled glitter is the toy's rainbow sand arriving already glittered.
 
 **Why this priority**: It makes the wand feel like a wand rather than a paint-over tool — she can *make* magic, not only decorate what is already there. It is a clearly separable slice: the wand is useful and shippable without it, which is what makes it the first thing to cut under the issue's "cut rather than gold-plate" instruction.
 
@@ -57,7 +66,7 @@ The child drags the wand across the empty sky above her pile. A light dusting of
 
 1. **Given** an empty region, **When** the child drags the wand across it, **Then** a scattering of glitter grains appears — strictly more than none and clearly fewer than a solid fill of the covered area.
 2. **Given** a fresh dusting of glitter, **When** the child looks at it, **Then** the specks are multicoloured rather than all one colour.
-3. **Given** glitter grains in mid-air, **When** the simulation advances, **Then** they fall, tumble off slopes, and settle into a resting layer under the same powder rules the other grains obey.
+3. **Given** glitter grains in mid-air, **When** the simulation advances, **Then** they fall, tumble off slopes, and settle into a resting layer under exactly the rules rainbow sand already obeys.
 4. **Given** glitter grains resting on a pile, **When** the child pours pink sand on top of them, **Then** they are buried and behave normally underneath — nothing special happens and nothing is refused.
 5. **Given** glitter grains on screen, **When** the child drags the eraser over them or taps 🗑️, **Then** they are removed exactly as any other grain is.
 6. **Given** glitter grains next to a 🦄 unicorn, **When** they touch it, **Then** the unicorn celebrates exactly as it does for any other element touching it.
@@ -81,13 +90,13 @@ The child drags the wand over her 🦄 unicorn. Instead of the small sparkle it 
 3. **Given** several unicorns on screen and a wand drag that crosses all of them, **When** the drag lands, **Then** each one that was crossed celebrates.
 4. **Given** the maximum number of sparkle glyphs is already alive, **When** another burst is triggered, **Then** the oldest glyphs give way to the new ones and the total never grows past the cap.
 5. **Given** a unicorn that has just celebrated from the wand, **When** the child erases it or taps 🗑️, **Then** it disappears exactly as it does today and its sparkles fade out normally.
-6. **Given** a placed 🌈 rainbow, **When** the child drags the wand over it, **Then** the rainbow behaves exactly as this spec's FR-013 requires and, in particular, is never damaged, moved, or removed by the wand.
+6. **Given** a placed 🌈 rainbow, **When** the child drags the wand over it, **Then** the rainbow is left completely untouched — it takes on no lasting glittered look, and it is never damaged, moved, resized, or removed (FR-013).
 
 ---
 
 ### Edge Cases
 
-- **Wand over an object footprint**: rainbows and unicorns are objects, not grains. The wand never erases, moves, or resizes one. Beyond the unicorn's celebration burst, whether an object itself takes on a glittered look is FR-013's open question.
+- **Wand over an object footprint**: rainbows and unicorns are objects, not grains. The wand never erases, moves, or resizes one, and never gives one a lasting glittered look (FR-013). A unicorn celebrates; a rainbow is untouched.
 - **Wand over a region that is entirely empty**: nothing is converted; only the sprinkle rule applies, so the child always gets *some* visible result from a wand drag anywhere on the play area.
 - **Wand over a region that is entirely full**: nothing is sprinkled; every covered grain is glittered in place, and the pile does not grow by a single cell.
 - **Wanding the same spot over and over**: glittering is idempotent, so a full screen of glitter is the ceiling — repeated passes cannot pile up extra state, extra cost, or extra sparkle beyond the cap.
@@ -97,7 +106,7 @@ The child drags the wand over her 🦄 unicorn. Instead of the small sparkle it 
 - **Resize or rotation**: the existing preserve-contents-on-resize behavior applies unchanged — glittered grains stay glittered and glitter grains keep their positions in the preserved contents.
 - **Loading a scene, or 🗑️ clear-all**: clears glitter along with everything else. No glittered grain, glitter grain, or sparkle effect survives into the new contents.
 - **Page reload**: nothing is persisted; the toy opens plain and empty exactly as it does today.
-- **Glitter meeting a rainbow**: a glittered grain converted to rainbow sand stays glittered (FR-009). A sprinkled glitter grain is converted like any other element the rainbow catches.
+- **Glitter meeting a rainbow**: a glittered grain converted to rainbow sand stays glittered (FR-009). A sprinkled glitter grain already *is* rainbow sand, so a rainbow catching it treats it exactly as it treats any other rainbow sand and it stays glittered.
 - **All the edge cases from the pink-sand, water/dirt, rainbow/unicorn, and landscape-scenes features** continue to apply unchanged to glittered contents.
 
 ## Requirements *(mandatory)*
@@ -123,14 +132,14 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **FR-010**: Glittering MUST be idempotent — applying the wand to an already-glittered grain MUST leave it in exactly the same state, with no accumulation of any kind.
 - **FR-011**: The wand MUST NOT empty an occupied cell, MUST NOT change an occupied cell's element type, and MUST NOT displace, push, or move any existing grain. It is purely additive to appearance.
 - **FR-012**: Glitter MUST be removable exactly as its underlying grain is: erasing the grain, clearing all, or loading a scene MUST leave no glitter state behind. Glitter MUST NOT be persisted across a page reload.
-- **FR-013**: The wand's effect on the play area's *objects* (placed 🌈 rainbows and 🦄 unicorns) MUST be [NEEDS CLARIFICATION: does the wand give an object a lasting glittered appearance, or does passing over an object do nothing to the object itself beyond the unicorn's celebration burst in FR-018? Objects are drawn as emoji glyphs rather than grains, so a lasting look for them is a separate visual treatment from the grain shimmer]. In every reading, the wand MUST NOT damage, move, resize, or remove an object.
-- **FR-014**: How long a grain stays glittered MUST be [NEEDS CLARIFICATION: is glitter permanent for the life of the grain — removable only by erasing or clearing it — or does it fade back to plain after a few seconds, so the sparkle stays special and the whole screen cannot end up permanently glittered?]. Either way, the rule MUST be the same for every element and MUST NOT depend on where the grain is or what it is resting on.
+- **FR-013**: The wand MUST NOT give the play area's *objects* (placed 🌈 rainbows and 🦄 unicorns) any lasting glittered appearance. Passing the wand over an object MUST do nothing to the object itself beyond the unicorn's celebration burst (FR-018); a rainbow MUST be left entirely untouched. The wand MUST NOT damage, move, resize, or remove an object. Glitter is a property of grains only.
+- **FR-014**: Glitter MUST be permanent for the life of the grain: once a grain is glittered it MUST stay glittered until it is erased, cleared, or replaced by a scene load, and MUST NOT fade back to plain on its own or with the passage of time. The rule MUST be the same for every element and MUST NOT depend on where the grain is or what it is resting on. Because the number of simultaneous sparkle flashes is capped at a fixed maximum (FR-022), any individual glittered grain MUST flash less often as more of the play area becomes glittered, so a fully glittered screen twinkles gently rather than frantically.
 
 **Sprinkling glitter into empty space**
 
 - **FR-015**: For cells within the wand's coverage that are empty, the wand MUST sprinkle a light dusting of glitter grains: strictly more than zero grains per pass over an empty region, and no more than one third of the covered empty cells, so that the result reads as a scattering rather than a solid fill.
-- **FR-016**: Sprinkled glitter grains MUST fall and settle like a fine powder — obeying the same falling, tumbling, and piling family of rules as the toy's other powders — and MUST be multicoloured, with individual grains differing in colour rather than all sharing one.
-- **FR-017**: What a sprinkled glitter grain *is* MUST be [NEEDS CLARIFICATION: is it a new element type of its own — "glitter dust", a finer powder with its own identity — or is it the toy's existing rainbow sand placed in an already-glittered state, adding no new element type? The constitution's product constraints keep the element set deliberately small and require a spec for any new element type, which this spec would be]. Whichever it is, the grain MUST be fully interactive: erasable, clearable, subject to gravity, able to trigger a unicorn's celebration, and convertible by a rainbow, exactly like every other element.
+- **FR-016**: Sprinkled glitter grains MUST fall, tumble, and pile under exactly the rules rainbow sand already obeys — no lighter, finer, or otherwise separate physics — and MUST be multicoloured, with individual grains differing in colour rather than all sharing one, as rainbow sand already is.
+- **FR-017**: A sprinkled glitter grain MUST be the toy's existing rainbow sand placed in an already-glittered state. This feature MUST NOT add a new element type; the toy's element set MUST be exactly what it is today. A sprinkled grain is therefore indistinguishable from rainbow sand the wand glittered in place, and MUST be fully interactive: erasable, clearable, subject to gravity, able to trigger a unicorn's celebration, and treated by a rainbow exactly as rainbow sand already is.
 
 **The unicorn celebration**
 
@@ -146,13 +155,13 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **FR-024**: With the entire play area glittered and elements in motion, the toy MUST stay smooth (target 60fps, acceptable ≥30fps) at the default play-area size on a mid-range laptop and a tablet.
 - **FR-025**: No interaction in this feature MUST produce a failure state, a message, a confirmation, a sound requirement, a score, or any way for the child to be "wrong". The wand can be used anywhere, any number of times, and is never refused.
 - **FR-026**: Existing behavior MUST NOT regress: with the wand never selected, every existing element, object, tool, scene, and control MUST behave exactly as it does today, and all existing automated tests MUST pass unchanged.
-- **FR-027**: The project MUST provide automated tests, runnable without a browser, covering at minimum: the conversion rule marking every covered element cell glittered while leaving its element type unchanged (FR-006); each element type being glittered rather than only pink sand; glitter travelling with a grain that moves and not staying at the vacated cell (FR-008); glitter surviving rainbow conversion (FR-009); idempotency of repeat wand passes (FR-010); the wand neither emptying, retyping, nor displacing any occupied cell (FR-011); a wand pass over an all-empty region producing more than zero and no more than one third of the covered cells as glitter grains (FR-015); a wand pass over a mixed region glittering the occupied cells and sprinkling only into the empty ones (US2 scenario 7); and erase/clear-all leaving no glitter state behind (FR-012).
+- **FR-027**: The project MUST provide automated tests, runnable without a browser, covering at minimum: the conversion rule marking every covered element cell glittered while leaving its element type unchanged (FR-006); each element type being glittered rather than only pink sand; glitter travelling with a grain that moves and not staying at the vacated cell (FR-008); glitter surviving rainbow conversion (FR-009); idempotency of repeat wand passes (FR-010); the wand neither emptying, retyping, nor displacing any occupied cell (FR-011); a wand pass over an all-empty region producing more than zero and no more than one third of the covered cells as glitter grains (FR-015); a wand pass over a mixed region glittering the occupied cells and sprinkling only into the empty ones (US2 scenario 7); sprinkled glitter grains being rainbow sand in a glittered state, with the toy's element set unchanged (FR-017); glitter not fading over simulated time (FR-014); the wand leaving placed objects entirely unglittered and unharmed (FR-013); and erase/clear-all leaving no glitter state behind (FR-012).
 - **FR-028**: The production build MUST still emit exactly one self-contained page, fully playable when opened directly from disk with no network requests.
 
 ### Key Entities
 
 - **Glittered state**: A per-grain "this grain sparkles" property carried alongside a grain's element type. It changes appearance only and travels with the grain.
-- **Glitter grain**: The multicoloured speck the wand sprinkles into empty space. It falls and settles like a very fine powder. Its identity — a new element or an already-glittered existing one — is FR-017's open question.
+- **Glitter grain**: The multicoloured speck the wand sprinkles into empty space. It is the toy's existing rainbow sand placed in an already-glittered state (FR-017) — not a new element type — so it falls, tumbles, and piles exactly as rainbow sand does.
 - **Wand coverage**: The set of play-area cells a wand press or drag touches, defined by the current brush size and interpolated along the drag path in the same way the existing brushes are.
 - **Sparkle flash**: A brief bright highlight shown on a glittered grain. Flashes are chosen from the glittered grains and capped in number (FR-022); they are a rendering effect and hold no simulation state.
 - **Celebration burst**: The group of 🎉 ✨ 💖 glyphs a unicorn emits. This feature adds a larger variant triggered by the wand, reusing the toy's existing burst mechanism and its cap.
@@ -161,7 +170,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 
 - The landscape-scenes spec's toolbar constraint (its FR-007, "the toolbar fits on screen without page scrolling with all controls present") is extended, not replaced: it now must hold with the wand button added as well (FR-005).
 - The rainbow/unicorn spec's characterisation of the unicorn celebration as a single fixed burst size is superseded to the extent that a second, larger wand-triggered burst now exists (FR-018). The ordinary touch celebration is unchanged.
-- The constitution's product constraint that new element types require a spec is satisfied by this spec *if and only if* FR-017 resolves to a new "glitter dust" element; if it resolves to reusing rainbow sand, the element set is unchanged.
+- The constitution's product constraint that new element types require a spec is not engaged: FR-017 reuses the existing rainbow sand, so this feature adds no element type and the element set is unchanged.
 
 ## Success Criteria *(mandatory)*
 
@@ -174,7 +183,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **SC-005**: Repeating a wand pass over the same region any number of times produces a state identical to a single pass — 0 differing cells and 0 growth in any count.
 - **SC-006**: A wand pass never removes or retypes an occupied cell — 0 cells emptied, 0 element types changed, 0 grains displaced.
 - **SC-007**: A wand pass over an all-empty region produces at least 1 glitter grain and at most one third of the covered cells as glitter grains, and the resulting grains carry more than one distinct colour.
-- **SC-008**: 100% of sprinkled glitter grains respond to gravity, the eraser, clear-all, rainbow conversion, and unicorn celebration exactly as existing elements do — 0 behavioral differences.
+- **SC-008**: 100% of sprinkled glitter grains respond to gravity, the eraser, clear-all, rainbow contact, and unicorn celebration exactly as rainbow sand does — 0 behavioral differences.
 - **SC-009**: A wand pass across N unicorns triggers exactly N celebrations, each visibly larger than the ordinary touch celebration, and holding the wand on one unicorn for 5 seconds produces a small, bounded number of bursts rather than one per frame.
 - **SC-010**: The number of live sparkle glyphs never exceeds the existing cap, and the number of simultaneous sparkle flashes never exceeds its fixed cap, no matter how much of the play area is glittered.
 - **SC-011**: With 100% of the play area glittered and elements in motion, the toy renders at least 30 frames per second, targeting 60, on a mid-range laptop and a tablet.
@@ -185,6 +194,9 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **SC-016**: The automated test suite runs to completion without a browser and asserts the conversion rule, per-element coverage, glitter travelling with moving grains, survival through rainbow conversion, idempotency, non-destructiveness, sprinkle density bounds, mixed-region behavior, and clean removal.
 - **SC-017**: The toolbar with the wand added still fits on screen with no page scrolling on both a laptop and a tablet, and every control remains a single tap away.
 - **SC-018**: A production build still produces exactly one output file, and opening that file directly from disk yields a fully playable toy with zero network requests.
+- **SC-019**: Glitter never disappears on its own — after advancing the simulation on a glittered pile for an extended run, 100% of those grains are still glittered and 0 have reverted to plain.
+- **SC-020**: The toy's element set after this feature is exactly the set it had before — 0 new element types added.
+- **SC-021**: A wand pass over placed 🌈 rainbows and 🦄 unicorns leaves 0 objects with a lasting glittered appearance and 0 objects damaged, moved, resized, or removed.
 
 ### Visual checks for the maintainer *(no automated coverage)*
 
@@ -192,7 +204,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - The flashes look like glitter catching the light: brief, bright, scattered across random grains, never a uniform pulse where the whole pile blinks together.
 - The gentle colour shimmer is pretty rather than strobing or nauseating; a large glittered area is comfortable to look at for a long time.
 - The sprinkled dusting looks like glitter shaken from a pot — scattered specks of different colours, not a coloured stripe under the wand.
-- The specks fall lightly and settle into a convincing fine layer rather than dropping like heavy sand.
+- The dusting settles into a convincing sparkly layer, and still reads as glitter shaken from a pot even though the specks fall with exactly the weight of rainbow sand.
 - The unicorn's wand burst is unmistakably the biggest, most exciting thing in the toy, and does not become annoying when repeated.
 - The wand button reads as "make magic" next to the element brushes, and the toolbar still looks like a friendly row of big round buttons.
 - Dragging the wand over a big pile feels instant and smooth — no stutter as more and more of the screen becomes glittered.
