@@ -62,6 +62,8 @@ The child taps 🏝️ and the world changes completely: a pink-sand beach slopi
 5. **Given** the child taps scene buttons rapidly several times in a row, **When** the taps land, **Then** the play area shows the scene from the last tap and the toy stays smooth.
 6. **Given** the child is in the middle of a press-and-drag with an element brush, **When** she lifts and taps a scene button, **Then** the scene replaces everything including the strokes she just drew, and the next drag draws normally on top of the new scene.
 7. **Given** any scene button is tapped, **When** the play area is replaced, **Then** the currently selected drawing tool and brush size are unchanged, so she can keep drawing with whatever she had chosen.
+8. **Given** any scene has just been loaded, **When** the child looks at the toolbar, **Then** no scene button is shown as switched on or selected — the only button wearing a selected look is the active drawing tool.
+9. **Given** the toolbar, **When** the child looks at it, **Then** both ⬜ (as the third choice in the scene group) and 🗑️ (in its familiar place) are present and visibly belong to separate groups, and tapping either one leaves the play area equally empty.
 
 ---
 
@@ -110,9 +112,9 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **FR-003**: A single tap on a scene control MUST take effect immediately, with no confirmation, no dialog, no message, and no way for the tap to be refused or ignored.
 - **FR-004**: Scene controls MUST NOT change the currently selected drawing tool or the selected brush size.
 - **FR-005**: Scene controls MUST be usable at any time and any number of times, including immediately after another scene control, with the most recent tap always determining the resulting contents.
-- **FR-006**: The scene controls MUST NOT be shown as the active drawing tool; exactly one drawing tool (element brush, object tool, or eraser) remains active at all times, unaffected by scene selection. [NEEDS CLARIFICATION: should the scene buttons additionally show a persistent "this is the world you are in" highlight on the last scene loaded — and if so, does that highlight stay on after she has drawn all over the scene, or clear on the first stroke?]
+- **FR-006**: The scene controls MUST NOT be shown as the active drawing tool; exactly one drawing tool (element brush, object tool, or eraser) remains active at all times, unaffected by scene selection. Scene controls MUST NOT carry any persistent "this is the world you are in" highlight either: like 🗑️, they are momentary action buttons, and the toolbar keeps exactly one meaning of "selected" — the active drawing tool. A scene button MAY show only a transient press feedback for the duration of the tap.
 - **FR-007**: The toolbar MUST still fit on screen without the page scrolling on both a laptop and a tablet with all controls present, and every control MUST remain finger-sized for a small child.
-- **FR-008**: The relationship between ⬜ empty and the existing 🗑️ clear-all control MUST be resolved so the toolbar does not carry two controls with identical effects and unclear meanings. [NEEDS CLARIFICATION: does ⬜ empty replace 🗑️ clear-all (one control, in the scene group), or do both remain (🗑️ as the familiar wipe, ⬜ as the third scene choice)?]
+- **FR-008**: Both ⬜ empty and the existing 🗑️ clear-all control MUST remain present. 🗑️ stays where it is as the familiar wipe the child has already learned, and ⬜ is the third choice in the scene group so that group reads as a complete set of worlds to pick from. The two MAY have identical effects (FR-011), but the scene group and the clear-all control MUST be visually separated from each other — by grouping, spacing, or both — so the toolbar still reads as distinct sets of buttons rather than one undifferentiated row.
 
 **Loading a scene**
 
@@ -152,7 +154,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 
 ### Superseded requirements
 
-- The rainbow/unicorn spec's **cap on on-screen controls** is superseded by this spec: the toolbar gains the scene group, and the binding constraint becomes FR-007 — the toolbar fits on screen without page scrolling on a laptop and a tablet, with every control finger-sized and one tap away. The exact control count depends on the resolution of FR-008.
+- The rainbow/unicorn spec's **cap on on-screen controls** is superseded by this spec: the toolbar gains all three scene controls while keeping 🗑️ (FR-008), and the binding constraint becomes FR-007 — the toolbar fits on screen without page scrolling on a laptop and a tablet, with every control finger-sized and one tap away.
 - The pink-sand spec's requirement that the play area **starts and stays empty until the child draws** is superseded only to the extent that a scene control may now fill it; the toy still *opens* on an empty play area (FR-015).
 - The rainbow/unicorn spec's assumption that **"scenes are still out of scope"** is retired by this spec, which is that feature.
 
@@ -174,7 +176,8 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **SC-012**: A play area in which no scene control has been tapped behaves identically to the previous release — all existing acceptance scenarios and automated tests pass unchanged.
 - **SC-013**: A child cannot reach any state that shows a message, a confirmation, an error, or a score through the scene controls — 0 such states exist.
 - **SC-014**: The automated test suite runs to completion without a browser and asserts each landscape's expected elements in expected regions, the empty scene's emptiness, full replacement on load, determinism, size robustness, and at-rest stability.
-- **SC-015**: The toolbar with the scene controls added still fits on screen with no page scrolling on both a laptop and a tablet, and every control remains a single tap away.
+- **SC-015**: The toolbar with all three scene controls added *and* 🗑️ retained still fits on screen with no page scrolling on both a laptop and a tablet, and every control remains a single tap away.
+- **SC-017**: No scene control ever shows a persistent selected or active state — across any sequence of scene taps and drawing, exactly 1 button in the toolbar wears the "selected" look at any moment, and it is always the active drawing tool.
 - **SC-016**: A production build still produces exactly one output file, and opening that file directly from disk yields a fully playable toy with zero network requests.
 
 ### Visual checks for the maintainer *(no automated coverage)*
@@ -186,12 +189,13 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - The unicorn looks like it is standing on the ground, not floating above it or half-buried in it.
 - Loading a scene feels instantaneous and satisfying — no flicker, no visible sweep as the world is drawn.
 - The scene buttons read as "pick a world" rather than as three more drawing tools, and the toolbar still looks like a friendly row of big round buttons.
+- The scene group and 🗑️ read as clearly separate things despite ⬜ and 🗑️ doing the same job, so the toolbar stays scannable and neither button looks like a mistake.
 - Switching back and forth between the two landscapes and the blank canvas feels like flipping between pages, with no lag and no surprise.
 
 ## Assumptions
 
 - **Builds on the existing toy**: this feature assumes `001-falling-pink-sand`, `002-water-and-purple-dirt`, and `003-rainbow-unicorn-magic` are the base being extended — grid, canvas, drawing, brush sizes, eraser, clear-all, rainbow and unicorn objects, resize handling, build, and test setup. All of their constraints (single self-contained page, no reading required, no failure states, mouse and touch) continue to apply.
-- **Rainbows and unicorns are available**: the landscapes described in the issue include a rainbow and a unicorn, so this feature depends on the rainbow/unicorn objects from `003-rainbow-unicorn-magic` already existing in the codebase when it is implemented. [NEEDS CLARIFICATION: if the rainbow/unicorn work has not landed when this feature is implemented, should the landscapes ship terrain-and-water only and gain their rainbows and unicorns later, or should this feature wait for that work to land first?]
+- **Rainbows and unicorns are available**: the landscapes described in the issue include a rainbow and a unicorn, so this feature depends on the rainbow/unicorn objects from `003-rainbow-unicorn-magic` already existing in the codebase when it is implemented. This is a hard dependency: implementation of this feature waits for `003` to land, and the landscapes then ship in full as specified (FR-017, FR-018). There is no terrain-and-water-only fallback, no conditional branching on whether the objects exist, and no follow-up pass to add them later.
 - **The issue's scene descriptions are binding, not illustrative**: the issue writes "e.g." before each landscape's contents, but this spec treats the described contents (hills + lake + rainbow + unicorn; beach + pool + two rainbows + unicorn) as the requirement (FR-017, FR-018) so the scenes are testable. Artistic details beyond those — exact hill count above two, exact shoreline curve, exact rainbow positions — are tuning choices for the implementer.
 - **"Deterministic enough to look good every time" means fully deterministic**: any pseudo-randomness used to shape terrain is seeded from a fixed value, so a given scene at a given size is always identical (FR-023). This is both the most testable reading and the one that guarantees the scenes never generate a bad-looking world.
 - **Scenes are generated, not stored**: a scene is described in proportional terms and rendered to whatever play-area size is current, rather than stored as a fixed-size snapshot. This is what lets FR-022 hold across laptop and tablet.
@@ -199,6 +203,6 @@ This feature extends the existing toy specified in `001-falling-pink-sand`, `002
 - **No transition or animation**: the scene appears instantly. No fade, wipe, or reveal is specified; the requester asked for "instantly replaces".
 - **No undo**: switching scenes destroys what the child drew, by design — the issue is explicit that switching back is just another tap. There is no undo, no history, and no "are you sure".
 - **No sound**: consistent with the rest of the toy, loading a scene makes no sound.
-- **Scene buttons are momentary actions**: tapping one performs a replacement rather than entering a mode, so a scene tap never leaves the toy in a state where drawing behaves differently. FR-006 tracks whether the buttons should nonetheless *show* which world was last loaded.
+- **Scene buttons are momentary actions**: tapping one performs a replacement rather than entering a mode, so a scene tap never leaves the toy in a state where drawing behaves differently. They do not show which world was last loaded (FR-006) — a scene stops being "the current world" the moment she draws on it, and a second kind of highlight would compete with the active-tool highlight for a child who cannot read.
 - **Two landscapes, no more**: exactly two preloaded landscapes plus empty, matching the issue and the constitution. Adding further scenes is a separate feature.
 - **Target devices unchanged**: a mid-range laptop with mouse/trackpad and a tablet with touch; phone-sized screens are not a target.

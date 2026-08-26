@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -32,21 +32,23 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
-- **3 [NEEDS CLARIFICATION] markers remain open** and are posted as questions on lifecycle
-  issue #4. Every other checklist item passes. The markers are deliberately scoped so the
-  spec is implementable under its stated defaults if they go unanswered:
-  1. **FR-006 — do the scene buttons show a persistent "current world" highlight?** The spec
-     defaults to momentary action buttons that never take over the active-tool highlight
-     (Assumptions), because a scene stops being "the current world" the moment she draws on
-     it. The open part is only whether a secondary highlight is wanted and when it clears.
-  2. **FR-008 — does ⬜ empty replace 🗑️ clear-all, or do both stay?** Both produce the same
-     result (FR-011), so shipping both means two buttons with identical effects; shipping one
-     drops a control the child already knows. Either resolution is a small change, but it
-     changes the toolbar's control count, which FR-007 and SC-015 constrain.
-  3. **Dependency on `003-rainbow-unicorn-magic`** — both landscapes contain a rainbow and a
-     unicorn (FR-017, FR-018), which do not exist in the codebase until that feature lands.
-     The spec assumes it lands first; the alternative is shipping terrain-and-water landscapes
-     now and adding the objects later.
+- **All 3 [NEEDS CLARIFICATION] markers are resolved.** They were asked on lifecycle issue
+  #4 and answered by the maintainer; the answers are folded into the spec:
+  1. **FR-006 — do the scene buttons show a persistent "current world" highlight?**
+     **Resolved: no highlight.** Scene buttons are momentary actions like 🗑️, and the toolbar
+     keeps exactly one meaning of "selected" (the active drawing tool), which matters for a
+     non-reading 4-year-old. Only transient press feedback is allowed. Recorded in FR-006,
+     Assumptions, US2 acceptance scenario 8, and SC-017.
+  2. **FR-008 — does ⬜ empty replace 🗑️ clear-all, or do both stay?** **Resolved: keep both.**
+     The scene group must read as a complete set of three worlds to pick from (the Sand Saga
+     mental model the issue asked for), and 🗑️ is a control the child has already learned. The
+     one redundant button is accepted; the two groups must stay visually separated so the
+     toolbar remains scannable. Recorded in FR-008, the Superseded requirements note, US2
+     acceptance scenario 9, SC-015, and the visual checks.
+  3. **Dependency on `003-rainbow-unicorn-magic`** — **Resolved: wait for `003`, then ship the
+     landscapes in full.** The maintainer is sequencing this feature's implementation after
+     `003`, so rainbows and unicorns exist by the time scenes are built. No terrain-and-water
+     fallback, no conditional branching, no follow-up rework. Recorded in Assumptions.
 - Decisions made without a marker, recorded in Assumptions or Requirements rather than asked:
   - **The issue's "e.g." scene descriptions are treated as binding** (FR-017, FR-018) — the
     requester asked for tests that assert "expected elements in expected regions", which is
@@ -69,7 +71,7 @@
 - **Superseded requirements are enumerated explicitly** rather than silently overridden,
   because the constitution forbids regressing earlier features. Note that the control-count
   cap from `003` is replaced by an outcome (FR-007: the toolbar fits and stays finger-sized)
-  rather than a number, since the number now depends on the resolution of FR-008.
+  rather than a number, since FR-008 keeps 🗑️ alongside all three scene controls.
 - FR-024, FR-025, and SC-010 state frame-rate and instant-load targets. As in the previous
   specs, these mirror the constitution's Principle IV ("Performance Is A Feature") and are
   treated as user-observable smoothness outcomes, not implementation details.
