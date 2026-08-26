@@ -7,9 +7,11 @@ function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.elements[toIndex] = grid.elements[fromIndex];
   grid.shades[toIndex] = grid.shades[fromIndex];
   grid.hues[toIndex] = grid.hues[fromIndex];
+  grid.glitter[toIndex] = grid.glitter[fromIndex];
   grid.elements[fromIndex] = EMPTY;
   grid.shades[fromIndex] = 0;
   grid.hues[fromIndex] = 0;
+  grid.glitter[fromIndex] = 0;
   grid.moved[fromIndex] = 1;
   grid.moved[toIndex] = 1;
   if (grid.elements[toIndex] === RAINBOW_SAND) {
@@ -21,12 +23,15 @@ function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
   const aElement = grid.elements[aIndex];
   const aShade = grid.shades[aIndex];
   const aHue = grid.hues[aIndex];
+  const aGlitter = grid.glitter[aIndex];
   grid.elements[aIndex] = grid.elements[bIndex];
   grid.shades[aIndex] = grid.shades[bIndex];
   grid.hues[aIndex] = grid.hues[bIndex];
+  grid.glitter[aIndex] = grid.glitter[bIndex];
   grid.elements[bIndex] = aElement;
   grid.shades[bIndex] = aShade;
   grid.hues[bIndex] = aHue;
+  grid.glitter[bIndex] = aGlitter;
   grid.moved[aIndex] = 1;
   grid.moved[bIndex] = 1;
   if (grid.elements[aIndex] === RAINBOW_SAND) {
