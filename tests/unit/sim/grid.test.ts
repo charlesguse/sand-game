@@ -3,13 +3,15 @@ import { createGrid, inBounds, getElement, getShade, setCell, clearGrid } from '
 import { EMPTY, SAND } from '../../../src/sim/types';
 
 describe('grid', () => {
-  it('createGrid zeroes elements, shades, and moved', () => {
+  it('createGrid zeroes elements, shades, moved, and hues', () => {
     const grid = createGrid(4, 3);
     expect(grid.width).toBe(4);
     expect(grid.height).toBe(3);
     expect([...grid.elements]).toEqual(new Array(12).fill(0));
     expect([...grid.shades]).toEqual(new Array(12).fill(0));
     expect([...grid.moved]).toEqual(new Array(12).fill(0));
+    expect(grid.hues.length).toBe(12);
+    expect([...grid.hues]).toEqual(new Array(12).fill(0));
   });
 
   it('inBounds is true only for cells within width/height', () => {

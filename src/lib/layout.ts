@@ -9,6 +9,8 @@ export const BRUSH_RADII: Record<BrushSize, number> = {
   large: 7,
 };
 
+export const OBJECT_FOOTPRINT_SIZE = 24;
+
 export interface CanvasSize {
   width: number;
   height: number;

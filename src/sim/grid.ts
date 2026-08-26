@@ -8,6 +8,7 @@ export function createGrid(width: number, height: number): Grid {
     elements: new Uint8Array(size),
     shades: new Uint8Array(size),
     moved: new Uint8Array(size),
+    hues: new Uint8Array(size),
   };
 }
 
