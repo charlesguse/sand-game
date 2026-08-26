@@ -1,15 +1,16 @@
 <script lang="ts">
-  import type { Tool, BrushSize } from '../sim/types';
+  import type { Tool, BrushSize, SceneId } from '../sim/types';
 
   interface Props {
     tool: Tool;
     brushSize: BrushSize;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
+    onSelectScene: (sceneId: SceneId) => void;
     onClearAll: () => void;
   }
 
-  let { tool, brushSize, onSelectTool, onSelectBrushSize, onClearAll }: Props = $props();
+  let { tool, brushSize, onSelectTool, onSelectBrushSize, onSelectScene, onClearAll }: Props = $props();
 </script>
 
 <div class="toolbar">
@@ -69,6 +70,16 @@
       🧽
     </button>
     <button class="control" aria-label="Clear all" onclick={onClearAll}>🗑️</button>
+  </div>
+
+  <div class="group scenes">
+    <button class="control" aria-label="Empty canvas" onclick={() => onSelectScene('empty')}>⬜</button>
+    <button class="control" aria-label="Hills and lake world" onclick={() => onSelectScene('landscape1')}>
+      🏔️
+    </button>
+    <button class="control" aria-label="Beach and pool world" onclick={() => onSelectScene('landscape2')}>
+      🏝️
+    </button>
   </div>
 
   <div class="group sizes">

@@ -1,7 +1,7 @@
 import { OBJECT_FOOTPRINT_SIZE } from '../lib/layout';
 import { clearGrid, setCell } from './grid';
 import { clearObjects, placeObject, type ObjectsState } from './objects';
-import { DIRT, WATER, type Grid, type SceneId } from './types';
+import { DIRT, SAND, WATER, type Grid, type SceneId } from './types';
 
 export interface SceneRegion {
   x0: number;
@@ -101,9 +101,49 @@ export function generateLandscape1(grid: Grid, objects: ObjectsState): void {
   placeObject(grid, objects, 'unicorn', unicornCx, unicornCy);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function generateLandscape2(grid: Grid, objects: ObjectsState): void {
-  // Implemented in T012 (User Story 2).
+/** Pink-sand beach sloping into a large pool: two rainbows, one unicorn near the shore (FR-018). */
+export function generateLandscape2(grid: Grid, objects: ObjectsState): void {
+  const { width, height } = grid;
+  const regions = sceneRegions(width, height);
+  const { x0, x1, y0: bandTop, y1: bandBottom } = regions.lowerPortion;
+  const bandWidth = x1 - x0;
+  const bandHeight = bandBottom - bandTop;
+
+  const raw: number[] = new Array(bandWidth);
+  for (let i = 0; i < bandWidth; i++) {
+    const frac = i / bandWidth;
+    raw[i] = bandTop + bandHeight * 0.15 + bandHeight * 0.55 * frac;
+  }
+  const heights = clampProfile(raw, bandTop, bandBottom - 1);
+
+  for (let i = 0; i < bandWidth; i++) {
+    const x = x0 + i;
+    for (let y = heights[i]; y < bandBottom; y++) {
+      setCell(grid, x, y, SAND, positionalShade(x, y));
+    }
+  }
+
+  const midX = regions.rightHalf.x0;
+  const poolStart = midX - x0;
+  const wallHeight = heights[poolStart];
+  const waterSurfaceRow = wallHeight + 2;
+  for (let i = poolStart; i < bandWidth; i++) {
+    if (heights[i] <= waterSurfaceRow) continue;
+    const x = x0 + i;
+    for (let y = waterSurfaceRow; y < heights[i]; y++) {
+      setCell(grid, x, y, WATER, positionalShade(x, y));
+    }
+  }
+
+  const skyCy = Math.round(regions.sky.y1 / 2);
+  const rainbow1Cx = Math.round(regions.sky.x0 + (regions.sky.x1 - regions.sky.x0) * 0.3);
+  const rainbow2Cx = Math.round(regions.sky.x0 + (regions.sky.x1 - regions.sky.x0) * 0.7);
+  placeObject(grid, objects, 'rainbow', rainbow1Cx, skyCy);
+  placeObject(grid, objects, 'rainbow', rainbow2Cx, skyCy);
+
+  const unicornCx = midX;
+  const unicornCy = heights[poolStart] - OBJECT_FOOTPRINT_SIZE / 2;
+  placeObject(grid, objects, 'unicorn', unicornCx, unicornCy);
 }
 
 /** Unconditionally clears grid/objects, then generates the requested scene's contents. */
