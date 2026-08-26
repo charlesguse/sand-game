@@ -37,11 +37,11 @@ This is a greenfield checkout — no `package.json` exists yet; Phase 1 creates 
 
 **Purpose**: Bootstrap the project scaffold (no scaffold exists yet)
 
-- [ ] T001 Create `package.json` at repo root with `dev`/`build`/`test` scripts and dependencies `svelte@5`, `vite`, `@sveltejs/vite-plugin-svelte`, `vite-plugin-singlefile`, `vitest`, `typescript` (constitution Principle III — no other runtime dependencies)
-- [ ] T002 [P] Create `tsconfig.json` at repo root (strict TypeScript config compatible with Svelte 5 + Vite)
-- [ ] T003 [P] Create `vite.config.ts` at repo root wiring the `svelte()` plugin and `viteSingleFile()` applied last (FR-029, FR-030)
-- [ ] T004 [P] Create `vitest.config.ts` at repo root targeting `tests/unit/**` with the default `node` test environment (no jsdom/DOM — constitution Principle V)
-- [ ] T005 [P] Create `index.html` at repo root as the Vite entry point with a single `#app` mount div
+- [X] T001 Create `package.json` at repo root with `dev`/`build`/`test` scripts and dependencies `svelte@5`, `vite`, `@sveltejs/vite-plugin-svelte`, `vite-plugin-singlefile`, `vitest`, `typescript` (constitution Principle III — no other runtime dependencies)
+- [X] T002 [P] Create `tsconfig.json` at repo root (strict TypeScript config compatible with Svelte 5 + Vite)
+- [X] T003 [P] Create `vite.config.ts` at repo root wiring the `svelte()` plugin and `viteSingleFile()` applied last (FR-029, FR-030)
+- [X] T004 [P] Create `vitest.config.ts` at repo root targeting `tests/unit/**` with the default `node` test environment (no jsdom/DOM — constitution Principle V)
+- [X] T005 [P] Create `index.html` at repo root as the Vite entry point with a single `#app` mount div
 
 **Checkpoint**: `npm install` succeeds; `npm run dev` and `npm run build` are runnable (even before app code exists).
 
