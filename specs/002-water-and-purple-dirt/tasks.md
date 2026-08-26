@@ -89,10 +89,10 @@ Single client-only project at the repository root (per plan.md's Project Structu
 
 **Independent Test**: Fill part of the play area with water, pour sand into it, and confirm every grain reaches the bottom of the pool while the water level rises above it. Fully verifiable in `vitest` against grid state.
 
-- [ ] T028 [P] [US2] Add the powder-sinks-through-water swap to `src/sim/step.ts`: a powder cell (`SAND` or `DIRT`) with water directly below, or diagonally below when blocked straight down, exchanges its `(element, shade)` pair with the water cell's; confirm the existing water branch's "never move into a powder-occupied cell" check already blocks the reverse case (FR-013, FR-014) (depends on T020)
-- [ ] T029 [P] [US2] Extend `src/sim/brush.ts` so the `'sand'` tool also overwrites `WATER`-occupied footprint cells (direct replacement, discarding the prior water shade — not a swap), while the `'water'` tool still only writes into `EMPTY` cells (FR-021, FR-022) (depends on T021)
-- [ ] T030 [P] [US2] `tests/unit/sim/step.test.ts`: a powder cell with water directly below swaps in one step; a water column with sand poured on top settles with all sand at the bottom and all water above it; water never swaps down through or displaces a powder; the count of sand cells and water cells stays constant across many steps (element conservation, SC-005) (depends on T028)
-- [ ] T031 [P] [US2] `tests/unit/sim/brush.test.ts`: the sand brush overwrites water-occupied cells; the water brush never overwrites a sand-occupied cell (depends on T029)
+- [X] T028 [P] [US2] Add the powder-sinks-through-water swap to `src/sim/step.ts`: a powder cell (`SAND` or `DIRT`) with water directly below, or diagonally below when blocked straight down, exchanges its `(element, shade)` pair with the water cell's; confirm the existing water branch's "never move into a powder-occupied cell" check already blocks the reverse case (FR-013, FR-014) (depends on T020)
+- [X] T029 [P] [US2] Extend `src/sim/brush.ts` so the `'sand'` tool also overwrites `WATER`-occupied footprint cells (direct replacement, discarding the prior water shade — not a swap), while the `'water'` tool still only writes into `EMPTY` cells (FR-021, FR-022) (depends on T021)
+- [X] T030 [P] [US2] `tests/unit/sim/step.test.ts`: a powder cell with water directly below swaps in one step; a water column with sand poured on top settles with all sand at the bottom and all water above it; water never swaps down through or displaces a powder; the count of sand cells and water cells stays constant across many steps (element conservation, SC-005) (depends on T028)
+- [X] T031 [P] [US2] `tests/unit/sim/brush.test.ts`: the sand brush overwrites water-occupied cells; the water brush never overwrites a sand-occupied cell (depends on T029)
 
 **Checkpoint**: User Stories 1 and 2 both work independently — sand sinks through water and displaces it upward.
 

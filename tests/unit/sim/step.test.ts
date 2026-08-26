@@ -131,3 +131,78 @@ describe('step — water', () => {
     expect(waterCols.length).toBe(width - 1);
   });
 });
+
+describe('step — sand sinks through water', () => {
+  it('a powder cell with water directly below swaps in one step', () => {
+    // width 1 so water has no sideways-escape neighbors, isolating the swap.
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setCell(grid, 0, 1, WATER, 9);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(WATER);
+    expect(getElement(grid, 0, 1)).toBe(SAND);
+  });
+
+  it('a water column with sand poured on top settles with all sand at the bottom', () => {
+    const width = 5;
+    const height = 10;
+    const grid = createGrid(width, height);
+    for (let y = 3; y < height; y++) {
+      for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
+    }
+    for (let x = 0; x < width; x++) setCell(grid, x, 0, SAND, 9);
+
+    for (let i = 0; i < 300; i++) step(grid);
+
+    // Scanning bottom-to-top, every sand cell in a column must be seen before
+    // any water cell — i.e. sand never rests above a water cell it sank past.
+    for (let x = 0; x < width; x++) {
+      let sawWater = false;
+      let sandAboveWater = false;
+      let sawSand = false;
+      for (let y = height - 1; y >= 0; y--) {
+        const element = getElement(grid, x, y);
+        if (element === WATER) sawWater = true;
+        if (element === SAND) {
+          sawSand = true;
+          if (sawWater) sandAboveWater = true;
+        }
+      }
+      expect(sandAboveWater).toBe(false);
+      expect(sawSand).toBe(true);
+    }
+  });
+
+  it('water never swaps down through or displaces a powder', () => {
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, WATER, 5);
+    setCell(grid, 0, 1, SAND, 9);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(WATER);
+    expect(getElement(grid, 0, 1)).toBe(SAND);
+  });
+
+  it('the count of sand cells and water cells stays constant across many steps', () => {
+    const width = 8;
+    const height = 8;
+    const grid = createGrid(width, height);
+    for (let y = 0; y < 4; y++) for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
+    setCell(grid, 3, 0, SAND, 9);
+    setCell(grid, 4, 0, SAND, 9);
+
+    const countOf = (element: number): number => {
+      let count = 0;
+      for (let y = 0; y < height; y++)
+        for (let x = 0; x < width; x++) if (getElement(grid, x, y) === element) count++;
+      return count;
+    };
+    const initialSand = countOf(SAND);
+    const initialWater = countOf(WATER);
+
+    for (let i = 0; i < 100; i++) {
+      step(grid);
+      expect(countOf(SAND)).toBe(initialSand);
+      expect(countOf(WATER)).toBe(initialWater);
+    }
+  });
+});

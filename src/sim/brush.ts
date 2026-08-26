@@ -31,7 +31,7 @@ function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number):
     return;
   }
 
-  if (tool === 'sand' && current === EMPTY) {
+  if (tool === 'sand' && (current === EMPTY || current === WATER)) {
     setCell(grid, x, y, SAND, shade);
   } else if (tool === 'water' && current === EMPTY) {
     setCell(grid, x, y, WATER, shade);

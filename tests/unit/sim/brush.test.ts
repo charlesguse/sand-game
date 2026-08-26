@@ -43,3 +43,21 @@ describe('brush — water', () => {
     expect(getElement(grid, 3, 2)).toBe(WATER);
   });
 });
+
+describe('brush — sand overwrites water', () => {
+  it('the sand brush overwrites water-occupied cells', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 2, 2, WATER, 50);
+    applyBrush(grid, 'sand', 2, 2, 0, 10);
+    expect(getElement(grid, 2, 2)).toBe(SAND);
+    expect(grid.shades[2 * 5 + 2]).toBe(10);
+  });
+
+  it('the water brush never overwrites a sand-occupied cell', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 2, 2, SAND, 50);
+    applyBrush(grid, 'water', 2, 2, 0, 10);
+    expect(getElement(grid, 2, 2)).toBe(SAND);
+    expect(grid.shades[2 * 5 + 2]).toBe(50);
+  });
+});

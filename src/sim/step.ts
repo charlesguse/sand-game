@@ -10,6 +10,17 @@ function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.moved[toIndex] = 1;
 }
 
+function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
+  const aElement = grid.elements[aIndex];
+  const aShade = grid.shades[aIndex];
+  grid.elements[aIndex] = grid.elements[bIndex];
+  grid.shades[aIndex] = grid.shades[bIndex];
+  grid.elements[bIndex] = aElement;
+  grid.shades[bIndex] = aShade;
+  grid.moved[aIndex] = 1;
+  grid.moved[bIndex] = 1;
+}
+
 function stepPowder(grid: Grid, x: number, y: number, i: number): void {
   const { width, height, elements } = grid;
   const belowY = y + 1;
@@ -21,19 +32,34 @@ function stepPowder(grid: Grid, x: number, y: number, i: number): void {
     return;
   }
 
+  if (belowInBounds && isLiquid(elements[belowIndex])) {
+    swapCells(grid, i, belowIndex);
+    return;
+  }
+
   const leftX = x - 1;
   const rightX = x + 1;
-  const belowLeftOpen = belowInBounds && leftX >= 0 && elements[belowY * width + leftX] === EMPTY;
+  const belowLeftIndex = belowInBounds && leftX >= 0 ? belowY * width + leftX : -1;
+  const belowRightIndex = belowInBounds && rightX < width ? belowY * width + rightX : -1;
+  const belowLeftOpen =
+    belowLeftIndex >= 0 &&
+    (elements[belowLeftIndex] === EMPTY || isLiquid(elements[belowLeftIndex]));
   const belowRightOpen =
-    belowInBounds && rightX < width && elements[belowY * width + rightX] === EMPTY;
+    belowRightIndex >= 0 &&
+    (elements[belowRightIndex] === EMPTY || isLiquid(elements[belowRightIndex]));
+
+  const enter = (index: number): void => {
+    if (elements[index] === EMPTY) moveCell(grid, i, index);
+    else swapCells(grid, i, index);
+  };
 
   if (belowLeftOpen && belowRightOpen) {
     const goLeft = Math.random() < 0.5;
-    moveCell(grid, i, belowY * width + (goLeft ? leftX : rightX));
+    enter(goLeft ? belowLeftIndex : belowRightIndex);
   } else if (belowLeftOpen) {
-    moveCell(grid, i, belowY * width + leftX);
+    enter(belowLeftIndex);
   } else if (belowRightOpen) {
-    moveCell(grid, i, belowY * width + rightX);
+    enter(belowRightIndex);
   }
   // else: rest, no change.
 }
