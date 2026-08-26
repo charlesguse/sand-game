@@ -129,11 +129,11 @@ This is a greenfield checkout — no `package.json` exists yet; Phase 1 creates 
 
 **Purpose**: Visual polish and final delivery verification spanning all stories
 
-- [ ] T026 [P] Apply the cheerful pink/rainbow palette to the header and `Toolbar.svelte` styling (FR-002)
-- [ ] T027 Ensure `PlayArea.svelte`/global CSS sets `touch-action: none` on the play area and `image-rendering: pixelated` on the canvas, and that the page never scrolls (FR-003, FR-017, SC-004)
-- [ ] T028 Validate the single-file offline build per quickstart.md: run `npm run build`, confirm `dist/` contains exactly `dist/index.html`, open it via a `file://` URL, and confirm zero network requests in devtools (FR-029, FR-030, SC-008)
-- [ ] T029 [P] Confirm the README-documented `npm install`, `npm run build`, and `npm test` commands all succeed from a clean checkout (FR-032)
-- [ ] T030 Run the performance check from quickstart.md: with the default 270×160 grid at least half full of sand, confirm ≥30fps (targeting 60fps) on a mid-range laptop and a tablet; shrink the grid toward ~200 cells across if profiling shows risk (SC-003, spec Assumptions)
+- [X] T026 [P] Apply the cheerful pink/rainbow palette to the header and `Toolbar.svelte` styling (FR-002)
+- [X] T027 Ensure `PlayArea.svelte`/global CSS sets `touch-action: none` on the play area and `image-rendering: pixelated` on the canvas, and that the page never scrolls (FR-003, FR-017, SC-004)
+- [X] T028 Validate the single-file offline build per quickstart.md: run `npm run build`, confirm `dist/` contains exactly `dist/index.html`, open it via a `file://` URL, and confirm zero network requests in devtools (FR-029, FR-030, SC-008) — verified via build output (`dist/` contains exactly one file) and static analysis (no `fetch`/`XMLHttpRequest`/external `src`/`href` anywhere in source or built HTML); literally opening the file in a browser devtools session is left for the maintainer, no browser available in this environment
+- [X] T029 [P] Confirm the README-documented `npm install`, `npm run build`, and `npm test` commands all succeed from a clean checkout (FR-032)
+- [ ] T030 Run the performance check from quickstart.md: with the default 270×160 grid at least half full of sand, confirm ≥30fps (targeting 60fps) on a mid-range laptop and a tablet; shrink the grid toward ~200 cells across if profiling shows risk (SC-003, spec Assumptions) — NOT verified: no real browser/device available in this environment. A headless Node timing check of `step()` alone over a half-full 270×160 grid measured ~0.32ms/tick (implying ample headroom under the 16.6ms/frame budget at 60fps), but this does not include render/`putImageData` cost or real device conditions. Needs maintainer confirmation on an actual laptop and tablet per quickstart.md.
 
 ---
 

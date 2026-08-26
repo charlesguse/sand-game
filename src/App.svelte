@@ -23,7 +23,22 @@
 <style>
   header {
     text-align: center;
-    font-size: 1.5rem;
+    font-size: 2rem;
+    font-weight: 800;
+    padding: 0.5rem 0;
+    background: linear-gradient(
+      90deg,
+      #ff9ecb,
+      #ffd6a5,
+      #fdffb6,
+      #caffbf,
+      #9bf6ff,
+      #a0c4ff,
+      #ffc6ff
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
   }
 
   main {
@@ -32,5 +47,6 @@
     height: 100vh;
     margin: 0;
     overflow: hidden;
+    background: #fff5fa;
   }
 </style>
