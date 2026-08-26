@@ -11,6 +11,7 @@
     applyRainbowConversions,
     isUnicornTouched,
     eraseObjectsInBrush,
+    eraseObjectsInBrushLine,
     clearObjects,
   } from '../sim/objects';
   import {
@@ -114,6 +115,11 @@
     return [255, 255, 255];
   }
 
+  function drawObjectGlyph(obj: { kind: string; x: number; y: number; size: number }): void {
+    ctx.font = `${obj.size}px sans-serif`;
+    ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
+  }
+
   function render(): void {
     const { width, height, elements, shades, hues } = grid;
     const data = imageData.data;
@@ -137,10 +143,8 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const obj of [...objectsState.rainbows, ...objectsState.unicorns]) {
-      ctx.font = `${obj.size}px sans-serif`;
-      ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
-    }
+    for (const obj of objectsState.rainbows) drawObjectGlyph(obj);
+    for (const obj of objectsState.unicorns) drawObjectGlyph(obj);
 
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
@@ -200,7 +204,11 @@
     const radius = BRUSH_RADII[brushSize];
     const shade = randomShade();
     if (tool === 'eraser') {
-      eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
+      if (lastGridPos) {
+        eraseObjectsInBrushLine(grid, objectsState, lastGridPos, pos, radius);
+      } else {
+        eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
+      }
     }
     if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);

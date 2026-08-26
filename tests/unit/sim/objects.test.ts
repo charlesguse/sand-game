@@ -8,6 +8,7 @@ import {
   removeObject,
   isUnicornTouched,
   eraseObjectsInBrush,
+  eraseObjectsInBrushLine,
   clearObjects,
 } from '../../../src/sim/objects';
 import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type PlacedObject } from '../../../src/sim/types';
@@ -236,6 +237,42 @@ describe('objects — eraseObjectsInBrush', () => {
     expect(state.unicorns.length).toBe(1);
   });
 });
+
+describe('objects — eraseObjectsInBrushLine', () => {
+  it('erases an object straddled between two drag samples, which neither endpoint alone would touch', () => {
+    const grid = createGrid(200, 60);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 100, 20);
+    const [rainbow] = state.rainbows;
+    const midY = rainbow.y + rainbow.size / 2;
+
+    // Sanity check: the endpoints alone are far enough from the footprint to miss it.
+    expect(footprintTouchesPoint(rainbow, 0, midY, 1)).toBe(false);
+    expect(footprintTouchesPoint(rainbow, 199, midY, 1)).toBe(false);
+
+    eraseObjectsInBrushLine(grid, state, { x: 0, y: midY }, { x: 199, y: midY }, 1);
+
+    expect(state.rainbows.length).toBe(0);
+  });
+
+  it('leaves an object untouched when the whole line passes nowhere near its footprint', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+
+    eraseObjectsInBrushLine(grid, state, { x: 150, y: 150 }, { x: 190, y: 190 }, 1);
+
+    expect(state.rainbows.length).toBe(1);
+  });
+});
+
+function footprintTouchesPoint(obj: PlacedObject, px: number, py: number, radius: number): boolean {
+  const closestX = Math.max(obj.x, Math.min(px, obj.x + obj.size - 1));
+  const closestY = Math.max(obj.y, Math.min(py, obj.y + obj.size - 1));
+  const dx = closestX - px;
+  const dy = closestY - py;
+  return dx * dx + dy * dy <= radius * radius;
+}
 
 describe('objects — clearObjects', () => {
   it('resets both rainbows and unicorns lists to empty without touching grid', () => {

@@ -16,42 +16,30 @@ export function createObjectsState(): ObjectsState {
   return { rainbows: [], unicorns: [], nextId: 0 };
 }
 
-/** Visits every in-bounds cell at Chebyshev distance 1 from obj's footprint, excluding the footprint itself. */
-function forEachZoneCell(
-  grid: Grid,
-  obj: { x: number; y: number; size: number },
-  fn: (i: number) => void,
-): void {
-  const minX = obj.x - 1;
-  const maxX = obj.x + obj.size;
-  const minY = obj.y - 1;
-  const maxY = obj.y + obj.size;
-
-  for (let py = minY; py <= maxY; py++) {
-    if (py < 0 || py >= grid.height) continue;
-    const inFootprintRow = py >= obj.y && py < obj.y + obj.size;
-    for (let px = minX; px <= maxX; px++) {
-      if (px < 0 || px >= grid.width) continue;
-      if (inFootprintRow && px >= obj.x && px < obj.x + obj.size) continue;
-      fn(py * grid.width + px);
-    }
-  }
-}
-
 function randomHue(): number {
   return Math.floor(Math.random() * 256);
 }
 
-/** For each rainbow, converts any SAND/DIRT/WATER cell in its zone to RAINBOW_SAND with a fresh hue. */
+/** For each rainbow, converts any SAND/DIRT/WATER cell in its zone to RAINBOW_SAND with a fresh hue. Allocates nothing. */
 export function applyRainbowConversions(grid: Grid, rainbows: PlacedObject[]): void {
   for (const rainbow of rainbows) {
-    forEachZoneCell(grid, rainbow, (i) => {
-      const element = grid.elements[i];
-      if (element === SAND || element === DIRT || element === WATER) {
-        grid.elements[i] = RAINBOW_SAND;
-        grid.hues[i] = randomHue();
+    const minX = Math.max(0, rainbow.x - 1);
+    const maxX = Math.min(grid.width - 1, rainbow.x + rainbow.size);
+    const minY = Math.max(0, rainbow.y - 1);
+    const maxY = Math.min(grid.height - 1, rainbow.y + rainbow.size);
+
+    for (let py = minY; py <= maxY; py++) {
+      const inFootprintRow = py >= rainbow.y && py < rainbow.y + rainbow.size;
+      for (let px = minX; px <= maxX; px++) {
+        if (inFootprintRow && px >= rainbow.x && px < rainbow.x + rainbow.size) continue;
+        const i = py * grid.width + px;
+        const element = grid.elements[i];
+        if (element === SAND || element === DIRT || element === WATER) {
+          grid.elements[i] = RAINBOW_SAND;
+          grid.hues[i] = randomHue();
+        }
       }
-    });
+    }
   }
 }
 
@@ -112,14 +100,22 @@ export function removeObject(grid: Grid, state: ObjectsState, obj: PlacedObject)
   }
 }
 
-/** True if any cell in the unicorn's zone holds an element (not EMPTY, not OBJECT). */
+/** True if any cell in the unicorn's zone holds an element (not EMPTY, not OBJECT). Allocates nothing. */
 export function isUnicornTouched(grid: Grid, unicorn: PlacedObject): boolean {
-  let touched = false;
-  forEachZoneCell(grid, unicorn, (i) => {
-    const element = grid.elements[i];
-    if (element !== EMPTY && element !== OBJECT) touched = true;
-  });
-  return touched;
+  const minX = Math.max(0, unicorn.x - 1);
+  const maxX = Math.min(grid.width - 1, unicorn.x + unicorn.size);
+  const minY = Math.max(0, unicorn.y - 1);
+  const maxY = Math.min(grid.height - 1, unicorn.y + unicorn.size);
+
+  for (let py = minY; py <= maxY; py++) {
+    const inFootprintRow = py >= unicorn.y && py < unicorn.y + unicorn.size;
+    for (let px = minX; px <= maxX; px++) {
+      if (inFootprintRow && px >= unicorn.x && px < unicorn.x + unicorn.size) continue;
+      const element = grid.elements[py * grid.width + px];
+      if (element !== EMPTY && element !== OBJECT) return true;
+    }
+  }
+  return false;
 }
 
 /** True if any cell of obj's footprint lies within the circle of the given radius centered at (cx, cy). */
@@ -131,7 +127,7 @@ function footprintIntersectsCircle(obj: PlacedObject, cx: number, cy: number, ra
   return dx * dx + dy * dy <= radius * radius;
 }
 
-/** Removes, in whole, every object whose footprint touches the eraser brush's circular coverage. */
+/** Removes, in whole, every object whose footprint touches the eraser brush's circular coverage. Allocates nothing. */
 export function eraseObjectsInBrush(
   grid: Grid,
   state: ObjectsState,
@@ -139,9 +135,46 @@ export function eraseObjectsInBrush(
   cy: number,
   radius: number,
 ): void {
-  for (const obj of [...state.rainbows, ...state.unicorns]) {
-    if (footprintIntersectsCircle(obj, cx, cy, radius)) {
-      removeObject(grid, state, obj);
+  for (let i = state.rainbows.length - 1; i >= 0; i--) {
+    const obj = state.rainbows[i];
+    if (footprintIntersectsCircle(obj, cx, cy, radius)) removeObject(grid, state, obj);
+  }
+  for (let i = state.unicorns.length - 1; i >= 0; i--) {
+    const obj = state.unicorns[i];
+    if (footprintIntersectsCircle(obj, cx, cy, radius)) removeObject(grid, state, obj);
+  }
+}
+
+/** Applies eraseObjectsInBrush along every point on the line from `from` to `to`, Bresenham-interpolated the same way applyBrushLine works, so a fast eraser drag whose consecutive pointer samples straddle an object's footprint cannot skip over it. */
+export function eraseObjectsInBrushLine(
+  grid: Grid,
+  state: ObjectsState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  radius: number,
+): void {
+  let x0 = Math.round(from.x);
+  let y0 = Math.round(from.y);
+  const x1 = Math.round(to.x);
+  const y1 = Math.round(to.y);
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  for (;;) {
+    eraseObjectsInBrush(grid, state, x0, y0, radius);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
     }
   }
 }
