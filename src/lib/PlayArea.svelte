@@ -5,6 +5,8 @@
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
+  import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
+  import { createFlashMask, updateFlashMask } from './sparkle';
   import { randomShade } from '../sim/shade';
   import {
     createObjectsState,
@@ -49,12 +51,18 @@
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
-  const unicornTimers = new Map<number, { lastBurstAt: number; lastIdleAt: number }>();
+  const WAND_BURST_COOLDOWN_MS = 2000;
+  const WAND_BURST_COUNT = 18; // 3x the ordinary touch celebration's burst size
+  const unicornTimers = new Map<
+    number,
+    { lastBurstAt: number; lastIdleAt: number; lastWandBurstAt: number }
+  >();
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
   let imageData: ImageData;
+  let flashMask: Uint8Array;
   let drawing = false;
   let lastGridPos: { x: number; y: number } | null = null;
   let displayWidth = $state(GRID_WIDTH);
@@ -132,7 +140,7 @@
   }
 
   function render(): void {
-    const { width, height, elements, shades, hues } = grid;
+    const { width, height, elements, shades, hues, glitter } = grid;
     const data = imageData.data;
     for (let i = 0; i < width * height; i++) {
       const element = elements[i];
@@ -144,7 +152,18 @@
         data[o + 3] = 255;
         continue;
       }
-      const [r, g, b] = colorFor(element, shades[i], hues[i]);
+      let [r, g, b] = colorFor(element, shades[i], hues[i]);
+      if (glitter[i] === 1) {
+        const shimmer = Math.sin(lastFrameNow * 0.006 + i) * 20;
+        r = Math.max(0, Math.min(255, r + shimmer));
+        g = Math.max(0, Math.min(255, g + shimmer));
+        b = Math.max(0, Math.min(255, b + shimmer));
+        if (flashMask[i] === 1) {
+          r = Math.min(255, r + 60);
+          g = Math.min(255, g + 60);
+          b = Math.min(255, b + 60);
+        }
+      }
       data[o] = r;
       data[o + 1] = g;
       data[o + 2] = b;
@@ -174,7 +193,11 @@
     for (const unicorn of objectsState.unicorns) {
       const atX = unicorn.x + unicorn.size / 2;
       const atY = unicorn.y + unicorn.size / 2;
-      const timers = unicornTimers.get(unicorn.id) ?? { lastBurstAt: -Infinity, lastIdleAt: now };
+      const timers = unicornTimers.get(unicorn.id) ?? {
+        lastBurstAt: -Infinity,
+        lastIdleAt: now,
+        lastWandBurstAt: -Infinity,
+      };
 
       if (isUnicornTouched(grid, unicorn) && now - timers.lastBurstAt >= BURST_COOLDOWN_MS) {
         spawnBurst(particles, atX, atY, now);
@@ -197,6 +220,7 @@
     applyRainbowConversions(grid, objectsState.rainbows);
     updateUnicorns(now);
     tickParticles(particles, now);
+    updateFlashMask(grid, flashMask);
     render();
     requestAnimationFrame(frame);
   }
@@ -221,7 +245,29 @@
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
       }
     }
-    if (lastGridPos) {
+    if (tool === 'wand') {
+      const from = lastGridPos ?? pos;
+      if (lastGridPos) {
+        applyWandLine(grid, lastGridPos, pos, radius);
+      } else {
+        applyWand(grid, pos.x, pos.y, radius);
+      }
+      const now = performance.now();
+      for (const unicorn of unicornsTouchedByWandLine(objectsState, from, pos, radius)) {
+        const timers = unicornTimers.get(unicorn.id) ?? {
+          lastBurstAt: -Infinity,
+          lastIdleAt: now,
+          lastWandBurstAt: -Infinity,
+        };
+        if (now - timers.lastWandBurstAt >= WAND_BURST_COOLDOWN_MS) {
+          const atX = unicorn.x + unicorn.size / 2;
+          const atY = unicorn.y + unicorn.size / 2;
+          spawnBurst(particles, atX, atY, now, WAND_BURST_COUNT);
+          timers.lastWandBurstAt = now;
+        }
+        unicornTimers.set(unicorn.id, timers);
+      }
+    } else if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
     } else {
       applyBrush(grid, tool, pos.x, pos.y, radius, shade);
@@ -266,6 +312,7 @@
   onMount(() => {
     ctx = canvas.getContext('2d')!;
     imageData = ctx.createImageData(GRID_WIDTH, GRID_HEIGHT);
+    flashMask = createFlashMask(GRID_WIDTH, GRID_HEIGHT);
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(container);

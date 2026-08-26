@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, inBounds, getElement, getShade, setCell, clearGrid } from '../../../src/sim/grid';
+import {
+  createGrid,
+  inBounds,
+  getElement,
+  getShade,
+  setCell,
+  clearGrid,
+  setGlitter,
+  getGlitter,
+} from '../../../src/sim/grid';
 import { EMPTY, SAND } from '../../../src/sim/types';
 
 describe('grid', () => {
@@ -47,5 +56,24 @@ describe('grid', () => {
     expect([...grid.elements]).toEqual(new Array(4).fill(0));
     expect(grid.width).toBe(2);
     expect(grid.height).toBe(2);
+  });
+
+  it('setCell resets a previously-set glitter bit when drawing a fresh element over the cell', () => {
+    const grid = createGrid(2, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setGlitter(grid, 0, 0, 1);
+    expect(getGlitter(grid, 0, 0)).toBe(true);
+    setCell(grid, 0, 0, SAND, 6);
+    expect(getGlitter(grid, 0, 0)).toBe(false);
+  });
+
+  it('clearGrid zeroes the glitter array alongside elements', () => {
+    const grid = createGrid(2, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setGlitter(grid, 0, 0, 1);
+    setCell(grid, 1, 1, SAND, 6);
+    setGlitter(grid, 1, 1, 1);
+    clearGrid(grid);
+    expect([...grid.glitter]).toEqual(new Array(4).fill(0));
   });
 });

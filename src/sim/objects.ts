@@ -119,7 +119,7 @@ export function isUnicornTouched(grid: Grid, unicorn: PlacedObject): boolean {
 }
 
 /** True if any cell of obj's footprint lies within the circle of the given radius centered at (cx, cy). */
-function footprintIntersectsCircle(obj: PlacedObject, cx: number, cy: number, radius: number): boolean {
+export function footprintIntersectsCircle(obj: PlacedObject, cx: number, cy: number, radius: number): boolean {
   const closestX = Math.max(obj.x, Math.min(cx, obj.x + obj.size - 1));
   const closestY = Math.max(obj.y, Math.min(cy, obj.y + obj.size - 1));
   const dx = closestX - cx;

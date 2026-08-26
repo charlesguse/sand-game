@@ -1,5 +1,5 @@
 export interface Particle {
-  glyph: '✨' | '💖';
+  glyph: '✨' | '💖' | '🎉';
   x: number;
   y: number;
   spawnedAt: number;
@@ -12,7 +12,7 @@ const BURST_COUNT = 6;
 
 let lastTickNow: number | null = null;
 
-function spawn(particles: Particle[], glyph: '✨' | '💖', atX: number, atY: number, now: number): void {
+function spawn(particles: Particle[], glyph: '✨' | '💖' | '🎉', atX: number, atY: number, now: number): void {
   if (particles.length >= MAX_PARTICLES) {
     particles.shift();
   }
@@ -20,10 +20,18 @@ function spawn(particles: Particle[], glyph: '✨' | '💖', atX: number, atY: n
   particles.push({ glyph, x: atX + jitterX, y: atY, spawnedAt: now });
 }
 
-/** Spawns a small celebration burst of sparkle/heart glyphs. */
-export function spawnBurst(particles: Particle[], atX: number, atY: number, now: number): void {
-  for (let i = 0; i < BURST_COUNT; i++) {
-    spawn(particles, Math.random() < 0.5 ? '✨' : '💖', atX, atY, now);
+const BURST_GLYPHS: Array<'✨' | '💖' | '🎉'> = ['✨', '💖', '🎉'];
+
+/** Spawns a small celebration burst of sparkle/heart/party glyphs. */
+export function spawnBurst(
+  particles: Particle[],
+  atX: number,
+  atY: number,
+  now: number,
+  count: number = BURST_COUNT,
+): void {
+  for (let i = 0; i < count; i++) {
+    spawn(particles, BURST_GLYPHS[Math.floor(Math.random() * BURST_GLYPHS.length)], atX, atY, now);
   }
 }
 

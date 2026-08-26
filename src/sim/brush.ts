@@ -1,7 +1,7 @@
 import { EMPTY, SAND, WATER, DIRT, type Grid, type Tool } from './types';
 import { setCell, inBounds } from './grid';
 
-function forEachFootprintCell(
+export function forEachFootprintCell(
   cx: number,
   cy: number,
   radius: number,
