@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement, clearGrid } from '../../../src/sim/grid';
 import { applyBrush } from '../../../src/sim/brush';
-import { EMPTY, SAND, WATER } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT } from '../../../src/sim/types';
 
 describe('brush — pink sand and eraser', () => {
   it('the sand brush paints only into empty footprint cells', () => {
@@ -58,6 +58,29 @@ describe('brush — sand overwrites water', () => {
     setCell(grid, 2, 2, SAND, 50);
     applyBrush(grid, 'water', 2, 2, 0, 10);
     expect(getElement(grid, 2, 2)).toBe(SAND);
+    expect(grid.shades[2 * 5 + 2]).toBe(50);
+  });
+});
+
+describe('brush — magic purple dirt', () => {
+  it('the dirt brush paints into empty and water-occupied cells exactly like the sand brush', () => {
+    const emptyGrid = createGrid(5, 5);
+    applyBrush(emptyGrid, 'dirt', 2, 2, 1, 10);
+    expect(getElement(emptyGrid, 2, 2)).toBe(DIRT);
+    expect(getElement(emptyGrid, 1, 2)).toBe(DIRT);
+
+    const waterGrid = createGrid(5, 5);
+    setCell(waterGrid, 2, 2, WATER, 50);
+    applyBrush(waterGrid, 'dirt', 2, 2, 0, 10);
+    expect(getElement(waterGrid, 2, 2)).toBe(DIRT);
+    expect(waterGrid.shades[2 * 5 + 2]).toBe(10);
+  });
+
+  it('the dirt brush is never overwritten by the water brush', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 2, 2, DIRT, 50);
+    applyBrush(grid, 'water', 2, 2, 0, 10);
+    expect(getElement(grid, 2, 2)).toBe(DIRT);
     expect(grid.shades[2 * 5 + 2]).toBe(50);
   });
 });

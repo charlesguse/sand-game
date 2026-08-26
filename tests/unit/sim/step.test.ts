@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, SAND, WATER } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT } from '../../../src/sim/types';
 
 describe('step — pink sand', () => {
   it('falls one cell per step', () => {
@@ -204,5 +204,48 @@ describe('step — sand sinks through water', () => {
       expect(countOf(SAND)).toBe(initialSand);
       expect(countOf(WATER)).toBe(initialWater);
     }
+  });
+});
+
+describe('step — magic purple dirt (purple sand)', () => {
+  function scatterLayout(grid: ReturnType<typeof createGrid>, element: number): void {
+    const positions = [
+      [3, 0],
+      [4, 0],
+      [3, 1],
+      [7, 0],
+      [1, 2],
+    ];
+    for (const [x, y] of positions) setCell(grid, x, y, element, 5);
+  }
+
+  it('falls, slides, and rests under the identical rules as sand', () => {
+    const sandGrid = createGrid(10, 10);
+    const dirtGrid = createGrid(10, 10);
+    scatterLayout(sandGrid, SAND);
+    scatterLayout(dirtGrid, DIRT);
+
+    for (let i = 0; i < 50; i++) {
+      step(sandGrid);
+      step(dirtGrid);
+    }
+
+    for (let y = 0; y < 10; y++) {
+      for (let x = 0; x < 10; x++) {
+        const sandOccupied = getElement(sandGrid, x, y) !== EMPTY;
+        const dirtOccupied = getElement(dirtGrid, x, y) !== EMPTY;
+        expect(dirtOccupied).toBe(sandOccupied);
+      }
+    }
+  });
+
+  it('a pink grain and a purple grain resting on each other never sink through one another or change element', () => {
+    // width 1 so there is no diagonal escape — isolates straight-down blocking.
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, DIRT, 5);
+    setCell(grid, 0, 1, SAND, 6);
+    for (let i = 0; i < 20; i++) step(grid);
+    expect(getElement(grid, 0, 0)).toBe(DIRT);
+    expect(getElement(grid, 0, 1)).toBe(SAND);
   });
 });

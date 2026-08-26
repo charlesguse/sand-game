@@ -104,11 +104,11 @@ Single client-only project at the repository root (per plan.md's Project Structu
 
 **Independent Test**: Select 💜, draw a pile, and confirm it falls/slopes exactly like pink sand while being clearly purple; draw pink and purple side by side and confirm the piles stay visually distinct and interleave without either turning into the other.
 
-- [ ] T032 [P] [US3] Add a 💜 button to `src/lib/Toolbar.svelte`, grouped with 🩷 and 💧 (depends on T022)
-- [ ] T033 [US3] Widen the `tool` `$state` in `src/App.svelte` to accept `'dirt'`, and route `'dirt'` brush writes through the same painting-priority rule as `'sand'` in `src/sim/brush.ts` (empty-or-water) (FR-011, FR-021) (depends on T023, T029)
-- [ ] T034 [P] [US3] Add a purple color ramp keyed by `(DIRT, shades[i])` to `PlayArea.svelte`'s `putImageData` fill, with at least 8 distinguishable shades, visually distinct from the pink ramp (SC-010, FR-027) (depends on T024)
-- [ ] T035 [P] [US3] `tests/unit/sim/step.test.ts`: dirt falls, slides, and rests under the identical rules as sand; the same initial layout drawn once as `SAND` and once as `DIRT` settles into the identical set of occupied cells (SC-014); a pink grain and a purple grain resting on each other never sink through one another or change element (FR-012) (depends on T028)
-- [ ] T036 [P] [US3] `tests/unit/sim/brush.test.ts`: the dirt brush paints into empty and water-occupied cells exactly like the sand brush, and is never overwritten by the water brush (depends on T029, T033)
+- [X] T032 [P] [US3] Add a 💜 button to `src/lib/Toolbar.svelte`, grouped with 🩷 and 💧 (depends on T022)
+- [X] T033 [US3] Widen the `tool` `$state` in `src/App.svelte` to accept `'dirt'`, and route `'dirt'` brush writes through the same painting-priority rule as `'sand'` in `src/sim/brush.ts` (empty-or-water) (FR-011, FR-021) (depends on T023, T029)
+- [X] T034 [P] [US3] Add a purple color ramp keyed by `(DIRT, shades[i])` to `PlayArea.svelte`'s `putImageData` fill, with at least 8 distinguishable shades, visually distinct from the pink ramp (SC-010, FR-027) (depends on T024)
+- [X] T035 [P] [US3] `tests/unit/sim/step.test.ts`: dirt falls, slides, and rests under the identical rules as sand; the same initial layout drawn once as `SAND` and once as `DIRT` settles into the identical set of occupied cells (SC-014); a pink grain and a purple grain resting on each other never sink through one another or change element (FR-012) (depends on T028)
+- [X] T036 [P] [US3] `tests/unit/sim/brush.test.ts`: the dirt brush paints into empty and water-occupied cells exactly like the sand brush, and is never overwritten by the water brush (depends on T029, T033)
 
 **Checkpoint**: All three elements are independently functional.
 

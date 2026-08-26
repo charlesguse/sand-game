@@ -30,6 +30,14 @@
     >
       💧
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'dirt'}
+      aria-label="Magic purple dirt"
+      onclick={() => onSelectTool('dirt')}
+    >
+      💜
+    </button>
   </div>
 
   <div class="group actions">
