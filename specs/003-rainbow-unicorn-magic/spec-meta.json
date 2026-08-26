@@ -2,7 +2,8 @@
   "issue": 3,
   "spec_dir": "specs/003-rainbow-unicorn-magic",
   "feature_num": "003",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 2,
-  "spec_branch": "spec/003-rainbow-unicorn-magic"
+  "spec_branch": "spec/003-rainbow-unicorn-magic",
+  "pending_re_review_from": []
 }
