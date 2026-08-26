@@ -2,7 +2,8 @@
   "issue": 1,
   "spec_dir": "specs/001-falling-pink-sand",
   "feature_num": "001",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 2,
-  "spec_branch": "spec/001-falling-pink-sand"
+  "spec_branch": "spec/001-falling-pink-sand",
+  "pending_re_review_from": []
 }
