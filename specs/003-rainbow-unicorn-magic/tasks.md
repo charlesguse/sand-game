@@ -136,15 +136,15 @@ Single client-only project (unchanged from 001/002): `src/sim/*` (framework-free
 
 ### Tests for User Story 4 (required by FR-037) ⚠️
 
-- [ ] T033 [P] [US4] Test `eraseObjectsInBrush` in `tests/unit/sim/objects.test.ts`: a brush touching any part of an object's footprint removes the whole object (none of its cells survive), and objects entirely outside the brush's coverage are untouched (FR-031, contracts/sim-core.md `eraseObjectsInBrush`)
-- [ ] T034 [P] [US4] Test `clearObjects` in `tests/unit/sim/objects.test.ts`: resets both `rainbows` and `unicorns` lists to empty without touching `grid` (FR-032, contracts/sim-core.md `clearObjects`)
+- [X] T033 [P] [US4] Test `eraseObjectsInBrush` in `tests/unit/sim/objects.test.ts`: a brush touching any part of an object's footprint removes the whole object (none of its cells survive), and objects entirely outside the brush's coverage are untouched (FR-031, contracts/sim-core.md `eraseObjectsInBrush`)
+- [X] T034 [P] [US4] Test `clearObjects` in `tests/unit/sim/objects.test.ts`: resets both `rainbows` and `unicorns` lists to empty without touching `grid` (FR-032, contracts/sim-core.md `clearObjects`)
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Implement `eraseObjectsInBrush(grid, state, cx, cy, radius)` in `src/sim/objects.ts`: for every object in `state.rainbows`/`state.unicorns`, check whether any footprint cell lies within the brush's circular coverage (reusing `brush.ts`'s footprint-math predicate) and, if so, call `removeObject` for that object in full (depends on T016; contracts/sim-core.md `eraseObjectsInBrush`, FR-031)
-- [ ] T036 [US4] Implement `clearObjects(state)` in `src/sim/objects.ts`: sets `state.rainbows = []` and `state.unicorns = []` without touching `grid` (contracts/sim-core.md `clearObjects`, FR-032)
-- [ ] T037 [US4] Wire `PlayArea.svelte` to call `eraseObjectsInBrush(grid, objectsState, cx, cy, radius)` immediately before the existing `applyBrush(grid, 'eraser', ...)` call whenever `tool === 'eraser'` (depends on T035; research.md §9, FR-031)
-- [ ] T038 [US4] Wire the clear-all control in `App.svelte`/`PlayArea.svelte` to call `clearObjects(objectsState)` alongside the existing `clearGrid(grid)` call, and to clear the live particles array, without changing the selected tool or brush size (depends on T036, T026; FR-032, FR-035)
+- [X] T035 [US4] Implement `eraseObjectsInBrush(grid, state, cx, cy, radius)` in `src/sim/objects.ts`: for every object in `state.rainbows`/`state.unicorns`, check whether any footprint cell lies within the brush's circular coverage (reusing `brush.ts`'s footprint-math predicate) and, if so, call `removeObject` for that object in full (depends on T016; contracts/sim-core.md `eraseObjectsInBrush`, FR-031)
+- [X] T036 [US4] Implement `clearObjects(state)` in `src/sim/objects.ts`: sets `state.rainbows = []` and `state.unicorns = []` without touching `grid` (contracts/sim-core.md `clearObjects`, FR-032)
+- [X] T037 [US4] Wire `PlayArea.svelte` to call `eraseObjectsInBrush(grid, objectsState, cx, cy, radius)` immediately before the existing `applyBrush(grid, 'eraser', ...)` call whenever `tool === 'eraser'` (depends on T035; research.md §9, FR-031)
+- [X] T038 [US4] Wire the clear-all control in `App.svelte`/`PlayArea.svelte` to call `clearObjects(objectsState)` alongside the existing `clearGrid(grid)` call, and to clear the live particles array, without changing the selected tool or brush size (depends on T036, T026; FR-032, FR-035)
 
 **Checkpoint**: All four user stories are independently functional — objects can be placed, converted through, celebrated with, built on, erased individually, and cleared entirely.
 

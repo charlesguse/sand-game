@@ -121,3 +121,33 @@ export function isUnicornTouched(grid: Grid, unicorn: PlacedObject): boolean {
   });
   return touched;
 }
+
+/** True if any cell of obj's footprint lies within the circle of the given radius centered at (cx, cy). */
+function footprintIntersectsCircle(obj: PlacedObject, cx: number, cy: number, radius: number): boolean {
+  const closestX = Math.max(obj.x, Math.min(cx, obj.x + obj.size - 1));
+  const closestY = Math.max(obj.y, Math.min(cy, obj.y + obj.size - 1));
+  const dx = closestX - cx;
+  const dy = closestY - cy;
+  return dx * dx + dy * dy <= radius * radius;
+}
+
+/** Removes, in whole, every object whose footprint touches the eraser brush's circular coverage. */
+export function eraseObjectsInBrush(
+  grid: Grid,
+  state: ObjectsState,
+  cx: number,
+  cy: number,
+  radius: number,
+): void {
+  for (const obj of [...state.rainbows, ...state.unicorns]) {
+    if (footprintIntersectsCircle(obj, cx, cy, radius)) {
+      removeObject(grid, state, obj);
+    }
+  }
+}
+
+/** Resets both object lists to empty without touching grid. */
+export function clearObjects(state: ObjectsState): void {
+  state.rainbows = [];
+  state.unicorns = [];
+}

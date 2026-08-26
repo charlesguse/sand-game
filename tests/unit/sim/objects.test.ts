@@ -7,6 +7,8 @@ import {
   placeObject,
   removeObject,
   isUnicornTouched,
+  eraseObjectsInBrush,
+  clearObjects,
 } from '../../../src/sim/objects';
 import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type PlacedObject } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
@@ -201,5 +203,53 @@ describe('objects — isUnicornTouched', () => {
 
     expect(isUnicornTouched(grid, touchedUnicorn)).toBe(true);
     expect(isUnicornTouched(grid, untouchedUnicorn)).toBe(false);
+  });
+});
+
+describe('objects — eraseObjectsInBrush', () => {
+  it('removes the whole object when the brush touches any part of its footprint', () => {
+    const grid = createGrid(60, 60);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+    const [rainbow] = state.rainbows;
+
+    // Brush centered just outside the footprint's top-left corner, radius reaching in.
+    eraseObjectsInBrush(grid, state, rainbow.x, rainbow.y, 2);
+
+    expect(state.rainbows.length).toBe(0);
+    for (let py = rainbow.y; py < rainbow.y + rainbow.size; py++) {
+      for (let px = rainbow.x; px < rainbow.x + rainbow.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+  });
+
+  it('leaves objects entirely outside the brush coverage untouched', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+    placeObject(grid, state, 'unicorn', 150, 150);
+
+    eraseObjectsInBrush(grid, state, 20, 20, 2);
+
+    expect(state.rainbows.length).toBe(0);
+    expect(state.unicorns.length).toBe(1);
+  });
+});
+
+describe('objects — clearObjects', () => {
+  it('resets both rainbows and unicorns lists to empty without touching grid', () => {
+    const grid = createGrid(60, 60);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+    placeObject(grid, state, 'unicorn', 40, 20);
+    const rainbowCell = { x: state.rainbows[0].x, y: state.rainbows[0].y };
+
+    clearObjects(state);
+
+    expect(state.rainbows).toEqual([]);
+    expect(state.unicorns).toEqual([]);
+    // grid is untouched by clearObjects — the OBJECT cell byte is still there.
+    expect(getElement(grid, rainbowCell.x, rainbowCell.y)).toBe(OBJECT);
   });
 });

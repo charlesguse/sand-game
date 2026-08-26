@@ -5,7 +5,14 @@
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { randomShade } from '../sim/shade';
-  import { createObjectsState, placeObject, applyRainbowConversions, isUnicornTouched } from '../sim/objects';
+  import {
+    createObjectsState,
+    placeObject,
+    applyRainbowConversions,
+    isUnicornTouched,
+    eraseObjectsInBrush,
+    clearObjects,
+  } from '../sim/objects';
   import {
     type Particle,
     PARTICLE_LIFETIME_MS,
@@ -192,6 +199,9 @@
   function paintAt(pos: { x: number; y: number }): void {
     const radius = BRUSH_RADII[brushSize];
     const shade = randomShade();
+    if (tool === 'eraser') {
+      eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
+    }
     if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
     } else {
@@ -225,6 +235,8 @@
 
   export function clearAll(): void {
     clearGridState(grid);
+    clearObjects(objectsState);
+    particles.length = 0;
   }
 
   onMount(() => {
