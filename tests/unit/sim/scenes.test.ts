@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { sceneRegions, generateLandscape1, generateLandscape2, loadScene } from '../../../src/sim/scenes';
 import { createGrid, getElement, setCell } from '../../../src/sim/grid';
-import { createObjectsState, placeObject, applyRainbowConversions } from '../../../src/sim/objects';
+import {
+  createObjectsState,
+  placeObject,
+  applyRainbowConversions,
+  eraseObjectsInBrush,
+} from '../../../src/sim/objects';
 import { step } from '../../../src/sim/step';
 import { DIRT, SAND, WATER, EMPTY, type Grid } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
@@ -398,5 +403,52 @@ describe('scenes — size robustness (FR-022)', () => {
     }
     expect(objects.unicorns.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
+  });
+});
+
+describe('scenes — interaction after load (US3)', () => {
+  it('erases the scene’s own unicorn and rainbow exactly like hand-placed objects, releasing their footprint to EMPTY', () => {
+    const grid = createGrid(270, 160);
+    const objects = createObjectsState();
+    loadScene('landscape1', grid, objects);
+
+    const [sceneUnicorn] = objects.unicorns;
+    eraseObjectsInBrush(
+      grid,
+      objects,
+      sceneUnicorn.x + sceneUnicorn.size / 2,
+      sceneUnicorn.y + sceneUnicorn.size / 2,
+      2,
+    );
+    expect(objects.unicorns.length).toBe(0);
+    for (let py = sceneUnicorn.y; py < sceneUnicorn.y + sceneUnicorn.size; py++) {
+      for (let px = sceneUnicorn.x; px < sceneUnicorn.x + sceneUnicorn.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+
+    const [sceneRainbow] = objects.rainbows;
+    eraseObjectsInBrush(
+      grid,
+      objects,
+      sceneRainbow.x + sceneRainbow.size / 2,
+      sceneRainbow.y + sceneRainbow.size / 2,
+      2,
+    );
+    expect(objects.rainbows.length).toBe(0);
+  });
+
+  it('reaching the per-type cap of 3 evicts the scene’s own object first, since it was placed oldest (FR-014)', () => {
+    const grid = createGrid(270, 160);
+    const objects = createObjectsState();
+    loadScene('landscape1', grid, objects);
+    const sceneRainbowId = objects.rainbows[0].id;
+
+    placeObject(grid, objects, 'rainbow', 50, 50);
+    placeObject(grid, objects, 'rainbow', 100, 50);
+    placeObject(grid, objects, 'rainbow', 150, 50);
+
+    expect(objects.rainbows.length).toBe(3);
+    expect(objects.rainbows.some((o) => o.id === sceneRainbowId)).toBe(false);
   });
 });
