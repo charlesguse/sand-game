@@ -114,8 +114,8 @@ Single client-only project (unchanged from 001/002/003): `src/sim/*` (framework-
 
 **Purpose**: Final verification that this feature adds no regression and meets its build/performance/manual-check bar.
 
-- [ ] T017 Run `npm run build` and confirm `dist/` contains exactly one file, `dist/index.html`, with zero new runtime dependencies added to `package.json` (FR-029, SC-016)
-- [ ] T018 Run `npm test` and confirm every test from `specs/001-falling-pink-sand`, `specs/002-water-and-purple-dirt`, and `specs/003-rainbow-unicorn-magic` still passes unchanged, alongside the new `scenes.test.ts` suite (FR-027, SC-012)
+- [X] T017 Run `npm run build` and confirm `dist/` contains exactly one file, `dist/index.html`, with zero new runtime dependencies added to `package.json` (FR-029, SC-016)
+- [X] T018 Run `npm test` and confirm every test from `specs/001-falling-pink-sand`, `specs/002-water-and-purple-dirt`, and `specs/003-rainbow-unicorn-magic` still passes unchanged, alongside the new `scenes.test.ts` suite (FR-027, SC-012)
 - [ ] T019 [P] Manually validate quickstart.md's "Manual-only checks" section in a running `npm run dev` session: each landscape reads as a place (not a scatter), hills look rolling, the beach slopes into a shoreline, rainbows sit in the sky uncut, the unicorn looks grounded, scene loads are flicker-free, the scene button group reads as "pick a world" distinct from 🗑️, and switching between scenes feels instant with no lag (spec's "Visual checks for the maintainer" section — no automated coverage)
 - [ ] T020 [P] Manually validate quickstart.md's Performance check (SC-010, FR-024, FR-025): on a mid-range laptop and, if available, a tablet, confirm a scene tap shows the new world on the very next frame with no progress indicator, and that with either landscape loaded and elements in motion the devtools FPS overlay shows ≥30fps sustained, targeting 60fps
 
