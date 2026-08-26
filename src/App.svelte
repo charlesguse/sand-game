@@ -1,7 +1,7 @@
 <script lang="ts">
   import Toolbar from './lib/Toolbar.svelte';
   import PlayArea from './lib/PlayArea.svelte';
-  import type { Tool, BrushSize } from './sim/types';
+  import type { Tool, BrushSize, SceneId } from './sim/types';
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
@@ -18,6 +18,10 @@
   function clearAll(): void {
     playArea.clearAll();
   }
+
+  function selectScene(id: SceneId): void {
+    playArea.loadScene(id);
+  }
 </script>
 
 <main>
@@ -27,6 +31,7 @@
     {brushSize}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
+    onSelectScene={selectScene}
     onClearAll={clearAll}
   />
 </main>

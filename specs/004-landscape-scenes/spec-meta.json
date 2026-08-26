@@ -2,7 +2,8 @@
   "issue": 4,
   "spec_dir": "specs/004-landscape-scenes",
   "feature_num": "004",
-  "stage": "spec",
-  "iteration": 0,
-  "spec_branch": null
+  "stage": "review",
+  "iteration": 1,
+  "spec_branch": "spec/004-landscape-scenes",
+  "pending_re_review_from": []
 }
