@@ -182,13 +182,15 @@ describe('step — sand sinks through water', () => {
     expect(getElement(grid, 0, 1)).toBe(SAND);
   });
 
-  it('the count of sand cells and water cells stays constant across many steps', () => {
+  it('the count of sand, water, and dirt cells stays constant across many steps', () => {
     const width = 8;
     const height = 8;
     const grid = createGrid(width, height);
     for (let y = 0; y < 4; y++) for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
     setCell(grid, 3, 0, SAND, 9);
     setCell(grid, 4, 0, SAND, 9);
+    setCell(grid, 5, 0, DIRT, 9);
+    setCell(grid, 6, 0, DIRT, 9);
 
     const countOf = (element: number): number => {
       let count = 0;
@@ -198,12 +200,67 @@ describe('step — sand sinks through water', () => {
     };
     const initialSand = countOf(SAND);
     const initialWater = countOf(WATER);
+    const initialDirt = countOf(DIRT);
 
     for (let i = 0; i < 100; i++) {
       step(grid);
       expect(countOf(SAND)).toBe(initialSand);
       expect(countOf(WATER)).toBe(initialWater);
+      expect(countOf(DIRT)).toBe(initialDirt);
     }
+  });
+
+  it('water poured into a sand bowl stays inside the container after settling', () => {
+    const width = 12;
+    const height = 12;
+    const grid = createGrid(width, height);
+
+    // Build a sand bowl: a flat sand floor with tall sand walls on both sides.
+    for (let x = 0; x < width; x++) setCell(grid, x, height - 1, SAND, 5);
+    for (let y = 4; y < height; y++) {
+      setCell(grid, 0, y, SAND, 5);
+      setCell(grid, 1, y, SAND, 5);
+      setCell(grid, width - 2, y, SAND, 5);
+      setCell(grid, width - 1, y, SAND, 5);
+    }
+    for (let i = 0; i < 20; i++) step(grid); // let the walls settle before pouring
+
+    // Pour water inside the bowl's hollow.
+    for (let x = 2; x < width - 2; x++) setCell(grid, x, 3, WATER, 9);
+    const initialWaterCount = width - 4;
+
+    for (let i = 0; i < 300; i++) step(grid);
+
+    let waterInsideContainer = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (getElement(grid, x, y) === WATER) {
+          expect(x).toBeGreaterThanOrEqual(2);
+          expect(x).toBeLessThanOrEqual(width - 3);
+          waterInsideContainer++;
+        }
+      }
+    }
+    expect(waterInsideContainer).toBe(initialWaterCount);
+  });
+
+  it('step() is idempotent on a fully-settled mixed water-and-powder grid', () => {
+    const width = 6;
+    const height = 6;
+    const grid = createGrid(width, height);
+    // Bottom rows fully packed with powder, no empty cells for anything to move into.
+    for (let x = 0; x < width; x++) {
+      setCell(grid, x, height - 1, SAND, 5);
+      setCell(grid, x, height - 2, DIRT, 6);
+    }
+    // A flat water layer above, also fully packed with no side/diagonal openings.
+    for (let x = 0; x < width; x++) setCell(grid, x, height - 3, WATER, 7);
+
+    step(grid); // one settling step in case anything can still move
+    const before: number[] = Array.from(grid.elements);
+    step(grid);
+    const after: number[] = Array.from(grid.elements);
+    expect(after).toEqual(before);
   });
 });
 

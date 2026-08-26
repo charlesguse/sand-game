@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII } from './layout';
+  import { GRID_WIDTH, GRID_HEIGHT, BRUSH_RADII, computeCanvasSize } from './layout';
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
@@ -16,11 +16,20 @@
 
   const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
 
+  let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
   let imageData: ImageData;
   let drawing = false;
   let lastGridPos: { x: number; y: number } | null = null;
+  let displayWidth = $state(GRID_WIDTH);
+  let displayHeight = $state(GRID_HEIGHT);
+
+  function resize(): void {
+    const { width, height } = computeCanvasSize(container.clientWidth, container.clientHeight);
+    displayWidth = width;
+    displayHeight = height;
+  }
 
   // Pink ramp: 8 hand-picked shades from pale to hot pink, indexed by shades[i] % length.
   const PINK_RAMP: [number, number, number][] = [
@@ -136,28 +145,41 @@
   onMount(() => {
     ctx = canvas.getContext('2d')!;
     imageData = ctx.createImageData(GRID_WIDTH, GRID_HEIGHT);
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
     requestAnimationFrame(frame);
+    return () => observer.disconnect();
   });
 </script>
 
-<canvas
-  bind:this={canvas}
-  width={GRID_WIDTH}
-  height={GRID_HEIGHT}
-  class="play-area"
-  onpointerdown={handlePointerDown}
-  onpointermove={handlePointerMove}
-  onpointerup={handlePointerUp}
-  onpointercancel={handlePointerUp}
-></canvas>
+<div bind:this={container} class="play-area-container">
+  <canvas
+    bind:this={canvas}
+    width={GRID_WIDTH}
+    height={GRID_HEIGHT}
+    style="width: {displayWidth}px; height: {displayHeight}px;"
+    class="play-area"
+    onpointerdown={handlePointerDown}
+    onpointermove={handlePointerMove}
+    onpointerup={handlePointerUp}
+    onpointercancel={handlePointerUp}
+  ></canvas>
+</div>
 
 <style>
-  .play-area {
+  .play-area-container {
     width: 100%;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+  }
+
+  .play-area {
     display: block;
     image-rendering: pixelated;
     touch-action: none;
-    background: white;
   }
 </style>

@@ -216,7 +216,7 @@ Each story adds value without breaking the previous ones, per the spec's own pri
 
 **Purpose**: Close coverage/polish gaps found by `/speckit-converge` after the first implement pass. No CRITICAL or HIGH findings — all core functional requirements, success criteria, and constitution principles are met by Phases 1-7.
 
-- [ ] T045 [P] Wire `src/lib/PlayArea.svelte`'s canvas sizing through `computeCanvasSize` in `src/lib/layout.ts` (currently unused) so the displayed canvas preserves the grid's 270:160 aspect ratio with square cells instead of being CSS-stretched to fill its flex container per plan.md Project Structure (partial)
-- [ ] T046 [P] Extend the element-conservation coverage in `tests/unit/sim/step.test.ts` to also track `DIRT` cell counts alongside `SAND`/`WATER` across many steps per SC-005 (partial)
-- [ ] T047 [P] Add a test in `tests/unit/sim/step.test.ts` that pours water into a sand-hollow/bowl shape and asserts 100% of the water cells remain inside the container after settling per US1/AC6, SC-003 (partial)
-- [ ] T048 [P] Add a test in `tests/unit/sim/step.test.ts` asserting `step()` is idempotent (produces zero changes) on a fully-settled grid containing a mixed water-and-powder configuration, per the `step()` contract in contracts/sim-core.md (partial)
+- [X] T045 [P] Wire `src/lib/PlayArea.svelte`'s canvas sizing through `computeCanvasSize` in `src/lib/layout.ts` (currently unused) so the displayed canvas preserves the grid's 270:160 aspect ratio with square cells instead of being CSS-stretched to fill its flex container per plan.md Project Structure (partial)
+- [X] T046 [P] Extend the element-conservation coverage in `tests/unit/sim/step.test.ts` to also track `DIRT` cell counts alongside `SAND`/`WATER` across many steps per SC-005 (partial)
+- [X] T047 [P] Add a test in `tests/unit/sim/step.test.ts` that pours water into a sand-hollow/bowl shape and asserts 100% of the water cells remain inside the container after settling per US1/AC6, SC-003 (partial)
+- [X] T048 [P] Add a test in `tests/unit/sim/step.test.ts` asserting `step()` is idempotent (produces zero changes) on a fully-settled grid containing a mixed water-and-powder configuration, per the `step()` contract in contracts/sim-core.md (partial)

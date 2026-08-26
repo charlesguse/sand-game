@@ -45,7 +45,7 @@
     height: 100vh;
   }
 
-  main :global(.play-area) {
+  main :global(.play-area-container) {
     flex: 1;
     min-height: 0;
   }
