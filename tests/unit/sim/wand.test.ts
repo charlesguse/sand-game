@@ -3,7 +3,7 @@ import { createGrid, setCell, getElement, getGlitter } from '../../../src/sim/gr
 import { applyWand, applyWandLine } from '../../../src/sim/wand';
 import { applyRainbowConversions, createObjectsState, placeObject } from '../../../src/sim/objects';
 import { forEachFootprintCell } from '../../../src/sim/brush';
-import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT } from '../../../src/sim/types';
 
 function coveredCells(cx: number, cy: number, radius: number): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = [];
@@ -161,6 +161,37 @@ describe('wand — sprinkle into empty space', () => {
     expect(Array.from(grid.elements)).toEqual(elementsAfterFirst);
     expect(Array.from(grid.hues)).toEqual(huesAfterFirst);
     expect(Array.from(grid.glitter)).toEqual(glitterAfterFirst);
+  });
+});
+
+describe('wand — objects are left untouched', () => {
+  it('never glitters an OBJECT footprint cell and never alters the objects list', () => {
+    const grid = createGrid(120, 60);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'rainbow', 20, 20);
+    placeObject(grid, objects, 'unicorn', 80, 20);
+    const rainbowBefore = { ...objects.rainbows[0] };
+    const unicornBefore = { ...objects.unicorns[0] };
+
+    applyWandLine(grid, { x: 0, y: 20 }, { x: 119, y: 20 }, 5);
+
+    for (let py = rainbowBefore.y; py < rainbowBefore.y + rainbowBefore.size; py++) {
+      for (let px = rainbowBefore.x; px < rainbowBefore.x + rainbowBefore.size; px++) {
+        expect(getElement(grid, px, py)).toBe(OBJECT);
+        expect(getGlitter(grid, px, py)).toBe(false);
+      }
+    }
+    for (let py = unicornBefore.y; py < unicornBefore.y + unicornBefore.size; py++) {
+      for (let px = unicornBefore.x; px < unicornBefore.x + unicornBefore.size; px++) {
+        expect(getElement(grid, px, py)).toBe(OBJECT);
+        expect(getGlitter(grid, px, py)).toBe(false);
+      }
+    }
+
+    expect(objects.rainbows.length).toBe(1);
+    expect(objects.unicorns.length).toBe(1);
+    expect(objects.rainbows[0]).toEqual(rainbowBefore);
+    expect(objects.unicorns[0]).toEqual(unicornBefore);
   });
 });
 

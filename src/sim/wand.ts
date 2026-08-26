@@ -1,6 +1,7 @@
-import { EMPTY, OBJECT, RAINBOW_SAND, type Grid } from './types';
+import { EMPTY, OBJECT, RAINBOW_SAND, type Grid, type ObjectsState, type PlacedObject } from './types';
 import { setCell, setGlitter } from './grid';
 import { forEachFootprintCell } from './brush';
+import { footprintIntersectsCircle } from './objects';
 
 /** ~1-in-5 position-only lattice — never depends on Math.random() or call history (research.md §4). */
 function isSprinkleSite(x: number, y: number): boolean {
@@ -66,4 +67,48 @@ export function applyWandLine(
       y0 += sy;
     }
   }
+}
+
+/** Bresenham-walks the segment and returns every distinct unicorn whose footprint intersects any point on the path. Never reads or writes objects.rainbows or Grid. */
+export function unicornsTouchedByWandLine(
+  objects: ObjectsState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  radius: number,
+): PlacedObject[] {
+  const touched: PlacedObject[] = [];
+  const touchedIds = new Set<number>();
+
+  let x0 = Math.round(from.x);
+  let y0 = Math.round(from.y);
+  const x1 = Math.round(to.x);
+  const y1 = Math.round(to.y);
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  for (;;) {
+    for (const unicorn of objects.unicorns) {
+      if (touchedIds.has(unicorn.id)) continue;
+      if (footprintIntersectsCircle(unicorn, x0, y0, radius)) {
+        touchedIds.add(unicorn.id);
+        touched.push(unicorn);
+      }
+    }
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+
+  return touched;
 }

@@ -5,7 +5,7 @@
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
-  import { applyWand, applyWandLine } from '../sim/wand';
+  import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
   import { createFlashMask, updateFlashMask } from './sparkle';
   import { randomShade } from '../sim/shade';
   import {
@@ -51,7 +51,12 @@
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
-  const unicornTimers = new Map<number, { lastBurstAt: number; lastIdleAt: number }>();
+  const WAND_BURST_COOLDOWN_MS = 2000;
+  const WAND_BURST_COUNT = 18; // 3x the ordinary touch celebration's burst size
+  const unicornTimers = new Map<
+    number,
+    { lastBurstAt: number; lastIdleAt: number; lastWandBurstAt: number }
+  >();
 
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
@@ -188,7 +193,11 @@
     for (const unicorn of objectsState.unicorns) {
       const atX = unicorn.x + unicorn.size / 2;
       const atY = unicorn.y + unicorn.size / 2;
-      const timers = unicornTimers.get(unicorn.id) ?? { lastBurstAt: -Infinity, lastIdleAt: now };
+      const timers = unicornTimers.get(unicorn.id) ?? {
+        lastBurstAt: -Infinity,
+        lastIdleAt: now,
+        lastWandBurstAt: -Infinity,
+      };
 
       if (isUnicornTouched(grid, unicorn) && now - timers.lastBurstAt >= BURST_COOLDOWN_MS) {
         spawnBurst(particles, atX, atY, now);
@@ -237,10 +246,26 @@
       }
     }
     if (tool === 'wand') {
+      const from = lastGridPos ?? pos;
       if (lastGridPos) {
         applyWandLine(grid, lastGridPos, pos, radius);
       } else {
         applyWand(grid, pos.x, pos.y, radius);
+      }
+      const now = performance.now();
+      for (const unicorn of unicornsTouchedByWandLine(objectsState, from, pos, radius)) {
+        const timers = unicornTimers.get(unicorn.id) ?? {
+          lastBurstAt: -Infinity,
+          lastIdleAt: now,
+          lastWandBurstAt: -Infinity,
+        };
+        if (now - timers.lastWandBurstAt >= WAND_BURST_COOLDOWN_MS) {
+          const atX = unicorn.x + unicorn.size / 2;
+          const atY = unicorn.y + unicorn.size / 2;
+          spawnBurst(particles, atX, atY, now, WAND_BURST_COUNT);
+          timers.lastWandBurstAt = now;
+        }
+        unicornTimers.set(unicorn.id, timers);
       }
     } else if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
