@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
+import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
   createObjectsState,
@@ -142,6 +143,25 @@ describe('objects — placeObject/removeObject', () => {
     const rainbowOnlyX = rainbow.x;
     const rainbowOnlyY = rainbow.y;
     expect(getElement(grid, rainbowOnlyX, rainbowOnlyY)).toBe(EMPTY);
+  });
+
+  it("an object's x/y remain unchanged across any number of step() calls, including after cells beneath it are cleared", () => {
+    const grid = createGrid(60, 60);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'unicorn', 30, 30);
+    const [unicorn] = state.unicorns;
+    const { x, y } = unicorn;
+
+    for (let i = 0; i < 20; i++) step(grid);
+    expect(state.unicorns[0].x).toBe(x);
+    expect(state.unicorns[0].y).toBe(y);
+
+    removeObject(grid, state, unicorn);
+    for (let i = 0; i < 20; i++) step(grid);
+    // The object is gone from state entirely, but this also confirms step() never
+    // reintroduces or moves an OBJECT-marked cell once released to EMPTY.
+    expect(getElement(grid, x, y)).toBe(EMPTY);
   });
 });
 

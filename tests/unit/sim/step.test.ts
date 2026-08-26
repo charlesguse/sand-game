@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createGrid, setCell, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT } from '../../../src/sim/types';
 
 describe('step — pink sand', () => {
   it('falls one cell per step', () => {
@@ -381,5 +381,49 @@ describe('step — rainbow sand', () => {
     step(grid);
     expect(getElement(grid, 1, 0)).toBe(RAINBOW_SAND);
     expect(grid.hues[0 * 3 + 1]).toBe(42);
+  });
+});
+
+describe('step — objects are solid ground', () => {
+  it('a falling powder grain stops directly above an OBJECT footprint cell instead of entering it', () => {
+    // width 1 so there is no diagonal escape — isolates straight-down blocking.
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, SAND, 5);
+    setCell(grid, 0, 1, OBJECT, 0);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(SAND);
+    expect(getElement(grid, 0, 1)).toBe(OBJECT);
+  });
+
+  it('a powder grain blocked on all sides by OBJECT/other powders rests in place, not destroyed or teleported', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, SAND, 5);
+    setCell(grid, 0, 1, OBJECT, 0);
+    setCell(grid, 1, 1, OBJECT, 0);
+    setCell(grid, 2, 1, OBJECT, 0);
+    step(grid);
+    expect(getElement(grid, 1, 0)).toBe(SAND);
+  });
+
+  it('a grain resting on an object shoulder slides off exactly as it would off a powder pile', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, SAND, 5);
+    setCell(grid, 1, 1, OBJECT, 0);
+    // left/right below are empty, so the grain should slide diagonally off the shoulder.
+    step(grid);
+    const left = getElement(grid, 0, 1);
+    const right = getElement(grid, 2, 1);
+    expect(left === SAND || right === SAND).toBe(true);
+  });
+
+  it('water resting on an object spreads sideways off it rather than passing through', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, WATER, 5);
+    setCell(grid, 1, 1, OBJECT, 0);
+    step(grid);
+    expect(getElement(grid, 1, 1)).toBe(OBJECT);
+    const left = getElement(grid, 0, 1);
+    const right = getElement(grid, 2, 1);
+    expect(left === WATER || right === WATER).toBe(true);
   });
 });
