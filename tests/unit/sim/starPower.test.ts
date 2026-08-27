@@ -10,7 +10,7 @@ import {
 import { step } from '../../../src/sim/step';
 import { applyWand } from '../../../src/sim/wand';
 import { randomBurnLife } from '../../../src/sim/shade';
-import { EMPTY, GRASS, WATER, SAND, OBJECT, RAINBOW_SAND, STAR_POWER } from '../../../src/sim/types';
+import { EMPTY, GRASS, WATER, SAND, OBJECT, RAINBOW_SAND, STAR_POWER, FOG } from '../../../src/sim/types';
 
 describe('starPower — never moves (FR-004, SC-002, Scenario 3)', () => {
   it("a star power cell's position is unchanged across any number of step() calls with nothing else on the field", () => {
@@ -307,7 +307,34 @@ describe('starPower — unrelated grass keeps drinking and growing elsewhere on 
   });
 });
 
-describe('starPower — water quenches on contact (US3, Scenario 1, 2, FR-016, FR-017, SC-009)', () => {
+describe('starPower — water quenches on contact (US3, Scenario 1, 2, FR-007, FR-016, FR-017, SC-009 — narrowed by spec 009 FR-007 for the unfuelled case)', () => {
+  it('an unfuelled star power cell orthogonally adjacent to WATER charms exactly one adjacent water cell into fog — never 0, never more than 1 (spec 009 Scenario 2, FR-007, SC-003)', () => {
+    // A single-row grid (wide enough that the FR-011 sky-limit floor is at least 1), water on
+    // both sides so both are candidate quench neighbors. Counting globally (rather than at fixed
+    // positions) sidesteps same-pass gravity/flow reshuffling once the star-power cell's own spot
+    // empties out — only the totals matter here.
+    const grid = createGrid(20, 1);
+    setCell(grid, 9, 0, WATER, 5);
+    igniteStarPower(grid, 10, 0, false);
+    setCell(grid, 11, 0, WATER, 5);
+
+    step(grid);
+
+    let fogCount = 0;
+    let waterCount = 0;
+    let starPowerCount = 0;
+    for (let idx = 0; idx < grid.elements.length; idx++) {
+      if (grid.elements[idx] === FOG) fogCount++;
+      else if (grid.elements[idx] === WATER) waterCount++;
+      else if (grid.elements[idx] === STAR_POWER) starPowerCount++;
+    }
+    expect(starPowerCount).toBe(0); // extinguished, unfuelled — no glitter grain
+    expect(fogCount).toBe(1);
+    expect(waterCount).toBe(1);
+    expect(grid.fogCloudCount).toBe(1);
+  });
+
+
   it('a star power cell orthogonally adjacent to WATER is extinguished within one step() call regardless of its age, even on the step it would otherwise ignite a neighbor, and the water cell is byte-identical before and after', () => {
     const priorStepsCases = [0, 5, 9]; // 9 is the step before it would otherwise reach the ignite delay
     for (const priorSteps of priorStepsCases) {
