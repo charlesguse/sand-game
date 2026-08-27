@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,9 +31,9 @@
 
 ## Notes
 
-- Three [NEEDS CLARIFICATION] markers remain **by design**. Each is drafted with a working default so the spec is complete and implementable as written; the markers record the forks the maintainer may want to steer. They are posted as questions on issue #20 rather than blocking this run:
-  - **FR-002** — star power drawn where there is no grass: fades out after about a second (drafted default, the fire analogue) vs. persists as a permanent decorative element the child can keep. Affects whether the ⭐ brush is a sparkler or a paint.
-  - **FR-009** — the glitter left by burned grass: spec 005's existing multicoloured glitter grain (drafted default, no new powder physics, element set stays small) vs. a distinct new light-powder element with its own look and slower fall. Affects whether this feature adds one new element type or two.
-  - **FR-017** — quenching: the water cell survives, so one drop is a permanent firebreak (drafted default, simplest rule for a non-reading child) vs. quenching spends the water cell. Affects whether fighting a burn costs the child water, and feeds directly into the follow-up weather feature.
+- All three [NEEDS CLARIFICATION] markers are **resolved**. The maintainer answered on issue #20 and chose the drafted default on each fork, so the spec's rules are unchanged in substance and now state the decision and its reasoning outright:
+  - **FR-002** — star power drawn where there is no grass **fades after about a second**. The ⭐ brush is an action, not a building material, so the what-you-draw-stays-put promise does not apply; the ✨ wand is already the toy's persistent sparkle-painter, and transience bounds the Fire 7 worst case.
+  - **FR-009** — burned grass leaves **spec 005's existing glitter grain**, not a new light powder. One treasure currency across the toy, physics and tests for free, element set stays small per the constitution.
+  - **FR-017** — quenching **does not spend the water**: a drop is a permanent firebreak and water always wins, because a firebreak that burns away would be a step toward a losing state. Added **FR-017a** at the maintainer's request: spec 007's grass may still drink a firebreak open, and that emergent interaction is kept rather than special-cased away. The fuller water/star weather loop stays out of scope here (issue #21).
 - `.specify/feature.json` was deliberately **not** written. The pipeline constrains this run to create at most one spec directory and to edit no file outside it; downstream stages locate the feature through `spec-meta.json` in the spec directory instead.
 - Every other item passed on the first validation pass. Requirement numbering, the **Superseded requirements** section, the visual-checks section, and the test-coverage requirement (FR-038) follow the house style established by specs 004–007.
