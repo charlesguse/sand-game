@@ -132,16 +132,16 @@ Single client-only web app (established 001–009): `src/sim/*` (framework-free 
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T035 [P] [US4] In `tests/unit/lib/layout.test.ts`, change `TOOLBAR_CONTROL_COUNT` from `16` to `18` and `TOOLBAR_GROUP_COUNT` from `5` to `6` — no other change, re-verifying every existing viewport-table assertion at the new count (FR-004, SC-015)
-- [ ] T036 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test hammering `undo()`/`redo()` from adversarial states (empty histories, full 10-deep histories, alternating calls with no draws between) and assert it never throws, never leaves `grid`/`objects` partially restored, and never lets either stack exceed 10 entries (FR-003, FR-019, FR-020, SC-006, SC-007, SC-011)
-- [ ] T037 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that recording an 11th action drops exactly the oldest remembered one, with the newer 10 (including the 11th) intact and undoable (FR-019, SC-007)
-- [ ] T038 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test asserting the full 10+10 history total (`20 * 216,000 ≈ 4.12 MB`) stays within the FR-028/SC-014 budget (FR-028, SC-014)
-- [ ] T039 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.reset()` clears both stacks and any pending capture in one call (FR-022, SC-020)
-- [ ] T040 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that a re-derivation-equivalent sequence (reset after actions are recorded) leaves both histories empty, while calling `beginAction`/`commitAction` without an intervening reset leaves history intact — mirroring FR-022's "discarded on re-derivation, intact otherwise" (FR-022, SC-020)
+- [X] T035 [P] [US4] In `tests/unit/lib/layout.test.ts`, change `TOOLBAR_CONTROL_COUNT` from `16` to `18` and `TOOLBAR_GROUP_COUNT` from `5` to `6` — no other change, re-verifying every existing viewport-table assertion at the new count (FR-004, SC-015)
+- [X] T036 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test hammering `undo()`/`redo()` from adversarial states (empty histories, full 10-deep histories, alternating calls with no draws between) and assert it never throws, never leaves `grid`/`objects` partially restored, and never lets either stack exceed 10 entries (FR-003, FR-019, FR-020, SC-006, SC-007, SC-011)
+- [X] T037 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that recording an 11th action drops exactly the oldest remembered one, with the newer 10 (including the 11th) intact and undoable (FR-019, SC-007)
+- [X] T038 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test asserting the full 10+10 history total (`20 * 216,000 ≈ 4.12 MB`) stays within the FR-028/SC-014 budget (FR-028, SC-014)
+- [X] T039 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.reset()` clears both stacks and any pending capture in one call (FR-022, SC-020)
+- [X] T040 [P] [US4] In `tests/unit/sim/history.test.ts`, write a test that a re-derivation-equivalent sequence (reset after actions are recorded) leaves both histories empty, while calling `beginAction`/`commitAction` without an intervening reset leaves history intact — mirroring FR-022's "discarded on re-derivation, intact otherwise" (FR-022, SC-020)
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] In `src/lib/PlayArea.svelte`'s `resize()` method, add `history.reset()` and a matching `onHistoryChange` notification inside the existing re-derivation branch (the one that calls `resizeGrid` and swaps to a new `Grid` instance) — the non-re-deriving early-return branch is left untouched (FR-022) (depends on T016, T017)
+- [X] T041 [US4] In `src/lib/PlayArea.svelte`'s `resize()` method, add `history.reset()` and a matching `onHistoryChange` notification inside the existing re-derivation branch (the one that calls `resizeGrid` and swaps to a new `Grid` instance) — the non-re-deriving early-return branch is left untouched (FR-022) (depends on T016, T017)
 
 **Checkpoint**: All four user stories are independently functional. The toolbar fits at 18 controls/6 groups, and undo/redo are robust under adversarial use.
 
