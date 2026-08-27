@@ -8,7 +8,7 @@ import {
   eraseObjectsInBrush,
 } from '../../../src/sim/objects';
 import { step } from '../../../src/sim/step';
-import { DIRT, SAND, WATER, EMPTY, type Grid } from '../../../src/sim/types';
+import { DIRT, SAND, WATER, EMPTY, GRASS, type Grid } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
 
 /** Topmost row in [y0, y1) for column x holding `element` (the terrain fill, ignoring any OBJECT overlay), or y1 if none. */
@@ -35,6 +35,12 @@ function heightProfile(
 function countWater(grid: Grid): number {
   let count = 0;
   for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === WATER) count++;
+  return count;
+}
+
+function countGrass(grid: Grid): number {
+  let count = 0;
+  for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === GRASS) count++;
   return count;
 }
 
@@ -174,7 +180,7 @@ describe('scenes — generateLandscape1 determinism and at-rest stability', () =
     expect(strip(objectsA.unicorns)).toEqual(strip(objectsB.unicorns));
   });
 
-  it('holds its shape with no drawing input across many step() calls (FR-020, SC-006)', () => {
+  it('holds its hill shape with no drawing input, while its shoreline grass drinks a bounded amount at the water\'s edge and then halts (FR-020, FR-028a, SC-006, SC-022 — supersedes spec 004\'s exact water conservation for landscape-1 only)', () => {
     const grid = createGrid(270, 160);
     const objects = createObjectsState();
     generateLandscape1(grid, objects);
@@ -184,13 +190,18 @@ describe('scenes — generateLandscape1 determinism and at-rest stability', () =
     const heightsBefore = heightProfile(grid, x0, x1, y0, y1);
     const waterBefore = countWater(grid);
 
-    for (let i = 0; i < 50; i++) step(grid);
+    for (let i = 0; i < 2000; i++) step(grid);
 
     const heightsAfter = heightProfile(grid, x0, x1, y0, y1);
     const waterAfter = countWater(grid);
 
     expect(heightsAfter).toEqual(heightsBefore);
-    expect(waterAfter).toBe(waterBefore);
+    expect(waterAfter).toBeLessThanOrEqual(waterBefore);
+    expect(waterAfter).toBeGreaterThanOrEqual(waterBefore / 2); // SC-022: at least half the lake survives
+
+    // Growth has halted — further steps change nothing more.
+    for (let i = 0; i < 200; i++) step(grid);
+    expect(countWater(grid)).toBe(waterAfter);
   });
 });
 
@@ -345,6 +356,27 @@ describe('scenes — loadScene', () => {
     expect(objects.rainbows.length).toBe(0);
     expect(objects.unicorns.length).toBe(0);
   });
+
+  it('clears every existing grass cell along with everything else, with grassCount reset accordingly, before placing new contents (FR-028, Scenario 7)', () => {
+    const grid = createGrid(270, 160);
+    const objects = createObjectsState();
+    setCell(grid, 5, 5, GRASS, 10);
+    setCell(grid, 6, 5, GRASS, 11);
+    expect(grid.grassCount).toBe(2);
+
+    loadScene('empty', grid, objects);
+    expect(grid.grassCount).toBe(0);
+    for (let i = 0; i < grid.elements.length; i++) expect(grid.elements[i]).toBe(EMPTY);
+
+    // Loading landscape-1 leaves no trace of the hand-drawn grass — only the scene's own.
+    setCell(grid, 5, 5, GRASS, 10);
+    loadScene('landscape1', grid, objects);
+    const freshGrid = createGrid(270, 160);
+    const freshObjects = createObjectsState();
+    generateLandscape1(freshGrid, freshObjects);
+    expect(Array.from(grid.elements)).toEqual(Array.from(freshGrid.elements));
+    expect(grid.grassCount).toBe(freshGrid.grassCount);
+  });
 });
 
 describe('scenes — size robustness (FR-022)', () => {
@@ -377,6 +409,19 @@ describe('scenes — size robustness (FR-022)', () => {
     expect(rainbow.y + rainbow.size).toBeLessThanOrEqual(regions.sky.y1);
     expect(objects.unicorns.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
+
+    // FR-028a: grass is present on the hills, laid out within the same lowerPortion region.
+    expect(countGrass(grid)).toBeGreaterThan(0);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (getElement(grid, x, y) === GRASS) {
+          expect(x).toBeGreaterThanOrEqual(regions.lowerPortion.x0);
+          expect(x).toBeLessThan(regions.lowerPortion.x1);
+          expect(y).toBeGreaterThanOrEqual(regions.lowerPortion.y0);
+          expect(y).toBeLessThan(regions.lowerPortion.y1);
+        }
+      }
+    }
   });
 
   it.each(sizes)('generateLandscape2 stays within its regions at %ix%i', (width, height) => {
@@ -403,6 +448,27 @@ describe('scenes — size robustness (FR-022)', () => {
     }
     expect(objects.unicorns.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
+
+    // FR-028a: landscape-2 remains exactly as it was — not a blade of grass.
+    expect(countGrass(grid)).toBe(0);
+  });
+});
+
+describe('scenes — generateLandscape1 grass determinism (FR-028a, Scenario 9, SC-021)', () => {
+  it('loading landscape-1 twice at the same size produces byte-identical grass placement', () => {
+    const gridA = createGrid(270, 160);
+    const objectsA = createObjectsState();
+    generateLandscape1(gridA, objectsA);
+
+    const gridB = createGrid(270, 160);
+    const objectsB = createObjectsState();
+    generateLandscape1(gridB, objectsB);
+
+    const grassA = Array.from(gridA.elements).map((e, i) => (e === GRASS ? i : -1)).filter((i) => i !== -1);
+    const grassB = Array.from(gridB.elements).map((e, i) => (e === GRASS ? i : -1)).filter((i) => i !== -1);
+    expect(grassA).toEqual(grassB);
+    expect(grassA.length).toBeGreaterThan(0);
+    expect(Array.from(gridA.shades)).toEqual(Array.from(gridB.shades));
   });
 });
 

@@ -3,7 +3,7 @@ import { createGrid, setCell, getElement, getGlitter } from '../../../src/sim/gr
 import { applyWand, applyWandLine } from '../../../src/sim/wand';
 import { applyRainbowConversions, createObjectsState, placeObject } from '../../../src/sim/objects';
 import { forEachFootprintCell } from '../../../src/sim/brush';
-import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT, GRASS } from '../../../src/sim/types';
 
 function coveredCells(cx: number, cy: number, radius: number): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = [];
@@ -32,6 +32,16 @@ describe('wand — conversion rule', () => {
     expect(getElement(grid, 5, 1)).toBe(DIRT);
     expect(getGlitter(grid, 7, 1)).toBe(true);
     expect(getElement(grid, 7, 1)).toBe(RAINBOW_SAND);
+  });
+
+  it('glitters a GRASS cell without changing its element (FR-025)', () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 9, 1, GRASS, 5);
+
+    applyWand(grid, 9, 1, 0);
+
+    expect(getGlitter(grid, 9, 1)).toBe(true);
+    expect(getElement(grid, 9, 1)).toBe(GRASS);
   });
 
   it('is idempotent — repeated passes with identical arguments produce a byte-identical grid', () => {

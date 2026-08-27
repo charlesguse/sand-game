@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement, clearGrid } from '../../../src/sim/grid';
 import { applyBrush } from '../../../src/sim/brush';
-import { EMPTY, SAND, WATER, DIRT } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, GRASS } from '../../../src/sim/types';
+import { BRUSH_RADII } from '../../../src/lib/layout';
 
 describe('brush — pink sand and eraser', () => {
   it('the sand brush paints only into empty footprint cells', () => {
@@ -85,6 +86,40 @@ describe('brush — magic purple dirt', () => {
   });
 });
 
+describe('brush — grass', () => {
+  it.each(Object.entries(BRUSH_RADII))(
+    'the grass brush deposits into EMPTY/WATER footprint cells and never overwrites SAND/DIRT/RAINBOW_SAND/OBJECT (%s)',
+    (_size, radius) => {
+      const grid = createGrid(40, 40);
+      // Seeded at distance 1 along each axis so every cell stays inside the footprint at every radius (>= 1).
+      setCell(grid, 19, 20, SAND, 5);
+      setCell(grid, 21, 20, DIRT, 5);
+      setCell(grid, 20, 19, RAINBOW_SAND, 5);
+      setCell(grid, 20, 21, WATER, 5);
+      grid.elements[(20 + radius + 2) * grid.width + 20] = OBJECT; // well outside the footprint, unaffected either way
+
+      applyBrush(grid, 'grass', 20, 20, radius, 9);
+
+      expect(getElement(grid, 19, 20)).toBe(SAND);
+      expect(getElement(grid, 21, 20)).toBe(DIRT);
+      expect(getElement(grid, 20, 19)).toBe(RAINBOW_SAND);
+      expect(getElement(grid, 20, 21)).toBe(GRASS); // water is claimed
+      expect(getElement(grid, 20, 20 + radius + 2)).toBe(OBJECT);
+
+      // A previously-empty cell within the footprint (but outside the seeded cells) got grass.
+      expect(getElement(grid, 20 - radius, 20)).toBe(GRASS);
+    },
+  );
+
+  it('the grass brush deposits GRASS into an empty field across its footprint', () => {
+    const grid = createGrid(10, 10);
+    applyBrush(grid, 'grass', 5, 5, 2, 5);
+    expect(getElement(grid, 5, 5)).toBe(GRASS);
+    expect(getElement(grid, 4, 5)).toBe(GRASS);
+    expect(getElement(grid, 6, 5)).toBe(GRASS);
+  });
+});
+
 describe('brush — eraser and clear-all across every element', () => {
   it('the eraser empties sand, water, and dirt cells alike inside its footprint', () => {
     const grid = createGrid(5, 1);
@@ -94,6 +129,21 @@ describe('brush — eraser and clear-all across every element', () => {
     applyBrush(grid, 'eraser', 2, 0, 3, 0);
     for (let x = 0; x < 5; x++) expect(getElement(grid, x, 0)).toBe(EMPTY);
   });
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'the eraser removes grass from every cell in its footprint, exactly as it does sand/water/dirt (%s, FR-022)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      applyBrush(grid, 'grass', 15, 15, radius, 5);
+      expect(getElement(grid, 15, 15)).toBe(GRASS);
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) expect(getElement(grid, x, y)).toBe(EMPTY);
+      }
+    },
+  );
 
   it('clearGrid empties a grid populated with all three elements', () => {
     const grid = createGrid(3, 1);
