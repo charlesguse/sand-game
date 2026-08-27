@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, igniteStarPower, getElement } from '../../../src/sim/grid';
+import { createGrid, setCell, igniteStarPower, createFog, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
@@ -93,6 +93,21 @@ describe('objects — applyRainbowConversions', () => {
 
     expect(getElement(grid, 1, 1)).toBe(RAINBOW_SAND);
     expect(getElement(grid, 8, 8)).toBe(RAINBOW_SAND);
+  });
+
+  it('converts fog and cloud cells into rainbow sand exactly as it already converts water, decrementing fogCloudCount for each converted FOG cell (FR-031)', () => {
+    const grid = createGrid(10, 10);
+    createFog(grid, 1, 1);
+    createFog(grid, 1, 2);
+    grid.cloud[2 * 10 + 1] = 1;
+    expect(grid.fogCloudCount).toBe(2);
+    const rainbow = rainbowAt(2, 2, 1);
+
+    applyRainbowConversions(grid, [rainbow]);
+
+    expect(getElement(grid, 1, 1)).toBe(RAINBOW_SAND);
+    expect(getElement(grid, 1, 2)).toBe(RAINBOW_SAND);
+    expect(grid.fogCloudCount).toBe(0);
   });
 });
 
@@ -214,6 +229,17 @@ describe('objects — isUnicornTouched', () => {
 
     expect(isUnicornTouched(grid, touchedUnicorn)).toBe(true);
     expect(isUnicornTouched(grid, untouchedUnicorn)).toBe(false);
+  });
+
+  it('returns true when fog or cloud occupies a zone cell, firing the existing celebration with no new burst type (FR-031)', () => {
+    const fogGrid = createGrid(5, 5);
+    createFog(fogGrid, 1, 1);
+    expect(isUnicornTouched(fogGrid, unicornAt(2, 2, 1))).toBe(true);
+
+    const cloudGrid = createGrid(5, 5);
+    createFog(cloudGrid, 1, 1);
+    cloudGrid.cloud[1 * 5 + 1] = 1;
+    expect(isUnicornTouched(cloudGrid, unicornAt(2, 2, 1))).toBe(true);
   });
 });
 

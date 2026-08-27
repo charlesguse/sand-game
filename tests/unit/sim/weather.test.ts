@@ -11,7 +11,7 @@ import {
 import { step } from '../../../src/sim/step';
 import { applyBrush } from '../../../src/sim/brush';
 import { randomFogRiseCooldown, randomCloudRainDelay } from '../../../src/sim/shade';
-import { FOG, WATER, EMPTY, GRASS, SAND, OBJECT, RAINBOW_SAND } from '../../../src/sim/types';
+import { FOG, WATER, EMPTY, GRASS, SAND, OBJECT, RAINBOW_SAND, STAR_POWER } from '../../../src/sim/types';
 
 function countElement(grid: ReturnType<typeof createGrid>, element: number): number {
   let count = 0;
@@ -546,43 +546,88 @@ describe('weather — always settles (US4 Scenario 1, 2, FR-011, FR-024, FR-040,
     expect(grid.fogCloudCount).toBeLessThanOrEqual(ceiling);
   });
 
-  it('from adversarial starting states, running with no further drawing and no star power left brings the field to 0 fog and 0 cloud within 45 seconds (2700 steps) and then at rest', () => {
+  it('from several adversarial starting states, running with no further drawing and no star power left brings the field to 0 fog and 0 cloud within 45 seconds (2700 steps) and then at rest (Scenario 2, FR-024, SC-015)', () => {
     const width = 20;
     const height = 20;
-    const grid = createGrid(width, height);
     const ceiling = Math.floor(width * height * FOG_FIELD_SHARE_CEILING);
-    // Fill the field with water, then charm it up to the ceiling, all as freshly-created fog.
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
-    }
-    let created = 0;
-    outer: for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (created >= ceiling) break outer;
-        if (createFog(grid, x, y)) created++;
+
+    function fillWithWater(grid: ReturnType<typeof createGrid>): void {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
       }
     }
 
-    for (let n = 0; n < 2700; n++) step(grid);
+    function chargeToCeiling(grid: ReturnType<typeof createGrid>): void {
+      let created = 0;
+      outer: for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (created >= ceiling) break outer;
+          if (createFog(grid, x, y)) created++;
+        }
+      }
+    }
 
-    expect(countElement(grid, FOG)).toBe(0);
-    expect(grid.fogCloudCount).toBe(0);
+    // Scenario A: a field entirely full of freshly-charmed fog.
+    const fogGrid = createGrid(width, height);
+    fillWithWater(fogGrid);
+    chargeToCeiling(fogGrid);
+    expect(fogGrid.fogCloudCount).toBe(ceiling);
 
-    // At rest: running further steps changes nothing more regarding fog/cloud.
-    const snapshot = Array.from(grid.elements);
-    step(grid);
-    // Water may still move/settle, but no fog/cloud should reappear.
-    expect(countElement(grid, FOG)).toBe(0);
-    void snapshot;
+    // Scenario B: a sky entirely full of cloud at varying ages.
+    const cloudGrid = createGrid(width, height);
+    fillWithWater(cloudGrid);
+    chargeToCeiling(cloudGrid);
+    for (let i = 0; i < cloudGrid.elements.length; i++) {
+      if (cloudGrid.elements[i] === FOG) {
+        cloudGrid.cloud[i] = 1;
+        cloudGrid.fogAge[i] = i % 200; // varying ages
+        cloudGrid.cloudRainDelay[i] = randomCloudRainDelay();
+      }
+    }
+
+    // Scenario C: a mix of both — half fresh fog, half varying-age cloud.
+    const mixGrid = createGrid(width, height);
+    fillWithWater(mixGrid);
+    chargeToCeiling(mixGrid);
+    let seen = 0;
+    for (let i = 0; i < mixGrid.elements.length; i++) {
+      if (mixGrid.elements[i] === FOG) {
+        seen++;
+        if (seen % 2 === 0) {
+          mixGrid.cloud[i] = 1;
+          mixGrid.fogAge[i] = i % 200;
+          mixGrid.cloudRainDelay[i] = randomCloudRainDelay();
+        }
+      }
+    }
+
+    for (const grid of [fogGrid, cloudGrid, mixGrid]) {
+      for (let n = 0; n < 2700; n++) step(grid);
+      expect(countElement(grid, FOG)).toBe(0);
+      expect(grid.fogCloudCount).toBe(0);
+
+      // At rest: running further steps produces no more fog/cloud (no self-sustaining feedback).
+      step(grid);
+      expect(countElement(grid, FOG)).toBe(0);
+    }
   });
 
-  it('a field with 0 fog and 0 cloud produces the same step() behavior as spec 008s toy (regression, FR-040, SC-023)', () => {
+  it('a field with 0 fog and 0 cloud produces the same step() behavior spec 008 already established — grass grows, star power burns out, sand/water settle normally (regression, FR-040, SC-023)', () => {
     const grid = createGrid(20, 20);
-    setCell(grid, 5, 5, GRASS, 5);
-    setCell(grid, 5, 6, WATER, 5);
+    setCell(grid, 5, 6, GRASS, 5);
+    setCell(grid, 5, 5, WATER, 5);
     setCell(grid, 10, 10, SAND, 5);
-    for (let n = 0; n < 100; n++) step(grid);
-    // No fog/cloud ever appears when nothing ever calls createFog/igniteStarPower(unfuelled quench).
+    igniteStarPower(grid, 15, 15, false);
+    const starPowerLife = grid.starPowerLife[15 * 20 + 15];
+
+    for (let n = 0; n < Math.max(starPowerLife + 5, 200); n++) step(grid);
+
+    // Star power burns out on its own, exactly as spec 008 established (unfuelled — becomes EMPTY).
+    expect(getElement(grid, 15, 15)).toBe(EMPTY);
+    expect(countElement(grid, STAR_POWER)).toBe(0);
+    // Sand settles to the bottom of the field.
+    expect(getElement(grid, 10, 19)).toBe(SAND);
+    // No fog/cloud ever appears, since nothing in this scenario ever calls createFog.
     expect(countElement(grid, FOG)).toBe(0);
   });
 });

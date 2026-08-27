@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, igniteStarPower, getElement, getGlitter } from '../../../src/sim/grid';
+import { createGrid, setCell, igniteStarPower, createFog, getElement, getGlitter } from '../../../src/sim/grid';
 import { applyWand, applyWandLine } from '../../../src/sim/wand';
 import { applyRainbowConversions, createObjectsState, placeObject } from '../../../src/sim/objects';
 import { forEachFootprintCell } from '../../../src/sim/brush';
-import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT, GRASS, STAR_POWER } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT, GRASS, STAR_POWER, FOG } from '../../../src/sim/types';
 
 function coveredCells(cx: number, cy: number, radius: number): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = [];
@@ -223,6 +223,57 @@ describe('wand — star power is left untouched (FR-027, Scenario 5)', () => {
     expect(getGlitter(grid, 4, 1)).toBe(true);
     expect(getElement(grid, 5, 1)).toBe(GRASS);
     expect(getGlitter(grid, 5, 1)).toBe(true);
+  });
+});
+
+describe('wand — fog and cloud are left untouched (FR-030, SC-018, Scenario 6)', () => {
+  it("leaves a FOG cell's element, cloud, fogRiseCooldown, fogStuckSteps, fogAge, cloudRainDelay, and glitter completely unchanged for both fog and cloud sub-states, and does not sprinkle into either", () => {
+    const grid = createGrid(20, 20);
+    createFog(grid, 5, 5);
+    const fogIndex = 5 * 20 + 5;
+    createFog(grid, 8, 8);
+    grid.cloud[8 * 20 + 8] = 1;
+    grid.cloudRainDelay[8 * 20 + 8] = 300;
+    const cloudIndex = 8 * 20 + 8;
+
+    const fogBefore = {
+      element: grid.elements[fogIndex],
+      cloud: grid.cloud[fogIndex],
+      fogRiseCooldown: grid.fogRiseCooldown[fogIndex],
+      fogStuckSteps: grid.fogStuckSteps[fogIndex],
+      fogAge: grid.fogAge[fogIndex],
+      cloudRainDelay: grid.cloudRainDelay[fogIndex],
+      glitter: grid.glitter[fogIndex],
+    };
+    const cloudBefore = {
+      element: grid.elements[cloudIndex],
+      cloud: grid.cloud[cloudIndex],
+      fogRiseCooldown: grid.fogRiseCooldown[cloudIndex],
+      fogStuckSteps: grid.fogStuckSteps[cloudIndex],
+      fogAge: grid.fogAge[cloudIndex],
+      cloudRainDelay: grid.cloudRainDelay[cloudIndex],
+      glitter: grid.glitter[cloudIndex],
+    };
+
+    applyWand(grid, 5, 5, 3);
+    applyWand(grid, 8, 8, 3);
+
+    expect(grid.elements[fogIndex]).toBe(fogBefore.element);
+    expect(grid.cloud[fogIndex]).toBe(fogBefore.cloud);
+    expect(grid.fogRiseCooldown[fogIndex]).toBe(fogBefore.fogRiseCooldown);
+    expect(grid.fogStuckSteps[fogIndex]).toBe(fogBefore.fogStuckSteps);
+    expect(grid.fogAge[fogIndex]).toBe(fogBefore.fogAge);
+    expect(grid.cloudRainDelay[fogIndex]).toBe(fogBefore.cloudRainDelay);
+    expect(grid.glitter[fogIndex]).toBe(fogBefore.glitter);
+
+    expect(grid.elements[cloudIndex]).toBe(cloudBefore.element);
+    expect(grid.cloud[cloudIndex]).toBe(cloudBefore.cloud);
+    expect(grid.fogRiseCooldown[cloudIndex]).toBe(cloudBefore.fogRiseCooldown);
+    expect(grid.fogStuckSteps[cloudIndex]).toBe(cloudBefore.fogStuckSteps);
+    expect(grid.fogAge[cloudIndex]).toBe(cloudBefore.fogAge);
+    expect(grid.cloudRainDelay[cloudIndex]).toBe(cloudBefore.cloudRainDelay);
+    expect(grid.glitter[cloudIndex]).toBe(cloudBefore.glitter);
+    expect(grid.elements[cloudIndex]).toBe(FOG);
   });
 });
 

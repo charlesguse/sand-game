@@ -1,4 +1,4 @@
-import { EMPTY, SAND, WATER, DIRT, GRASS, type Grid, type Tool } from './types';
+import { EMPTY, SAND, WATER, DIRT, GRASS, FOG, type Grid, type Tool } from './types';
 import { setCell, inBounds, igniteStarPower, createFog } from './grid';
 
 export function forEachFootprintCell(
@@ -25,21 +25,22 @@ export function forEachFootprintCell(
 function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number): void {
   if (!inBounds(grid, x, y)) return;
   const current = grid.elements[y * grid.width + x];
+  const paintable = current === EMPTY || current === FOG;
 
   if (tool === 'eraser') {
     setCell(grid, x, y, EMPTY, 0);
     return;
   }
 
-  if (tool === 'sand' && (current === EMPTY || current === WATER)) {
+  if (tool === 'sand' && (paintable || current === WATER)) {
     setCell(grid, x, y, SAND, shade);
-  } else if (tool === 'dirt' && (current === EMPTY || current === WATER)) {
+  } else if (tool === 'dirt' && (paintable || current === WATER)) {
     setCell(grid, x, y, DIRT, shade);
-  } else if (tool === 'grass' && (current === EMPTY || current === WATER)) {
+  } else if (tool === 'grass' && (paintable || current === WATER)) {
     setCell(grid, x, y, GRASS, shade);
-  } else if (tool === 'water' && current === EMPTY) {
+  } else if (tool === 'water' && paintable) {
     setCell(grid, x, y, WATER, shade);
-  } else if (tool === 'star' && current === EMPTY) {
+  } else if (tool === 'star' && paintable) {
     igniteStarPower(grid, x, y, false);
   } else if (tool === 'star' && current === GRASS) {
     igniteStarPower(grid, x, y, true);

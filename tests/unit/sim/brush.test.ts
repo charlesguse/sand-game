@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, getElement, clearGrid } from '../../../src/sim/grid';
+import { createGrid, setCell, getElement, clearGrid, createFog } from '../../../src/sim/grid';
 import { applyBrush } from '../../../src/sim/brush';
 import {
   EMPTY,
@@ -268,4 +268,50 @@ describe('brush — eraser and clear-all across every element', () => {
     clearGrid(grid);
     expect([...grid.elements]).toEqual(new Array(3).fill(0));
   });
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'dragging the eraser through fog and cloud removes them on the spot, leaving those cells EMPTY with 0 water cells left behind (%s, Scenario 3, FR-026)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      createFog(grid, 15, 15);
+      createFog(grid, 16, 15);
+      grid.cloud[15 * 30 + 16] = 1;
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) {
+          const dx = x - 15;
+          const dy = y - 15;
+          if (dx * dx + dy * dy <= radius * radius) {
+            expect(getElement(grid, x, y)).toBe(EMPTY);
+          }
+        }
+      }
+      expect(grid.fogCloudCount).toBe(0);
+    },
+  );
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'a single drag of any element brush through a region of fog and cloud places that element in 100% of the covered cells — a wisp of mist never blocks drawing (%s, FR-026, SC-017)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      for (let y = 10; y < 20; y++) {
+        for (let x = 10; x < 20; x++) createFog(grid, x, y);
+      }
+      grid.cloud[15 * 30 + 15] = 1; // one covered cell is a cloud, not just rising fog
+
+      applyBrush(grid, 'sand', 15, 15, radius, 5);
+
+      for (let y = 10; y < 20; y++) {
+        for (let x = 10; x < 20; x++) {
+          const dx = x - 15;
+          const dy = y - 15;
+          if (dx * dx + dy * dy <= radius * radius) {
+            expect(getElement(grid, x, y)).toBe(SAND);
+          }
+        }
+      }
+    },
+  );
 });
