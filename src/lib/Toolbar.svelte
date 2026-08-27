@@ -156,6 +156,12 @@
 </div>
 
 <style>
+  @property --ring-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
+
   .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -167,7 +173,7 @@
     padding-right: calc(0.75rem + env(safe-area-inset-right));
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
     padding-left: calc(0.75rem + env(safe-area-inset-left));
-    background: #fff0f6;
+    background: linear-gradient(180deg, #ffe1f0, #e8e3fb);
   }
 
   .group {
@@ -175,7 +181,10 @@
     gap: 0.4rem;
     padding: 0.4rem;
     border-radius: 1.25rem;
-    background: #ffffffaa;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.85),
+      0 1px 4px rgba(90, 61, 102, 0.08);
   }
 
   .control {
@@ -187,7 +196,12 @@
     min-height: var(--control-min);
     border-radius: 50%;
     border: 3px solid transparent;
-    background: white;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(180deg, #ffffff, #f2e9f7) border-box;
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -196,21 +210,69 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+    transition:
+      transform 120ms ease,
+      box-shadow 120ms ease;
+  }
+
+  .control:active:not(:disabled) {
+    transform: scale(0.92);
+    box-shadow: 0 1px 2px rgba(90, 61, 102, 0.18);
   }
 
   .control.size {
     font-size: 1.5rem;
+    color: #5a3d66;
   }
 
   .control.selected {
-    border-color: #ff69b4;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      conic-gradient(
+          from var(--ring-angle),
+          #ff5ca8,
+          #ffc93c,
+          #7ed957,
+          #5cc8ff,
+          #b28bff,
+          #ff5ca8
+        )
+        border-box;
     transform: scale(1.15);
-    box-shadow: 0 0 10px #ff69b4aa;
+    box-shadow: 0 4px 12px rgba(255, 92, 168, 0.35);
+    animation: ring-turn 6s linear infinite;
+  }
+
+  .control.selected:active {
+    transform: scale(1.05);
+  }
+
+  @keyframes ring-turn {
+    to {
+      --ring-angle: 360deg;
+    }
   }
 
   .control:disabled {
     opacity: 0.35;
+    filter: grayscale(1);
     cursor: default;
+    box-shadow: none;
+  }
+
+  .control:focus-visible {
+    outline: 3px solid #ff5ca8;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .control {
+      transition: none;
+    }
+
+    .control.selected {
+      animation: none;
+    }
   }
 
   @media (max-height: 480px) and (orientation: landscape) {
