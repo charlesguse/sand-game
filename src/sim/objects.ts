@@ -11,13 +11,10 @@ import {
   type ObjectsState,
   type PlacedObject,
 } from './types';
+import { randomHue } from './shade';
 
 export function createObjectsState(): ObjectsState {
   return { rainbows: [], unicorns: [], nextId: 0 };
-}
-
-function randomHue(): number {
-  return Math.floor(Math.random() * 256);
 }
 
 /** For each rainbow, converts any SAND/DIRT/WATER cell in its zone to RAINBOW_SAND with a fresh hue. Allocates nothing. */

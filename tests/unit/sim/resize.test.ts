@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, setGlitter, getElement, getGlitter } from '../../../src/sim/grid';
+import { createGrid, setCell, setGlitter, igniteStarPower, getElement, getGlitter } from '../../../src/sim/grid';
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
 import { resizeGrid } from '../../../src/sim/resize';
-import { SAND, DIRT, OBJECT, GRASS } from '../../../src/sim/types';
+import { step } from '../../../src/sim/step';
+import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, EMPTY } from '../../../src/sim/types';
 
 const OLD_WIDTH = 100;
 const OLD_HEIGHT = 100;
@@ -184,5 +185,46 @@ describe('resizeGrid — grass carries across at the same offset (FR-027, Scenar
     for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === GRASS) survivingGrass++;
     expect(grid.grassCount).toBe(survivingGrass);
     expect(grid.grassCount).toBe(3);
+  });
+});
+
+describe('resizeGrid — star power carries across at the same offset (FR-029, Scenario 6)', () => {
+  it('carries element/shade/starPowerAge/starPowerLife/starPowerFuelled for every surviving star power cell, and each carried cell still burns out (leaving a glitter grain if fuelled) within a further bounded number of step() calls', () => {
+    const oldGrid = createGrid(100, 100);
+    igniteStarPower(oldGrid, 50, 99, true); // fuelled
+    igniteStarPower(oldGrid, 60, 99, false); // unfuelled
+    for (let n = 0; n < 5; n++) step(oldGrid); // age each a little; nothing else on the field to interact with
+
+    const fuelledIndexOld = 99 * 100 + 50;
+    const unfuelledIndexOld = 99 * 100 + 60;
+    const fuelledLifeOld = oldGrid.starPowerLife[fuelledIndexOld];
+    const fuelledAgeOld = oldGrid.starPowerAge[fuelledIndexOld];
+    const fuelledShadeOld = oldGrid.shades[fuelledIndexOld];
+    const unfuelledLifeOld = oldGrid.starPowerLife[unfuelledIndexOld];
+    const unfuelledAgeOld = oldGrid.starPowerAge[unfuelledIndexOld];
+
+    const { grid, offsetX, offsetY } = resizeGrid(oldGrid, 60, 140);
+
+    const fuelledIndexNew = (99 + offsetY) * grid.width + (50 + offsetX);
+    const unfuelledIndexNew = (99 + offsetY) * grid.width + (60 + offsetX);
+
+    expect(getElement(grid, 50 + offsetX, 99 + offsetY)).toBe(STAR_POWER);
+    expect(grid.starPowerFuelled[fuelledIndexNew]).toBe(1);
+    expect(grid.starPowerLife[fuelledIndexNew]).toBe(fuelledLifeOld);
+    expect(grid.starPowerAge[fuelledIndexNew]).toBe(fuelledAgeOld);
+    expect(grid.shades[fuelledIndexNew]).toBe(fuelledShadeOld);
+
+    expect(getElement(grid, 60 + offsetX, 99 + offsetY)).toBe(STAR_POWER);
+    expect(grid.starPowerFuelled[unfuelledIndexNew]).toBe(0);
+    expect(grid.starPowerLife[unfuelledIndexNew]).toBe(unfuelledLifeOld);
+    expect(grid.starPowerAge[unfuelledIndexNew]).toBe(unfuelledAgeOld);
+
+    const remainingFuelled = grid.starPowerLife[fuelledIndexNew] - grid.starPowerAge[fuelledIndexNew];
+    const remainingUnfuelled = grid.starPowerLife[unfuelledIndexNew] - grid.starPowerAge[unfuelledIndexNew];
+    for (let n = 0; n < Math.max(remainingFuelled, remainingUnfuelled) + 1; n++) step(grid);
+
+    expect(getElement(grid, 50 + offsetX, 99 + offsetY)).toBe(RAINBOW_SAND);
+    expect(grid.glitter[fuelledIndexNew]).toBe(1);
+    expect(getElement(grid, 60 + offsetX, 99 + offsetY)).toBe(EMPTY);
   });
 });

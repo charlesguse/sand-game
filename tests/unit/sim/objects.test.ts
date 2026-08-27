@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, getElement } from '../../../src/sim/grid';
+import { createGrid, setCell, igniteStarPower, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
@@ -11,7 +11,17 @@ import {
   eraseObjectsInBrushLine,
   clearObjects,
 } from '../../../src/sim/objects';
-import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, GRASS, type PlacedObject } from '../../../src/sim/types';
+import {
+  EMPTY,
+  SAND,
+  WATER,
+  DIRT,
+  RAINBOW_SAND,
+  OBJECT,
+  GRASS,
+  STAR_POWER,
+  type PlacedObject,
+} from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
 
 function rainbowAt(x: number, y: number, size = 1, id = 0): PlacedObject {
@@ -293,6 +303,24 @@ describe('objects — grass integration (FR-026, Scenario 5)', () => {
     applyRainbowConversions(grid, [rainbow]);
 
     expect(getElement(grid, 1, 1)).toBe(GRASS);
+  });
+});
+
+describe('objects — star power integration (FR-028)', () => {
+  it('isUnicornTouched returns true when a STAR_POWER cell occupies the touch zone, exactly as for any other non-EMPTY, non-OBJECT element', () => {
+    const grid = createGrid(5, 5);
+    igniteStarPower(grid, 1, 1, false);
+    expect(isUnicornTouched(grid, unicornAt(2, 2, 1))).toBe(true);
+  });
+
+  it('rainbow conversion never converts a STAR_POWER cell in its zone', () => {
+    const grid = createGrid(5, 5);
+    igniteStarPower(grid, 1, 1, false);
+    const rainbow = rainbowAt(2, 2, 1);
+
+    applyRainbowConversions(grid, [rainbow]);
+
+    expect(getElement(grid, 1, 1)).toBe(STAR_POWER);
   });
 });
 

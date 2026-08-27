@@ -5,6 +5,7 @@ export const DIRT = 3;
 export const RAINBOW_SAND = 4;
 export const OBJECT = 5;
 export const GRASS = 6;
+export const STAR_POWER = 7;
 
 export type Element =
   | typeof EMPTY
@@ -13,7 +14,8 @@ export type Element =
   | typeof DIRT
   | typeof RAINBOW_SAND
   | typeof OBJECT
-  | typeof GRASS;
+  | typeof GRASS
+  | typeof STAR_POWER;
 
 export interface Grid {
   readonly width: number;
@@ -26,9 +28,21 @@ export interface Grid {
   readonly grassHeight: Uint8Array;
   readonly grassCooldown: Uint8Array;
   grassCount: number;
+  readonly starPowerAge: Uint8Array;
+  readonly starPowerLife: Uint8Array;
+  readonly starPowerFuelled: Uint8Array;
 }
 
-export type Tool = 'sand' | 'water' | 'dirt' | 'grass' | 'rainbow' | 'unicorn' | 'eraser' | 'wand';
+export type Tool =
+  | 'sand'
+  | 'water'
+  | 'dirt'
+  | 'grass'
+  | 'star'
+  | 'rainbow'
+  | 'unicorn'
+  | 'eraser'
+  | 'wand';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 

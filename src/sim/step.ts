@@ -1,12 +1,13 @@
-import { EMPTY, WATER, GRASS, RAINBOW_SAND, type Grid } from './types';
+import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, type Grid } from './types';
 import { isPowder, isLiquid, isSolid } from './element';
-import { setCell } from './grid';
-import { randomShade } from './shade';
+import { setCell, setGlitter, igniteStarPower } from './grid';
+import { randomShade, randomHue } from './shade';
 
 const HUE_STEP = 5;
 const GRASS_HEIGHT_CEILING = 12;
 const GRASS_FIELD_SHARE_CEILING = 0.25;
 const GRASS_ABSORB_COOLDOWN = 10;
+const STAR_POWER_IGNITE_DELAY = 10;
 
 function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.elements[toIndex] = grid.elements[fromIndex];
@@ -219,6 +220,63 @@ function stepGrass(grid: Grid, x: number, y: number, i: number): void {
   grid.grassCooldown[i] = GRASS_ABSORB_COOLDOWN;
 }
 
+function extinguishStarPower(grid: Grid, x: number, y: number, i: number): void {
+  if (grid.starPowerFuelled[i]) {
+    setCell(grid, x, y, RAINBOW_SAND, randomShade());
+    grid.hues[i] = randomHue();
+    setGlitter(grid, x, y, 1);
+  } else {
+    setCell(grid, x, y, EMPTY, 0);
+  }
+}
+
+function stepStarPower(grid: Grid, x: number, y: number, i: number): void {
+  const { width, height, elements } = grid;
+  const upY = y - 1;
+  const downY = y + 1;
+  const leftX = x - 1;
+  const rightX = x + 1;
+
+  let quenched = false;
+  if (upY >= 0 && elements[upY * width + x] === WATER) {
+    quenched = true;
+  } else if (downY < height && elements[downY * width + x] === WATER) {
+    quenched = true;
+  } else if (leftX >= 0 && elements[y * width + leftX] === WATER) {
+    quenched = true;
+  } else if (rightX < width && elements[y * width + rightX] === WATER) {
+    quenched = true;
+  }
+  if (quenched) {
+    extinguishStarPower(grid, x, y, i);
+    return;
+  }
+
+  const age = grid.starPowerAge[i] + 1;
+  if (age >= grid.starPowerLife[i]) {
+    extinguishStarPower(grid, x, y, i);
+    return;
+  }
+  grid.starPowerAge[i] = age;
+
+  if (age < STAR_POWER_IGNITE_DELAY) return;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    const ny = y + dy;
+    if (ny < 0 || ny >= height) continue;
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = x + dx;
+      if (nx < 0 || nx >= width) continue;
+      const ni = ny * width + nx;
+      if (elements[ni] === GRASS) {
+        igniteStarPower(grid, nx, ny, true);
+        grid.moved[ni] = 1;
+      }
+    }
+  }
+}
+
 /** Advances the simulation by one tick, mutating the grid in place. */
 export function step(grid: Grid): void {
   const { width, height, elements, moved } = grid;
@@ -237,6 +295,8 @@ export function step(grid: Grid): void {
         stepLiquid(grid, x, y, i);
       } else if (element === GRASS) {
         stepGrass(grid, x, y, i);
+      } else if (element === STAR_POWER) {
+        stepStarPower(grid, x, y, i);
       }
     }
   }

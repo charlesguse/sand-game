@@ -33,6 +33,9 @@ export function resizeGrid(
       grid.glitter[destIndex] = oldGrid.glitter[srcIndex];
       grid.grassHeight[destIndex] = oldGrid.grassHeight[srcIndex];
       grid.grassCooldown[destIndex] = oldGrid.grassCooldown[srcIndex];
+      grid.starPowerAge[destIndex] = oldGrid.starPowerAge[srcIndex];
+      grid.starPowerLife[destIndex] = oldGrid.starPowerLife[srcIndex];
+      grid.starPowerFuelled[destIndex] = oldGrid.starPowerFuelled[srcIndex];
       if (oldGrid.elements[srcIndex] === GRASS) grid.grassCount++;
     }
   }

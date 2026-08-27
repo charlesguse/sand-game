@@ -2,7 +2,8 @@
   "issue": 20,
   "spec_dir": "specs/008-star-power-burns-grass",
   "feature_num": "008",
-  "stage": "spec",
-  "iteration": 0,
-  "spec_branch": null
+  "stage": "review",
+  "iteration": 1,
+  "spec_branch": "spec/008-star-power-burns-grass",
+  "pending_re_review_from": []
 }

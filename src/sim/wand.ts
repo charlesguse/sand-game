@@ -1,4 +1,12 @@
-import { EMPTY, OBJECT, RAINBOW_SAND, type Grid, type ObjectsState, type PlacedObject } from './types';
+import {
+  EMPTY,
+  OBJECT,
+  RAINBOW_SAND,
+  STAR_POWER,
+  type Grid,
+  type ObjectsState,
+  type PlacedObject,
+} from './types';
 import { setCell, setGlitter } from './grid';
 import { forEachFootprintCell } from './brush';
 import { footprintIntersectsCircle } from './objects';
@@ -21,7 +29,7 @@ function applyWandCell(grid: Grid, x: number, y: number): void {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return;
   const i = y * grid.width + x;
   const element = grid.elements[i];
-  if (element === OBJECT) return;
+  if (element === OBJECT || element === STAR_POWER) return;
   if (element !== EMPTY) {
     setGlitter(grid, x, y, 1);
   } else if (isSprinkleSite(x, y)) {

@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement, clearGrid } from '../../../src/sim/grid';
 import { applyBrush } from '../../../src/sim/brush';
-import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, GRASS } from '../../../src/sim/types';
+import {
+  EMPTY,
+  SAND,
+  WATER,
+  DIRT,
+  RAINBOW_SAND,
+  OBJECT,
+  GRASS,
+  STAR_POWER,
+} from '../../../src/sim/types';
 import { BRUSH_RADII } from '../../../src/lib/layout';
 
 describe('brush — pink sand and eraser', () => {
@@ -120,6 +129,54 @@ describe('brush — grass', () => {
   });
 });
 
+describe('brush — star power', () => {
+  it.each(Object.entries(BRUSH_RADII))(
+    'the star brush deposits an unfuelled star power cell into EMPTY footprint cells and never overwrites WATER/SAND/DIRT/RAINBOW_SAND/OBJECT/STAR_POWER (%s)',
+    (_size, radius) => {
+      const grid = createGrid(40, 40);
+      // Seeded at distance 1 along each axis so every cell stays inside the footprint at every radius (>= 1).
+      setCell(grid, 19, 20, SAND, 5);
+      setCell(grid, 21, 20, DIRT, 5);
+      setCell(grid, 20, 19, RAINBOW_SAND, 5);
+      setCell(grid, 20, 21, WATER, 5);
+      grid.elements[(20 + radius + 2) * grid.width + 20] = OBJECT; // well outside the footprint, unaffected either way
+
+      applyBrush(grid, 'star', 20, 20, radius, 9);
+
+      expect(getElement(grid, 19, 20)).toBe(SAND);
+      expect(getElement(grid, 21, 20)).toBe(DIRT);
+      expect(getElement(grid, 20, 19)).toBe(RAINBOW_SAND);
+      expect(getElement(grid, 20, 21)).toBe(WATER); // never overwrites water
+      expect(getElement(grid, 20, 20 + radius + 2)).toBe(OBJECT);
+
+      // A previously-empty cell within the footprint got an unfuelled star power cell.
+      expect(getElement(grid, 20 - radius, 20)).toBe(STAR_POWER);
+      const i = 20 * grid.width + (20 - radius);
+      expect(grid.starPowerFuelled[i]).toBe(0);
+    },
+  );
+
+  it('the star brush converts a GRASS footprint cell into a fuelled star power cell', () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 5, 5, GRASS, 5);
+
+    applyBrush(grid, 'star', 5, 5, 0, 9);
+
+    expect(getElement(grid, 5, 5)).toBe(STAR_POWER);
+    expect(grid.starPowerFuelled[5 * 10 + 5]).toBe(1);
+  });
+
+  it('the star brush never overwrites an already-STAR_POWER cell in its footprint', () => {
+    const grid = createGrid(10, 10);
+    applyBrush(grid, 'star', 5, 5, 0, 9);
+    const before = grid.starPowerLife[5 * 10 + 5];
+
+    applyBrush(grid, 'star', 5, 5, 0, 9);
+
+    expect(grid.starPowerLife[5 * 10 + 5]).toBe(before);
+  });
+});
+
 describe('brush — eraser and clear-all across every element', () => {
   it('the eraser empties sand, water, and dirt cells alike inside its footprint', () => {
     const grid = createGrid(5, 1);
@@ -129,6 +186,24 @@ describe('brush — eraser and clear-all across every element', () => {
     applyBrush(grid, 'eraser', 2, 0, 3, 0);
     for (let x = 0; x < 5; x++) expect(getElement(grid, x, 0)).toBe(EMPTY);
   });
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'the eraser removes star power from every cell in its footprint, leaving those cells EMPTY with 0 glitter produced (%s, FR-024, Scenario 1)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      applyBrush(grid, 'star', 15, 15, radius, 5);
+      expect(getElement(grid, 15, 15)).toBe(STAR_POWER);
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) {
+          expect(getElement(grid, x, y)).toBe(EMPTY);
+          expect(grid.glitter[y * 30 + x]).toBe(0);
+        }
+      }
+    },
+  );
 
   it.each(Object.entries(BRUSH_RADII))(
     'the eraser removes grass from every cell in its footprint, exactly as it does sand/water/dirt (%s, FR-022)',

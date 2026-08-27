@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, getElement, getGlitter } from '../../../src/sim/grid';
+import { createGrid, setCell, igniteStarPower, getElement, getGlitter } from '../../../src/sim/grid';
 import { applyWand, applyWandLine } from '../../../src/sim/wand';
 import { applyRainbowConversions, createObjectsState, placeObject } from '../../../src/sim/objects';
 import { forEachFootprintCell } from '../../../src/sim/brush';
-import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT, GRASS } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, EMPTY, OBJECT, GRASS, STAR_POWER } from '../../../src/sim/types';
 
 function coveredCells(cx: number, cy: number, radius: number): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = [];
@@ -171,6 +171,58 @@ describe('wand — sprinkle into empty space', () => {
     expect(Array.from(grid.elements)).toEqual(elementsAfterFirst);
     expect(Array.from(grid.hues)).toEqual(huesAfterFirst);
     expect(Array.from(grid.glitter)).toEqual(glitterAfterFirst);
+  });
+});
+
+describe('wand — star power is left untouched (FR-027, Scenario 5)', () => {
+  it('leaves a STAR_POWER cell\'s element, shades, starPowerAge/starPowerLife/starPowerFuelled, and glitter completely unchanged, and does not sprinkle into it', () => {
+    const grid = createGrid(10, 10);
+    igniteStarPower(grid, 5, 5, true);
+    const i = 5 * 10 + 5;
+    const before = {
+      element: grid.elements[i],
+      shade: grid.shades[i],
+      age: grid.starPowerAge[i],
+      life: grid.starPowerLife[i],
+      fuelled: grid.starPowerFuelled[i],
+      glitter: grid.glitter[i],
+    };
+
+    applyWand(grid, 5, 5, 3);
+
+    expect(grid.elements[i]).toBe(STAR_POWER);
+    expect(grid.elements[i]).toBe(before.element);
+    expect(grid.shades[i]).toBe(before.shade);
+    expect(grid.starPowerAge[i]).toBe(before.age);
+    expect(grid.starPowerLife[i]).toBe(before.life);
+    expect(grid.starPowerFuelled[i]).toBe(before.fuelled);
+    expect(grid.glitter[i]).toBe(before.glitter);
+  });
+
+  it("does not disturb the wand's pre-existing behavior on every other element", () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 1, 1, SAND, 5);
+    setCell(grid, 2, 1, WATER, 5);
+    setCell(grid, 3, 1, DIRT, 5);
+    setCell(grid, 4, 1, RAINBOW_SAND, 5);
+    setCell(grid, 5, 1, GRASS, 5);
+
+    applyWand(grid, 1, 1, 0);
+    applyWand(grid, 2, 1, 0);
+    applyWand(grid, 3, 1, 0);
+    applyWand(grid, 4, 1, 0);
+    applyWand(grid, 5, 1, 0);
+
+    expect(getElement(grid, 1, 1)).toBe(SAND);
+    expect(getGlitter(grid, 1, 1)).toBe(true);
+    expect(getElement(grid, 2, 1)).toBe(WATER);
+    expect(getGlitter(grid, 2, 1)).toBe(true);
+    expect(getElement(grid, 3, 1)).toBe(DIRT);
+    expect(getGlitter(grid, 3, 1)).toBe(true);
+    expect(getElement(grid, 4, 1)).toBe(RAINBOW_SAND);
+    expect(getGlitter(grid, 4, 1)).toBe(true);
+    expect(getElement(grid, 5, 1)).toBe(GRASS);
+    expect(getGlitter(grid, 5, 1)).toBe(true);
   });
 });
 

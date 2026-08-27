@@ -1,4 +1,5 @@
-import { EMPTY, GRASS, type Grid } from './types';
+import { EMPTY, GRASS, STAR_POWER, type Grid } from './types';
+import { randomShade, randomBurnLife } from './shade';
 
 export function createGrid(width: number, height: number): Grid {
   const size = width * height;
@@ -13,6 +14,9 @@ export function createGrid(width: number, height: number): Grid {
     grassHeight: new Uint8Array(size),
     grassCooldown: new Uint8Array(size),
     grassCount: 0,
+    starPowerAge: new Uint8Array(size),
+    starPowerLife: new Uint8Array(size),
+    starPowerFuelled: new Uint8Array(size),
   };
 }
 
@@ -54,6 +58,12 @@ export function setCell(grid: Grid, x: number, y: number, element: number, shade
 
   if (becomesGrass && !wasGrass) grid.grassCount++;
   else if (!becomesGrass && wasGrass) grid.grassCount--;
+
+  grid.starPowerAge[i] = 0;
+  if (element !== STAR_POWER) {
+    grid.starPowerLife[i] = 0;
+    grid.starPowerFuelled[i] = 0;
+  }
 }
 
 export function clearGrid(grid: Grid): void {
@@ -62,6 +72,9 @@ export function clearGrid(grid: Grid): void {
   grid.grassHeight.fill(0);
   grid.grassCooldown.fill(0);
   grid.grassCount = 0;
+  grid.starPowerAge.fill(0);
+  grid.starPowerLife.fill(0);
+  grid.starPowerFuelled.fill(0);
 }
 
 export function setGlitter(grid: Grid, x: number, y: number, value: 0 | 1): void {
@@ -72,4 +85,14 @@ export function setGlitter(grid: Grid, x: number, y: number, value: 0 | 1): void
 export function getGlitter(grid: Grid, x: number, y: number): boolean {
   if (!inBounds(grid, x, y)) return false;
   return grid.glitter[y * grid.width + x] === 1;
+}
+
+/** The only way a star power cell is created. No-op if (x, y) is out of bounds. */
+export function igniteStarPower(grid: Grid, x: number, y: number, fuelled: boolean): void {
+  if (!inBounds(grid, x, y)) return;
+  setCell(grid, x, y, STAR_POWER, randomShade());
+  const i = y * grid.width + x;
+  grid.starPowerFuelled[i] = fuelled ? 1 : 0;
+  grid.starPowerLife[i] = randomBurnLife();
+  setGlitter(grid, x, y, 1);
 }
