@@ -88,15 +88,15 @@ Single client-only web app (established 001–009): `src/sim/*` (framework-free 
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T023 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that a field with every element type plus at least one placed rainbow and one unicorn, cleared via `beginAction`/`clearGrid`/`clearObjects`/`commitAction`, is fully restored (100% of cells, 100% of objects) by undo (FR-012, SC-003)
-- [ ] T024 [P] [US2] In `tests/unit/sim/history.test.ts`, write the same full-restore test for each of the 3 scene controls in place of clear (FR-012, SC-003)
-- [ ] T025 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that after a rescue undo, the restored `Grid`/`ObjectsState` behave as ordinary valid instances under further painting/erasing/object placement, with no special "restored" marker (FR-024)
-- [ ] T026 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that a 🗑️-equivalent no-op action (clear on an already-empty field) records nothing, so the next undo takes back the last action that actually changed the world (FR-007, SC-008)
+- [X] T023 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that a field with every element type plus at least one placed rainbow and one unicorn, cleared via `beginAction`/`clearGrid`/`clearObjects`/`commitAction`, is fully restored (100% of cells, 100% of objects) by undo (FR-012, SC-003)
+- [X] T024 [P] [US2] In `tests/unit/sim/history.test.ts`, write the same full-restore test for each of the 3 scene controls in place of clear (FR-012, SC-003)
+- [X] T025 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that after a rescue undo, the restored `Grid`/`ObjectsState` behave as ordinary valid instances under further painting/erasing/object placement, with no special "restored" marker (FR-024)
+- [X] T026 [P] [US2] In `tests/unit/sim/history.test.ts`, write a test that a 🗑️-equivalent no-op action (clear on an already-empty field) records nothing, so the next undo takes back the last action that actually changed the world (FR-007, SC-008)
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] In `src/lib/PlayArea.svelte`, wrap the existing exported `clearAll()` method body with `history.beginAction(grid, objectsState)` / `history.commitAction(grid, objectsState)` and notify `onHistoryChange` — no change to what the method does to the grid/objects/particles (depends on T016, T017)
-- [ ] T028 [US2] In `src/lib/PlayArea.svelte`, wrap the existing exported `loadScene()` method body with `history.beginAction(grid, objectsState)` / `history.commitAction(grid, objectsState)` and notify `onHistoryChange` — no change to what the method does (depends on T016, T017)
+- [X] T027 [US2] In `src/lib/PlayArea.svelte`, wrap the existing exported `clearAll()` method body with `history.beginAction(grid, objectsState)` / `history.commitAction(grid, objectsState)` and notify `onHistoryChange` — no change to what the method does to the grid/objects/particles (depends on T016, T017)
+- [X] T028 [US2] In `src/lib/PlayArea.svelte`, wrap the existing exported `loadScene()` method body with `history.beginAction(grid, objectsState)` / `history.commitAction(grid, objectsState)` and notify `onHistoryChange` — no change to what the method does (depends on T016, T017)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — clearing or loading a scene by accident is fully recoverable with one ↩️ tap.
 
