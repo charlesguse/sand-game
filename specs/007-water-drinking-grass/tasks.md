@@ -153,6 +153,12 @@ Single client-only project (established by 001–006): `src/sim/*` (framework-fr
 
 ---
 
+## Phase 8: Convergence
+
+- [ ] T041 Add a dedicated automated test (in `tests/unit/sim/grass.test.ts` or `tests/unit/sim/step.test.ts`) confirming a powder resting directly above a `GRASS` cell stays resting on top of it (never sinks through or displaces it), and a `WATER` cell beside/above a `GRASS` cell flows around it rather than through it, exercised via `step()` directly against a `GRASS` obstacle per FR-005 (missing)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
