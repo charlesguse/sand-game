@@ -2,7 +2,7 @@
   "issue": 19,
   "spec_dir": "specs/007-water-drinking-grass",
   "feature_num": "007",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/007-water-drinking-grass"
 }
