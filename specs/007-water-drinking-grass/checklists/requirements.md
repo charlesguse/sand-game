@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,9 +31,8 @@
 
 ## Notes
 
-- Three [NEEDS CLARIFICATION] markers remain, at the limit of three and no more:
-  - **FR-004** — whether grass painted with nothing beneath it stays floating (chosen default) or falls like a powder until it lands. Decides whether grass is a new static element family or a powder that roots on landing; it changes the shape of the child's planted drawing.
-  - **FR-008** — whether fully grown grass stops drinking so leftover water stays a pool (chosen default), or keeps drinking forever so grass doubles as a drain. Decides whether standing water survives beside a mature lawn.
-  - **FR-028** — whether the two preloaded landscape scenes are left exactly as they are (chosen default) or reseeded with grass on their hillsides. A scope question about this feature's blast radius.
-- Each marker carries an interim default in the spec text, so the specification is complete and implementable as written; the questions are posted to the lifecycle issue for confirmation rather than blocking.
-- Every other item passed on the first validation pass; no spec revisions were required.
+- All three [NEEDS CLARIFICATION] markers are resolved by the answers on issue #19 (2026-08-26) and folded into the spec:
+  - **FR-004** — *confirmed as drafted*: grass is static everywhere, so grass painted with nothing beneath it stays floating exactly where the child drew it and is its own root. The toy never rearranges her drawing.
+  - **FR-008** — *confirmed as drafted*: grass that can no longer grow stops drinking, so leftover water stays a pool she can keep playing with. Grass is explicitly not a permanent drain.
+  - **FR-028** — *changed from the drafted default*: the 🏔️ hills-and-lake scene is seeded with grass on its hillsides so the feature demonstrates itself beside water the child cannot read her way to; the 🏝️ beach scene is left exactly as it is. Captured as FR-028, FR-028a, SC-021, and SC-022, with the affected spec-004 requirements (FR-012, FR-017, FR-020, FR-027, FR-028, SC-006, SC-012) recorded under **Superseded requirements** and the new assertions added to FR-035.
+- The only revisions made after the first validation pass are the ones above; every other item passed on the first pass and still holds.

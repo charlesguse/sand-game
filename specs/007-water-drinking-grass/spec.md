@@ -83,11 +83,11 @@ However much water the child pours, the grass stays a garden rather than eating 
 
 ### User Story 4 - Grass belongs with everything else (Priority: P4)
 
-Grass behaves like a first-class member of the toy. The sponge rubs it out. The bin clears it with everything else. Sand and dirt pour over it and pile on top of it like it is a hillside. The sparkle wand makes it glitter like everything else does. Rainbows and unicorns can be placed over it. Turning the phone sideways keeps the garden. Nothing about grass ever produces a message, a mistake, or a way to be wrong.
+Grass behaves like a first-class member of the toy. The sponge rubs it out. The bin clears it with everything else. Sand and dirt pour over it and pile on top of it like it is a hillside. The sparkle wand makes it glitter like everything else does. Rainbows and unicorns can be placed over it. Turning the phone sideways keeps the garden. And when she taps the hills-and-lake scene, the hillsides arrive already green, with the lake lapping against them — the grass starts drinking and rising the moment she is looking, so she meets the whole feature without anyone telling her about it. Nothing about grass ever produces a message, a mistake, or a way to be wrong.
 
 **Why this priority**: These are the integration behaviours that keep the toy coherent. Each is small and most follow from existing rules, so they rank last — but the feature is not finished until grass stops being a special case.
 
-**Independent Test**: Exercise the eraser, clear-all, wand, powder piling, object placement, and play-field re-derivation against a field containing grass in a headless test and assert each existing rule applies to grass exactly as it applies to the other elements.
+**Independent Test**: Exercise the eraser, clear-all, wand, powder piling, object placement, play-field re-derivation, and both scene generators against a field containing grass in a headless test and assert each existing rule applies to grass exactly as it applies to the other elements — including that landscape-1 generates grass on its hills deterministically at every size while landscape-2 generates none.
 
 **Acceptance Scenarios**:
 
@@ -97,8 +97,11 @@ Grass behaves like a first-class member of the toy. The sponge rubs it out. The 
 4. **Given** grass on the field, **When** the child drags the sparkle wand across it, **Then** the grass glitters exactly as the other elements do.
 5. **Given** grass on the field, **When** the child places a rainbow or a unicorn over it, **Then** placement works exactly as it does over any other element.
 6. **Given** a garden the child has grown on a phone, **When** she turns the phone, **Then** her grass is carried across with the rest of her drawing under the existing preservation rule, and it keeps growing when watered afterwards.
-7. **Given** the child taps a preloaded scene button while grass is on the field, **When** the scene loads, **Then** the field is replaced by that scene exactly as it is today, with no error and no leftover grass.
+7. **Given** the child taps a preloaded scene button while grass is on the field, **When** the scene loads, **Then** every cell she had drawn is replaced by that scene's contents, with no error and no leftover grass from before.
 8. **Given** any amount of grass, water, and powder on the field, **When** the child does anything at all, **Then** no message, confirmation, score, or failure state can appear.
+9. **Given** the child taps the 🏔️ hills-and-lake scene, **When** it loads, **Then** the hillsides are already green with grass beside the lake, and everything else in that scene — hills, lake, rainbow, unicorn — is exactly where it has always been.
+10. **Given** the 🏔️ hills-and-lake scene has just loaded, **When** she watches it, **Then** the grass at the water's edge drinks and grows a little, then stops, while the hills keep their shape and the lake keeps the rest of its water.
+11. **Given** the child taps the 🏝️ beach scene, **When** it loads, **Then** it is exactly the beach it has always been — pink sand, water, two rainbows, a unicorn, and not a blade of grass.
 
 ---
 
@@ -116,8 +119,10 @@ Grass behaves like a first-class member of the toy. The sponge rubs it out. The 
 - **Water dropped onto grass that has already finished growing**: it lands on top and rests there like it would on any solid element; it is not absorbed.
 - **Erasing the base of a tall blade**: the blade above does not fall or collapse — grass is static — and it continues to behave normally.
 - **The grass ceiling reached across the field**: further watering absorbs nothing and grows nothing anywhere, and the toy carries on as normal with no message.
-- **Play-field re-derivation on rotation**: grass is carried across on exactly the same best-effort, bottom-centre-anchored basis as every other element; grass cropped out is gone and the survivors carry on growing.
-- **Reload**: nothing is persisted, so the field opens empty exactly as it does today.
+- **Play-field re-derivation on rotation**: grass is carried across on exactly the same best-effort, bottom-centre-anchored basis as every other element; grass cropped out is gone and the survivors carry on growing. A loaded scene is still not regenerated on rotation, so the hills scene's grass is carried across as ordinary grass rather than reseeded.
+- **Tapping the hills scene again after its grass has grown**: the field is wiped and the scene is regenerated, so the garden returns to its freshly seeded state and starts drinking again — the same as tapping any scene twice today.
+- **The hills scene on a very small play field**: its grass is laid out in proportion like the rest of the scene, so there is still a recognisable green hillside beside the lake rather than a stray cell or none at all.
+- **Reload**: nothing is persisted, so the field opens empty exactly as it does today — the seeded garden appears only when the child taps 🏔️.
 - **All the edge cases from the pink-sand, water/dirt, rainbow/unicorn, landscape-scenes, sparkle-wand, and phone-support features** continue to apply unchanged and now apply with grass on the field as well.
 
 ## Requirements *(mandatory)*
@@ -133,14 +138,14 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - **FR-001**: The play field MUST support a new element, grass, alongside empty, pink sand, water, and magic purple dirt. Each cell MUST still hold at most one element.
 - **FR-002**: Grass MUST carry a per-cell shade variation in a green range, assigned when the cell is created and preserved for the life of the cell, using the same per-cell shade mechanism as the existing elements.
 - **FR-003**: Grass MUST be recognisable as green grass at a glance and MUST be visually distinguishable from pink sand, purple dirt, water, and wand rainbow sand when they sit side by side.
-- **FR-004**: Grass MUST NOT move under any simulation rule: it does not fall, slide, spread, swap, or sink. A grass cell created at a position stays at that position until a drawing tool removes it or a play-field re-derivation moves it. *(Interim decision — see [NEEDS CLARIFICATION: Should grass painted with nothing beneath it stay floating where the child drew it (chosen default: yes, grass is static everywhere), or fall like a powder until it lands and only then take root?])*
+- **FR-004**: Grass MUST NOT move under any simulation rule: it does not fall, slide, spread, swap, or sink. A grass cell created at a position stays at that position until a drawing tool removes it or a play-field re-derivation moves it. This holds everywhere on the field, including grass painted with nothing beneath it: such grass stays floating exactly where the child drew it and is its own root, so the toy never rearranges her drawing.
 - **FR-005**: Grass MUST behave as solid ground for every other element: powders rest on top of it and MUST NOT sink through it or displace it, and water MUST NOT pass through it, flowing around it exactly as it flows around a powder.
 - **FR-006**: Grass MUST NOT be created, destroyed, or converted by any rule other than the ones in this spec (the grass brush, the eraser, clear-all, scene loading, play-field re-derivation, and the growth rule of FR-010).
 
 **Drinking water**
 
 - **FR-007**: A grass cell that is orthogonally adjacent to a water cell and that is still able to grow (FR-011, FR-012) MUST absorb that water: the water cell becomes empty and the grass cell gains the capacity to sprout exactly one new grass cell.
-- **FR-008**: A grass cell that cannot grow — because every eligible target cell is occupied, or because the height ceiling of FR-011 or the field ceiling of FR-012 has been reached — MUST NOT absorb water. Water resting against fully grown grass MUST pool, level, and flow as ordinary water does against solid ground. *(Interim decision — see [NEEDS CLARIFICATION: Once grass has grown as much as it can, should it stop drinking so leftover water stays a pool the child can play with (chosen default), or keep slowly drinking forever so that grass doubles as a drain that makes standing water disappear?])*
+- **FR-008**: A grass cell that cannot grow — because every eligible target cell is occupied, or because the height ceiling of FR-011 or the field ceiling of FR-012 has been reached — MUST NOT absorb water. Water resting against fully grown grass MUST pool, level, and flow as ordinary water does against solid ground. Grass MUST NOT act as a permanent drain: absorption is tied to growth, so a pond ringed by mature grass stays a pond the child can keep playing with.
 - **FR-009**: Absorption MUST be paced so the child sees the water level go down rather than a pool vanishing between frames: a single grass cell MUST NOT absorb more than one water cell per 10 simulation steps.
 
 **Growing**
@@ -169,7 +174,14 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - **FR-025**: The sparkle wand MUST treat grass exactly as it treats the other non-object elements: a wand pass over grass glitters it, and the wand's rainbow-sand sprinkling behaviour in empty cells is unchanged.
 - **FR-026**: Rainbow and unicorn placement, and every other existing object behaviour, MUST be unaffected by the presence of grass; grass never grows into an object's cells.
 - **FR-027**: Play-field re-derivation (spec 006) MUST carry grass across on exactly the same best-effort, bottom-centre-anchored basis as every other element; a grass cell's absorbed-water state need not survive a re-derivation, but the grass itself MUST.
-- **FR-028**: Scene loading MUST continue to work exactly as it does today with grass on the field. The two preloaded landscape scenes MUST remain exactly as they are today, with no grass added to them. *(Interim decision — see [NEEDS CLARIFICATION: Should the two preloaded landscape scenes be left exactly as they are (chosen default), or should they be reseeded with grass on their hillsides so the child finds a garden to water the moment she picks a scene?])*
+- **FR-028**: Scene loading MUST continue to work exactly as it does today with grass on the field: a scene tap MUST still remove every existing element cell, object, and particle — grass included — before placing the chosen scene's contents, immediately and with no confirmation.
+- **FR-028a**: The 🏔️ landscape-1 (hills-and-lake) scene MUST be seeded with grass on its hillsides, so a child who cannot read finds a garden already growing beside the lake and the feature demonstrates itself. The 🏝️ landscape-2 (beach) scene MUST remain exactly as it is today, with no grass, so the two scenes keep distinct characters. The ⬜ empty scene is unchanged and still leaves the field completely empty. Specifically, for landscape-1:
+  - Grass MUST cover part of the surface of the hills, laid out in proportion to the play field's dimensions exactly as the rest of the scene is (spec 004 FR-022), so it is present and recognisable at every play-field size derived under spec 006 and never clipped.
+  - Which cells hold grass MUST be deterministic (spec 004 FR-023) — loading the scene twice at the same size produces the same grass, cell for cell — with only the per-cell shade variation of FR-002 differing in the same way it already does for the scene's sand and dirt.
+  - The scene's grass MUST be ordinary grass in every respect (spec 004 FR-013): erasable, clearable, waterable, buildable-on, and subject to every rule in this spec.
+  - Seeded grass adjacent to the scene's lake WILL drink and grow when the simulation advances. That growth is intended and welcome — it is how the child discovers the feature — and it is bounded by FR-011, FR-012, and FR-014 exactly as any other grass is. The hills MUST still hold their shape and the lake MUST still stay in its basin (spec 004 FR-020): the only visible change on load is a bounded amount of grass rising at the water's edge, and once that grass can no longer grow the lake stops shrinking and keeps the rest of its water.
+  - The seeded grass MUST be laid out so that the growth it triggers on load consumes no more than half the scene's lake: what the child meets is a lawn rising at the shoreline, not a lake draining into a meadow.
+  - The scene MUST still satisfy every other requirement of spec 004 for landscape-1 — its hills, lake, rainbow, and unicorn are all still there, and the unicorn still stands on a hill crest.
 - **FR-029**: Grass MUST NOT introduce any failure state, message, confirmation, score, or way for the child to be wrong, and MUST NOT introduce sound, persistence, or any control beyond the single grass button.
 
 **Performance, non-regression, and verification**
@@ -179,7 +191,7 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - **FR-032**: The grass rules MUST be identical at every play-field size and shape; only the number of cells and the on-screen scale differ.
 - **FR-033**: Existing behaviour MUST NOT regress: with no grass on the field, every element, object, tool, scene, and control MUST behave exactly as specified by the earlier specs, and all existing automated tests MUST pass — updated only where the superseded requirements below make an assertion obsolete, never weakened to hide a regression.
 - **FR-034**: The production build MUST still emit exactly one self-contained page, fully playable when opened directly from disk with no network requests.
-- **FR-035**: The project MUST provide automated tests, runnable without a browser, covering at minimum: grass never moving under simulation (FR-004); powders resting on grass and water flowing around it (FR-005); absorption of adjacent water and its pacing (FR-007, FR-009); no absorption by grass that cannot grow, with the remaining water behaving normally (FR-008); the growth target preference order and the empty-target rule (FR-010); the height ceiling (FR-011); the field-share ceiling (FR-012); the one-blade-per-water-cell bound (FR-014); no growth without water and no change over time (FR-016); brush deposit and non-overwrite rules (FR-020); eraser and clear-all removing grass (FR-022); wand glitter on grass (FR-025); re-derivation carrying grass across (FR-027); and that a field with no grass produces byte-identical simulation behaviour to today (FR-033).
+- **FR-035**: The project MUST provide automated tests, runnable without a browser, covering at minimum: grass never moving under simulation, including grass drawn in mid-air (FR-004); powders resting on grass and water flowing around it (FR-005); absorption of adjacent water and its pacing (FR-007, FR-009); no absorption by grass that cannot grow, with the remaining water behaving normally (FR-008); the growth target preference order and the empty-target rule (FR-010); the height ceiling (FR-011); the field-share ceiling (FR-012); the one-blade-per-water-cell bound (FR-014); no growth without water and no change over time (FR-016); brush deposit and non-overwrite rules (FR-020); eraser and clear-all removing grass (FR-022); wand glitter on grass (FR-025); re-derivation carrying grass across (FR-027); scene loading clearing grass from the field (FR-028); the landscape-1 generator placing grass on its hills deterministically and in proportion across the supported range of play-field sizes while landscape-2 places none, with landscape-1's hills, lake, rainbow, and unicorn all still present and its hills and lake still at rest apart from the bounded growth at the waterline (FR-028a); and that a field with no grass produces byte-identical simulation behaviour to today (FR-033).
 
 ### Key Entities
 
@@ -196,6 +208,11 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - Spec 002's **FR-001** (a cell is empty or holds pink sand, water, or purple dirt) is superseded by FR-001 of this spec, which adds grass to the element set. Spec 002's **FR-017** (the toolbar's element set) is extended, not replaced, by FR-018.
 - Spec 002's assumption that "no new interactions between elements beyond density" exist is superseded: grass drinking water is a deliberate new element interaction, and it is the point of this feature.
 - The toolbar-fit requirements of specs 002 (**FR-025**), 004 (**FR-007**), 005 (**FR-005**), and 006 (**FR-018**, **FR-020**, **FR-020a**, **FR-021**) are extended, not replaced: they must now hold with the grass button present as well (FR-024).
+- Spec 004's **FR-012** (scene contents are composed entirely of pink sand, water, magic purple dirt, rainbow sand, rainbows, and unicorns) is extended to include grass, which is an existing, fully drawable and erasable element from this feature onward — not a new background layer or image.
+- Spec 004's **FR-017** (the minimum contents of the 🏔️ landscape-1 scene) is extended by FR-028a: that scene must now also contain grass on its hillsides. Spec 004's **FR-018** (the 🏝️ landscape-2 beach scene) is unchanged and that scene contains no grass.
+- Spec 004's **FR-020** and **SC-006** (a scene is at rest on load; advancing the simulation leaves its terrain and water substantially unchanged) are superseded for landscape-1 only: its seeded grass drinks at the lake's edge and grows a bounded amount when the simulation advances. The hills must still hold their shape and the lake must still stay in its basin rather than draining away — only a bounded amount of grass rising at the waterline is permitted, and it stops of its own accord (FR-008, FR-011, FR-014).
+- Spec 004's **FR-027** ("all existing automated tests MUST pass unchanged") and **SC-012** are superseded to the extent that landscape-1's composition assertions must be updated to expect its grass. Every other scene test, and every landscape-2 assertion, MUST pass unchanged.
+- Spec 004's **FR-028** (scene test coverage) is extended by FR-035 of this spec, which adds the landscape-1 grass assertions.
 
 ## Success Criteria *(mandatory)*
 
@@ -221,6 +238,8 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - **SC-018**: A child cannot reach any state that shows a message, a confirmation, an error, or a score by any use of grass — 0 such states exist.
 - **SC-019**: A production build still produces exactly one output file, and opening that file directly from disk yields a fully playable toy with 0 network requests.
 - **SC-020**: The automated test suite runs to completion without a browser and covers every rule listed in FR-035, including the blocked, buried, ceiling-reached, and no-water cases.
+- **SC-021**: The 🏔️ hills-and-lake scene, generated across the full supported range of play-field sizes, contains grass on its hills at 100% of sizes along with every part spec 004 already requires of it; generating it twice at the same size produces 0 differing grass cells. The 🏝️ beach scene contains exactly 0 grass cells at every size.
+- **SC-022**: Advancing a freshly loaded 🏔️ hills-and-lake scene to a standstill with no drawing leaves the hill height profile unchanged, halts grass growth within 15 seconds, and leaves at least half the lake's water cells in place — the lake never drains to 0.
 
 ### Visual checks for the maintainer *(no automated coverage)*
 
@@ -231,18 +250,20 @@ Throughout: a **grass cell** is a cell holding the grass element. A blade's **ro
 - The grass button looks like it has always belonged with the other element buttons.
 - Sand piling on top of grass looks like sand on a hillside.
 - The sparkle wand over grass looks as magical as it does over sand.
+- The 🏔️ hills-and-lake scene still reads as the same world it always was, now with green hillsides — the grass looks planted on the hills, not scattered over them.
+- Loading that scene and watching the shoreline grass drink and rise is the "oh!" moment it is meant to be, and it settles rather than eating the lake.
 - On a Fire 7 tablet specifically: a busy garden with water running through it stays smooth in a small hand.
 
 ## Assumptions
 
 - **Builds on the existing toy**: this feature assumes specs 001–006 are the base being extended. All of their constraints — single self-contained page, no reading required, no failure states, mouse and touch, viewport-derived play field within the 43,200-cell budget — continue to apply.
-- **Grass is static, not a powder.** The chosen default is that grass never moves, which makes it a new element family (a solid) alongside the existing powders and liquid. This is what lets a blade have a root and a height, and it is what makes the child's planted shape stay the shape she drew. Marked for confirmation in FR-004.
+- **Grass is static, not a powder.** Confirmed in clarification: grass never moves, which makes it a new element family (a solid) alongside the existing powders and liquid. This is what lets a blade have a root and a height, and it is what makes the child's planted shape stay the shape she drew — the toy never rearranges her drawing (FR-004).
 - **Bounds are stated as fixed cell counts, not fractions of the field**, so the same rules produce the same-looking garden on a phone and on a laptop despite spec 006's viewport-derived grid. The 12-cell height ceiling is roughly 7% of today's default field height; the 25% field-share ceiling is the backstop against a runaway garden.
 - **Growth is paid for in water.** One absorbed water cell buys exactly one new grass cell. This makes the feature self-limiting in the most kid-legible way possible: pour more water, get more grass; stop, and it stops.
-- **Fully grown grass stops drinking** (FR-008), so a lake beside a mature lawn stays a lake. The alternative — grass as a permanent drain — is marked for confirmation because it changes whether standing water is a thing the child can keep.
+- **Fully grown grass stops drinking** (FR-008), so a lake beside a mature lawn stays a lake. Confirmed in clarification: grass is deliberately *not* a permanent drain, because a pond silently vanishing with nothing to show for it would read as the toy taking the child's work away. Standing water is a thing she can keep.
 - **Nothing dies.** Grass never wilts, browns, or disappears on its own, and burying it does not kill it. A child's garden can only be removed by her own eraser, the bin, or a scene change.
 - **Burning is out of scope but designed for.** Grass is specified as a living, burnable element so the later fire-like "star power" feature can consume it; no burning behaviour, no fire element, and no flammability control ships here.
-- **The preloaded scenes are untouched by default** (FR-028), keeping this feature's blast radius to the new element. Seeding scenes with grass is marked for confirmation as a genuinely attractive alternative.
+- **One scene is seeded with grass, the other is not** (FR-028a). Confirmed in clarification: the 🏔️ hills-and-lake scene gets grass on its hillsides so a child who cannot read discovers watering-and-growing by itself, next to water that is already there; the 🏝️ beach scene stays a pure sand-and-water world so the two scenes keep distinct characters. This deliberately widens the feature's blast radius into spec 004's landscape-1 generator and its tests, and no further — every landscape-2 assertion stands unchanged.
 - **Water conservation is deliberately broken, and only by grass.** This is the first rule in the toy that consumes an element. It is confined to grass and recorded in Superseded requirements so a future reader does not read it as a regression.
 - **No sound, no persistence, no new settings**, consistent with the rest of the toy.
 - **Target devices** are a mid-range laptop, a tablet, a mid-range phone, and now explicitly a low-end tablet of the Amazon Fire 7 Kids class, which is the binding performance constraint for this feature.
