@@ -110,15 +110,15 @@ Single client-only web app (established 001–009): `src/sim/*` (framework-free 
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T029 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an action → undo → redo round trip returns the field to exactly the pre-undo state, cell for cell and object for object (FR-016, SC-009)
-- [ ] T030 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test running at least 20 consecutive undo/redo alternations, asserting the field returns to the starting state one step per tap in both directions (FR-016, SC-009)
-- [ ] T031 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an undo followed by any new recorded action (stroke, object placement, clear, scene tap) discards the entire redo history, so a subsequent `redo()` returns `false` and changes nothing (FR-017, SC-010)
-- [ ] T032 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an undo followed by many `step()` calls before redoing still restores exactly the state the undo captured, unaffected by elapsed simulation time (FR-018)
-- [ ] T033 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.redo()` on an empty redo stack (fresh `HistoryManager`) returns `false` and changes nothing (FR-003)
+- [X] T029 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an action → undo → redo round trip returns the field to exactly the pre-undo state, cell for cell and object for object (FR-016, SC-009)
+- [X] T030 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test running at least 20 consecutive undo/redo alternations, asserting the field returns to the starting state one step per tap in both directions (FR-016, SC-009)
+- [X] T031 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an undo followed by any new recorded action (stroke, object placement, clear, scene tap) discards the entire redo history, so a subsequent `redo()` returns `false` and changes nothing (FR-017, SC-010)
+- [X] T032 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that an undo followed by many `step()` calls before redoing still restores exactly the state the undo captured, unaffected by elapsed simulation time (FR-018)
+- [X] T033 [P] [US3] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.redo()` on an empty redo stack (fresh `HistoryManager`) returns `false` and changes nothing (FR-003)
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Verify `HistoryManager.undo()`/`redo()` (from T004) already satisfy FR-015/FR-016's capture-onto-the-other-stack behavior against the User Story 3 tests (T029–T033); no new production code is expected beyond Phase 2 — `redo()`'s UI path (the ↪️ button, `App.svelte`/`PlayArea.svelte` wiring) is already delivered by T020–T022
+- [X] T034 [US3] Verify `HistoryManager.undo()`/`redo()` (from T004) already satisfy FR-015/FR-016's capture-onto-the-other-stack behavior against the User Story 3 tests (T029–T033); no new production code is expected beyond Phase 2 — `redo()`'s UI path (the ↪️ button, `App.svelte`/`PlayArea.svelte` wiring) is already delivered by T020–T022
 
 **Checkpoint**: All three of Undo, Redo, and rescue-after-clear work independently and in combination — undo/redo can be alternated any number of times.
 
