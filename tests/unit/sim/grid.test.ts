@@ -8,8 +8,9 @@ import {
   clearGrid,
   setGlitter,
   getGlitter,
+  igniteStarPower,
 } from '../../../src/sim/grid';
-import { EMPTY, SAND, GRASS } from '../../../src/sim/types';
+import { EMPTY, SAND, GRASS, STAR_POWER } from '../../../src/sim/types';
 
 describe('grid', () => {
   it('createGrid zeroes elements, shades, moved, and hues', () => {
@@ -117,5 +118,59 @@ describe('grid', () => {
     // Overwriting a non-grass cell with non-grass leaves the count unchanged.
     setCell(grid, 0, 0, SAND, 6);
     expect(grid.grassCount).toBe(2);
+  });
+
+  it('igniteStarPower sets elements/starPowerFuelled/starPowerLife/starPowerAge/glitter (contracts/star-power-mechanics.md)', () => {
+    const grid = createGrid(3, 3);
+    igniteStarPower(grid, 1, 1, true);
+    const i = 1 * 3 + 1;
+
+    expect(grid.elements[i]).toBe(STAR_POWER);
+    expect(grid.starPowerFuelled[i]).toBe(1);
+    expect(grid.starPowerLife[i]).toBeGreaterThanOrEqual(30);
+    expect(grid.starPowerLife[i]).toBeLessThanOrEqual(60);
+    expect(grid.starPowerAge[i]).toBe(0);
+    expect(getGlitter(grid, 1, 1)).toBe(true);
+
+    igniteStarPower(grid, 2, 2, false);
+    const j = 2 * 3 + 2;
+    expect(grid.starPowerFuelled[j]).toBe(0);
+  });
+
+  it('igniteStarPower is a no-op when (x, y) is out of bounds', () => {
+    const grid = createGrid(3, 3);
+    igniteStarPower(grid, -1, 0, true);
+    igniteStarPower(grid, 5, 5, true);
+    expect([...grid.elements]).toEqual(new Array(9).fill(0));
+  });
+
+  it("setCell's star-power reset rule: writing a non-STAR_POWER element zeroes starPowerAge/Life/Fuelled; starPowerAge always resets to 0", () => {
+    const grid = createGrid(2, 2);
+    igniteStarPower(grid, 0, 0, true);
+    const i = 0;
+    expect(grid.starPowerLife[i]).toBeGreaterThan(0);
+    expect(grid.starPowerFuelled[i]).toBe(1);
+
+    setCell(grid, 0, 0, SAND, 5);
+    expect(grid.starPowerAge[i]).toBe(0);
+    expect(grid.starPowerLife[i]).toBe(0);
+    expect(grid.starPowerFuelled[i]).toBe(0);
+
+    // starPowerAge resets to 0 on every setCell call, regardless of element.
+    grid.starPowerAge[i] = 7;
+    setCell(grid, 0, 0, SAND, 6);
+    expect(grid.starPowerAge[i]).toBe(0);
+  });
+
+  it('clearGrid on a grid containing star power fills starPowerAge/starPowerLife/starPowerFuelled to 0 for every cell', () => {
+    const grid = createGrid(3, 3);
+    igniteStarPower(grid, 0, 0, true);
+    igniteStarPower(grid, 2, 2, false);
+
+    clearGrid(grid);
+
+    expect([...grid.starPowerAge]).toEqual(new Array(9).fill(0));
+    expect([...grid.starPowerLife]).toEqual(new Array(9).fill(0));
+    expect([...grid.starPowerFuelled]).toEqual(new Array(9).fill(0));
   });
 });

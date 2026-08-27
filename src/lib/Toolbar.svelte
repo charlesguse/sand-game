@@ -48,6 +48,14 @@
     >
       🌱
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'star'}
+      aria-label="Star power"
+      onclick={() => onSelectTool('star')}
+    >
+      ⭐
+    </button>
   </div>
 
   <div class="group objects">

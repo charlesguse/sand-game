@@ -70,7 +70,8 @@ export function computePlayField(
   };
 }
 
-const TOOLBAR_GAP = 8;
+// 0.4rem (~6.4px), matching Toolbar.svelte's real .group gap between controls.
+const TOOLBAR_GAP = 6;
 const TOOLBAR_PADDING = 12;
 
 /**

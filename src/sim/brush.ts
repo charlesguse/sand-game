@@ -1,5 +1,5 @@
 import { EMPTY, SAND, WATER, DIRT, GRASS, type Grid, type Tool } from './types';
-import { setCell, inBounds } from './grid';
+import { setCell, inBounds, igniteStarPower } from './grid';
 
 export function forEachFootprintCell(
   cx: number,
@@ -39,6 +39,10 @@ function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number):
     setCell(grid, x, y, GRASS, shade);
   } else if (tool === 'water' && current === EMPTY) {
     setCell(grid, x, y, WATER, shade);
+  } else if (tool === 'star' && current === EMPTY) {
+    igniteStarPower(grid, x, y, false);
+  } else if (tool === 'star' && current === GRASS) {
+    igniteStarPower(grid, x, y, true);
   }
 }
 

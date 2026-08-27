@@ -39,6 +39,7 @@
     RAINBOW_SAND,
     OBJECT,
     GRASS,
+    STAR_POWER,
     type Grid,
     type PlacedObject,
     type Tool,
@@ -192,6 +193,18 @@
     [25, 105, 30],
   ];
 
+  // Gold ramp: 8 shades from pale yellow to warm gold, indexed by shades[i] % length.
+  const GOLD_RAMP: [number, number, number][] = [
+    [255, 250, 210],
+    [255, 244, 180],
+    [255, 235, 140],
+    [255, 223, 100],
+    [255, 208, 70],
+    [250, 190, 50],
+    [235, 170, 30],
+    [210, 145, 15],
+  ];
+
   // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
   function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -216,6 +229,7 @@
     if (element === DIRT) return PURPLE_RAMP[shade % PURPLE_RAMP.length];
     if (element === RAINBOW_SAND) return hslToRgb((hue / 255) * 360, 0.85, 0.6);
     if (element === GRASS) return GREEN_RAMP[shade % GREEN_RAMP.length];
+    if (element === STAR_POWER) return GOLD_RAMP[shade % GOLD_RAMP.length];
     return [255, 255, 255];
   }
 
