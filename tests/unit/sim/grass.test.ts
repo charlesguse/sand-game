@@ -320,6 +320,46 @@ describe('grass — pacing bounds total absorption over a run (FR-009, FR-014, S
   });
 });
 
+describe('grass — an obstacle to powder and water alike (FR-005)', () => {
+  it('a powder cell resting directly on grass stays resting on top of it across many steps', () => {
+    const grid = createGrid(5, 5);
+    // A grass floor wide enough that sand can't slide off it diagonally either — isolates
+    // "does powder sink through/displace grass" from ordinary diagonal sliding off any solid.
+    setCell(grid, 1, 4, GRASS, 5);
+    setCell(grid, 2, 4, GRASS, 5);
+    setCell(grid, 3, 4, GRASS, 5);
+    setCell(grid, 2, 3, SAND, 5);
+
+    for (let i = 0; i < 50; i++) step(grid);
+
+    expect(getElement(grid, 2, 3)).toBe(SAND);
+    expect(getElement(grid, 2, 4)).toBe(GRASS);
+  });
+
+  it('a water cell directly above grass flows sideways around it rather than through it', () => {
+    const grid = createGrid(5, 5);
+    // Same wide grass floor, so the water's diagonal-down escape is blocked and the only way
+    // off its cell is sideways in its own row — exercising "around" rather than "through/under".
+    setCell(grid, 1, 4, GRASS, 5);
+    setCell(grid, 2, 4, GRASS, 5);
+    setCell(grid, 3, 4, GRASS, 5);
+    setCell(grid, 2, 3, WATER, 5);
+    // Freeze absorption for this step so only grass's role as a solid obstacle to water's
+    // ordinary flow is exercised here, independent of the separate absorb-and-grow feature.
+    grid.grassCooldown[4 * grid.width + 1] = 1;
+    grid.grassCooldown[4 * grid.width + 2] = 1;
+    grid.grassCooldown[4 * grid.width + 3] = 1;
+
+    step(grid);
+
+    expect(getElement(grid, 2, 4)).toBe(GRASS); // never displaced or swapped through
+    expect(getElement(grid, 2, 3)).toBe(EMPTY); // the water left its cell...
+    const wentLeft = getElement(grid, 1, 3) === WATER;
+    const wentRight = getElement(grid, 3, 3) === WATER;
+    expect(wentLeft || wentRight).toBe(true); // ...by flowing sideways around the grass
+  });
+});
+
 describe('grass — the rules are size-independent (FR-032)', () => {
   it('the same height-ceiling and field-share-ceiling outcomes hold at a phone-sized grid', () => {
     const field = computePlayField(390, 700, true);
