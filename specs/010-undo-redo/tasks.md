@@ -248,3 +248,9 @@ With multiple developers, after Phase 2 (Foundational) lands:
 
 - [X] T046 Add a test in `tests/unit/sim/history.test.ts` that places a 🌈 or 🦄 object via `beginAction`/`placeObject`/`commitAction` (one recorded action) and asserts `undo()` removes exactly that placed object, leaving every other cell and object unchanged, per FR-033's explicit test list (FR-005, FR-012) — **done**: added both a rainbow-placement and a unicorn-placement case
 - [X] T047 Add a test in `tests/unit/sim/history.test.ts` that runs `step()` many times with no intervening `beginAction`/`commitAction` call and asserts `HistoryManager.canUndo()` stays `false` throughout — simulation changes alone must never populate the undo history, per FR-033's explicit test list (FR-006) — **done**: 200 `step()` calls over a field with active grass/fire/fog, asserting `canUndo()` stays `false` and `canRedo()` stays `false`
+
+---
+
+## Phase 9: Convergence
+
+- [ ] T048 In `src/lib/PlayArea.svelte`, add the same flush-first guard `undo()`/`redo()` already use (`if (drawing) handlePointerUp();`) to the start of `clearAll()`, to the start of `loadScene()`, and to the very start of `handlePointerDown()` before either branch — so a second, concurrent touch point (a second finger tapping 🗑️, a scene button, or placing a 🌈/🦄 while another finger is still mid-stroke on the canvas) always completes and records the in-progress stroke as its own action first, instead of silently overwriting its unconsummated `pending` "before" snapshot per `history.ts`'s single-slot design (research.md §3) and losing the interrupted stroke's continuation from the undo history entirely (FR-009, contradicts)
