@@ -9,7 +9,7 @@ import {
   setGlitter,
   getGlitter,
 } from '../../../src/sim/grid';
-import { EMPTY, SAND } from '../../../src/sim/types';
+import { EMPTY, SAND, GRASS } from '../../../src/sim/types';
 
 describe('grid', () => {
   it('createGrid zeroes elements, shades, moved, and hues', () => {
@@ -75,5 +75,34 @@ describe('grid', () => {
     setGlitter(grid, 1, 1, 1);
     clearGrid(grid);
     expect([...grid.glitter]).toEqual(new Array(4).fill(0));
+  });
+
+  it('setCell bookkeeps grassHeight/grassCooldown/grassCount for grass (contracts/grass-mechanics.md)', () => {
+    const grid = createGrid(2, 3);
+    expect(grid.grassCount).toBe(0);
+
+    // No grass below -> height 0, count 1.
+    setCell(grid, 0, 2, GRASS, 5);
+    expect(grid.grassHeight[2 * 2 + 0]).toBe(0);
+    expect(grid.grassCount).toBe(1);
+
+    // Grass planted on top of existing grass -> belowHeight + 1.
+    setCell(grid, 0, 1, GRASS, 5);
+    expect(grid.grassHeight[1 * 2 + 0]).toBe(1);
+    expect(grid.grassCount).toBe(2);
+
+    setCell(grid, 0, 0, GRASS, 5);
+    expect(grid.grassHeight[0 * 2 + 0]).toBe(2);
+    expect(grid.grassCount).toBe(3);
+
+    // Overwriting a grass cell with a non-grass element resets height/cooldown and decrements count.
+    setCell(grid, 0, 0, SAND, 5);
+    expect(grid.grassHeight[0 * 2 + 0]).toBe(0);
+    expect(grid.grassCooldown[0 * 2 + 0]).toBe(0);
+    expect(grid.grassCount).toBe(2);
+
+    // Overwriting a non-grass cell with non-grass leaves the count unchanged.
+    setCell(grid, 0, 0, SAND, 6);
+    expect(grid.grassCount).toBe(2);
   });
 });

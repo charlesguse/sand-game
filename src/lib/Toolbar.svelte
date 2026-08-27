@@ -40,6 +40,14 @@
     >
       💜
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'grass'}
+      aria-label="Grass"
+      onclick={() => onSelectTool('grass')}
+    >
+      🌱
+    </button>
   </div>
 
   <div class="group objects">
