@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, createFog, getElement, FOG_FIELD_SHARE_CEILING } from '../../../src/sim/grid';
+import {
+  createGrid,
+  setCell,
+  createFog,
+  getElement,
+  getGlitter,
+  igniteStarPower,
+  FOG_FIELD_SHARE_CEILING,
+} from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import { applyBrush } from '../../../src/sim/brush';
 import { randomFogRiseCooldown, randomCloudRainDelay } from '../../../src/sim/shade';
-import { FOG, WATER, EMPTY, GRASS, SAND, OBJECT } from '../../../src/sim/types';
+import { FOG, WATER, EMPTY, GRASS, SAND, OBJECT, RAINBOW_SAND } from '../../../src/sim/types';
 
 function countElement(grid: ReturnType<typeof createGrid>, element: number): number {
   let count = 0;
@@ -474,13 +482,27 @@ describe('weather — rain (US3 Scenario 1, 2, 4, 5, FR-020, FR-021, FR-022, SC-
     const width = 5;
     const height = 5;
     const grid = createGrid(width, height);
-    setCell(grid, 2, 3, GRASS, 5);
+    // Wall both sides at row 2 and both diagonals-below at row 3 with OBJECT (inert — unlike
+    // GRASS, it never drinks the rain-water) so the produced water cell can only ever interact
+    // with the star power cell directly below it — no sideways or diagonal escape route.
+    grid.elements[2 * width + 1] = OBJECT;
+    grid.elements[2 * width + 3] = OBJECT;
+    grid.elements[3 * width + 1] = OBJECT;
+    grid.elements[3 * width + 3] = OBJECT;
+    // A fuelled star power cell directly below where the rain will land.
+    igniteStarPower(grid, 2, 3, true);
     createFog(grid, 2, 2);
     grid.cloud[2 * width + 2] = 1;
     grid.cloudRainDelay[2 * width + 2] = 1;
-    // Place a fuelled star power cell directly below where the rain will land.
-    step(grid); // rains this step
+
+    step(grid); // rains this step, producing WATER at (2, 2)
     expect(getElement(grid, 2, 2)).toBe(WATER);
+
+    step(grid); // the star power cell (processed after row 2 in the bottom-to-top pass) now sees it
+
+    expect(getElement(grid, 2, 3)).toBe(RAINBOW_SAND); // fuelled — extinguished, leaves a glitter grain
+    expect(getGlitter(grid, 2, 3)).toBe(true);
+    expect(getElement(grid, 2, 2)).toBe(WATER); // the rain-water itself is untouched
   });
 });
 
