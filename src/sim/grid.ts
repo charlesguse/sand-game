@@ -1,4 +1,4 @@
-import { EMPTY, type Grid } from './types';
+import { EMPTY, GRASS, type Grid } from './types';
 
 export function createGrid(width: number, height: number): Grid {
   const size = width * height;
@@ -10,6 +10,9 @@ export function createGrid(width: number, height: number): Grid {
     moved: new Uint8Array(size),
     hues: new Uint8Array(size),
     glitter: new Uint8Array(size),
+    grassHeight: new Uint8Array(size),
+    grassCooldown: new Uint8Array(size),
+    grassCount: 0,
   };
 }
 
@@ -30,14 +33,35 @@ export function getShade(grid: Grid, x: number, y: number): number {
 export function setCell(grid: Grid, x: number, y: number, element: number, shade: number): void {
   if (!inBounds(grid, x, y)) return;
   const i = y * grid.width + x;
+  const wasGrass = grid.elements[i] === GRASS;
+  const becomesGrass = element === GRASS;
+
   grid.elements[i] = element;
   grid.shades[i] = element === EMPTY ? 0 : shade;
   grid.glitter[i] = 0;
+
+  if (becomesGrass) {
+    const belowY = y + 1;
+    const belowIndex = belowY < grid.height ? belowY * grid.width + x : -1;
+    grid.grassHeight[i] =
+      belowIndex >= 0 && grid.elements[belowIndex] === GRASS
+        ? Math.min(255, grid.grassHeight[belowIndex] + 1)
+        : 0;
+  } else {
+    grid.grassHeight[i] = 0;
+  }
+  grid.grassCooldown[i] = 0;
+
+  if (becomesGrass && !wasGrass) grid.grassCount++;
+  else if (!becomesGrass && wasGrass) grid.grassCount--;
 }
 
 export function clearGrid(grid: Grid): void {
   grid.elements.fill(EMPTY);
   grid.glitter.fill(0);
+  grid.grassHeight.fill(0);
+  grid.grassCooldown.fill(0);
+  grid.grassCount = 0;
 }
 
 export function setGlitter(grid: Grid, x: number, y: number, value: 0 | 1): void {
