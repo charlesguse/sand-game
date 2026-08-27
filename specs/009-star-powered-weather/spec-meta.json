@@ -2,7 +2,7 @@
   "issue": 21,
   "spec_dir": "specs/009-star-powered-weather",
   "feature_num": "009",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/009-star-powered-weather"
 }
