@@ -113,10 +113,10 @@ Single client-only project (established by 001–007): `src/sim/*` (framework-fr
 
 ### Tests for User Story 3
 
-- [ ] T029 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: a star power cell orthogonally adjacent to `WATER` is extinguished within one `step()` call in 100% of cases regardless of its current age — including on the very step it would otherwise have ignited a neighbor — and the water cell's element/shade are byte-identical before and after (Scenario 1, FR-016, FR-017, SC-009)
-- [ ] T030 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: pouring water directly onto a burning grass cell (making it orthogonally adjacent to water) stops it immediately, leaving a glitter grain since it is fuelled (Scenario 2, FR-016)
-- [ ] T031 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: a one-cell-wide stripe of water fully separating two halves of a lawn stops a burn lit on one side — `0` cells of the far half ever catch, even after running to a standstill (Scenario 3, FR-014, SC-007)
-- [ ] T032 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: grass beside a water firebreak continues to drink and grow into it exactly per spec 007's `stepGrass` rule, unaffected by the quench events happening elsewhere on the same grid (Scenario 6, FR-017a, FR-036)
+- [X] T029 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: a star power cell orthogonally adjacent to `WATER` is extinguished within one `step()` call in 100% of cases regardless of its current age — including on the very step it would otherwise have ignited a neighbor — and the water cell's element/shade are byte-identical before and after (Scenario 1, FR-016, FR-017, SC-009)
+- [X] T030 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: pouring water directly onto a burning grass cell (making it orthogonally adjacent to water) stops it immediately, leaving a glitter grain since it is fuelled (Scenario 2, FR-016)
+- [X] T031 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: a one-cell-wide stripe of water fully separating two halves of a lawn stops a burn lit on one side — `0` cells of the far half ever catch, even after running to a standstill (Scenario 3, FR-014, SC-007)
+- [X] T032 [P] [US3] Add a case to `tests/unit/sim/starPower.test.ts`: grass beside a water firebreak continues to drink and grow into it exactly per spec 007's `stepGrass` rule, unaffected by the quench events happening elsewhere on the same grid (Scenario 6, FR-017a, FR-036)
 
 **Checkpoint**: All three of User Stories 1–3 work independently — star power can be drawn, burns grass into glitter, and is reliably quenched by water without spending it.
 

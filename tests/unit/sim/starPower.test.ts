@@ -306,3 +306,101 @@ describe('starPower — unrelated grass keeps drinking and growing elsewhere on 
     expect(after).toBeGreaterThan(before);
   });
 });
+
+describe('starPower — water quenches on contact (US3, Scenario 1, 2, FR-016, FR-017, SC-009)', () => {
+  it('a star power cell orthogonally adjacent to WATER is extinguished within one step() call regardless of its age, even on the step it would otherwise ignite a neighbor, and the water cell is byte-identical before and after', () => {
+    const priorStepsCases = [0, 5, 9]; // 9 is the step before it would otherwise reach the ignite delay
+    for (const priorSteps of priorStepsCases) {
+      // A single-row grid: gravity is a non-issue (nothing has a "below"), and the water sits at
+      // the grid's right edge so it has no empty cell to flow sideways into, either — it can only
+      // ever be moved by the quench logic itself, isolating that logic from ordinary powder/liquid physics.
+      const grid = createGrid(3, 1);
+      setCell(grid, 0, 0, GRASS, 5); // a fuel neighbor, to prove ignition never happens despite a qualifying age
+      igniteStarPower(grid, 1, 0, true);
+
+      for (let n = 0; n < priorSteps; n++) step(grid);
+
+      setCell(grid, 2, 0, WATER, 7);
+      const waterIndex = 2;
+      const waterElementBefore = grid.elements[waterIndex];
+      const waterShadeBefore = grid.shades[waterIndex];
+
+      step(grid);
+
+      expect(grid.elements[waterIndex]).toBe(waterElementBefore);
+      expect(grid.shades[waterIndex]).toBe(waterShadeBefore);
+      expect(getElement(grid, 1, 0)).toBe(RAINBOW_SAND); // fuelled — leaves a glitter grain
+      expect(getGlitter(grid, 1, 0)).toBe(true);
+      expect(getElement(grid, 0, 0)).toBe(GRASS); // never ignited
+    }
+  });
+
+  it('pouring water directly beside a burning (fuelled) star power cell stops it immediately, leaving a glitter grain', () => {
+    // Same single-row, edge-anchored shape as above, isolating the quench check from gravity.
+    const grid = createGrid(3, 1);
+    setCell(grid, 0, 0, GRASS, 5);
+    igniteStarPower(grid, 0, 0, true);
+    for (let n = 0; n < 3; n++) step(grid);
+
+    setCell(grid, 1, 0, WATER, 5); // "pours" water directly beside the burning cell
+
+    step(grid);
+
+    expect(getElement(grid, 0, 0)).toBe(RAINBOW_SAND);
+    expect(getGlitter(grid, 0, 0)).toBe(true);
+  });
+});
+
+describe('starPower — a water firebreak fully separates a burn (US3, Scenario 3, FR-014, SC-007)', () => {
+  it('a one-cell-wide stripe of water fully separating two halves of a lawn stops a burn lit on one side, even after running to a standstill', () => {
+    const width = 21;
+    const height = 10;
+    const grid = createGrid(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < 10; x++) setCell(grid, x, y, GRASS, 5); // left half
+      setCell(grid, 10, y, WATER, 5); // the firebreak stripe
+      for (let x = 11; x < 21; x++) setCell(grid, x, y, GRASS, 5); // right half
+    }
+    igniteStarPower(grid, 0, 0, true);
+
+    for (let n = 0; n < 3000; n++) step(grid);
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 11; x < 21; x++) {
+        expect(getElement(grid, x, y)).toBe(GRASS);
+      }
+    }
+  });
+});
+
+describe('starPower — grass beside a firebreak keeps drinking and growing (US3, Scenario 6, FR-017a, FR-036)', () => {
+  it("grass beside a water firebreak continues to drink and grow into it exactly per spec 007's rule, unaffected by quench events happening elsewhere on the same grid", () => {
+    const grid = createGrid(30, 30);
+    // A burn happening far away, quenched by its own water — "a quench event elsewhere." Sitting
+    // right on the grid's true bottom row (y=29) means the resulting glitter grain has nowhere to
+    // fall, so it stays checkable at the same cell for the whole 30-step run.
+    const burnY = 29;
+    setCell(grid, 2, burnY, GRASS, 5);
+    igniteStarPower(grid, 2, burnY, true);
+    setCell(grid, 3, burnY, WATER, 5);
+
+    // A small, separate lawn with its own firebreak water, well under the field-share ceiling.
+    setCell(grid, 20, 20, GRASS, 5);
+    setCell(grid, 21, 20, WATER, 5);
+
+    for (let n = 0; n < 30; n++) step(grid);
+
+    expect(getElement(grid, 2, burnY)).toBe(RAINBOW_SAND); // the elsewhere burn was quenched as usual
+
+    // The firebreak water was absorbed and new grass grew beside it, exactly like spec 007's rule.
+    expect(getElement(grid, 21, 20)).toBe(EMPTY);
+    let grownNearby = false;
+    for (let y = 18; y <= 22; y++) {
+      for (let x = 18; x <= 22; x++) {
+        if (x === 20 && y === 20) continue;
+        if (getElement(grid, x, y) === GRASS) grownNearby = true;
+      }
+    }
+    expect(grownNearby).toBe(true);
+  });
+});
