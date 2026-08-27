@@ -11,7 +11,7 @@ import {
   eraseObjectsInBrushLine,
   clearObjects,
 } from '../../../src/sim/objects';
-import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, type PlacedObject } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT, GRASS, type PlacedObject } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
 
 function rainbowAt(x: number, y: number, size = 1, id = 0): PlacedObject {
@@ -273,6 +273,28 @@ function footprintTouchesPoint(obj: PlacedObject, px: number, py: number, radius
   const dy = closestY - py;
   return dx * dx + dy * dy <= radius * radius;
 }
+
+describe('objects — grass integration (FR-026, Scenario 5)', () => {
+  it('placing a rainbow or unicorn over grass works exactly as it does over any other element', () => {
+    const grid = createGrid(60, 60);
+    setCell(grid, 10, 10, GRASS, 5);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'unicorn', 10, 10);
+
+    expect(getElement(grid, 10, 10)).toBe(OBJECT);
+  });
+
+  it('rainbow conversion never converts a grass cell in its zone — grass is outside the conversion set', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, GRASS, 5);
+    const rainbow = rainbowAt(2, 2, 1);
+
+    applyRainbowConversions(grid, [rainbow]);
+
+    expect(getElement(grid, 1, 1)).toBe(GRASS);
+  });
+});
 
 describe('objects — clearObjects', () => {
   it('resets both rainbows and unicorns lists to empty without touching grid', () => {

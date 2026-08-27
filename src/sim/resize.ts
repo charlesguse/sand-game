@@ -1,5 +1,5 @@
 import { createGrid } from './grid';
-import { OBJECT, type Grid } from './types';
+import { GRASS, OBJECT, type Grid } from './types';
 
 /**
  * Allocates a fresh grid at the new dimensions and carries every non-OBJECT source cell across at
@@ -31,6 +31,9 @@ export function resizeGrid(
       grid.shades[destIndex] = oldGrid.shades[srcIndex];
       grid.hues[destIndex] = oldGrid.hues[srcIndex];
       grid.glitter[destIndex] = oldGrid.glitter[srcIndex];
+      grid.grassHeight[destIndex] = oldGrid.grassHeight[srcIndex];
+      grid.grassCooldown[destIndex] = oldGrid.grassCooldown[srcIndex];
+      if (oldGrid.elements[srcIndex] === GRASS) grid.grassCount++;
     }
   }
 

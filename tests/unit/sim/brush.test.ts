@@ -130,6 +130,21 @@ describe('brush — eraser and clear-all across every element', () => {
     for (let x = 0; x < 5; x++) expect(getElement(grid, x, 0)).toBe(EMPTY);
   });
 
+  it.each(Object.entries(BRUSH_RADII))(
+    'the eraser removes grass from every cell in its footprint, exactly as it does sand/water/dirt (%s, FR-022)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      applyBrush(grid, 'grass', 15, 15, radius, 5);
+      expect(getElement(grid, 15, 15)).toBe(GRASS);
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) expect(getElement(grid, x, y)).toBe(EMPTY);
+      }
+    },
+  );
+
   it('clearGrid empties a grid populated with all three elements', () => {
     const grid = createGrid(3, 1);
     setCell(grid, 0, 0, SAND, 5);

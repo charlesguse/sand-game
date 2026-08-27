@@ -77,6 +77,19 @@ describe('grid', () => {
     expect([...grid.glitter]).toEqual(new Array(4).fill(0));
   });
 
+  it('clearGrid on a grass-populated grid empties every cell and resets grassCount to 0 (FR-022)', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 0, 0, GRASS, 5);
+    setCell(grid, 1, 0, GRASS, 5);
+    setCell(grid, 0, 1, GRASS, 5);
+    expect(grid.grassCount).toBe(3);
+
+    clearGrid(grid);
+
+    expect([...grid.elements]).toEqual(new Array(9).fill(0));
+    expect(grid.grassCount).toBe(0);
+  });
+
   it('setCell bookkeeps grassHeight/grassCooldown/grassCount for grass (contracts/grass-mechanics.md)', () => {
     const grid = createGrid(2, 3);
     expect(grid.grassCount).toBe(0);

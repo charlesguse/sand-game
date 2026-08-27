@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, setGlitter, getElement, getGlitter } from '../../../src/sim/grid';
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
 import { resizeGrid } from '../../../src/sim/resize';
-import { SAND, DIRT, OBJECT } from '../../../src/sim/types';
+import { SAND, DIRT, OBJECT, GRASS } from '../../../src/sim/types';
 
 const OLD_WIDTH = 100;
 const OLD_HEIGHT = 100;
@@ -158,5 +158,31 @@ describe('resizeGrid — object footprints, verified at the data level (FR-026, 
         expect(getElement(grid, px, py)).not.toBe(OBJECT);
       }
     }
+  });
+});
+
+describe('resizeGrid — grass carries across at the same offset (FR-027, Scenario 6)', () => {
+  it('carries grassHeight/grassCooldown for every surviving grass cell and accumulates the new grassCount exactly', () => {
+    const oldGrid = createGrid(100, 100);
+    setCell(oldGrid, 50, 99, GRASS, 5); // root, height 0
+    setCell(oldGrid, 50, 98, GRASS, 5); // height 1
+    setCell(oldGrid, 50, 97, GRASS, 5); // height 2
+    oldGrid.grassCooldown[97 * 100 + 50] = 7; // nonzero cooldown, poked directly for the test
+    setCell(oldGrid, 95, 97, GRASS, 9); // dropped by the resize below (offset destination out of bounds)
+
+    const { grid, offsetX, offsetY } = resizeGrid(oldGrid, 60, 140);
+
+    expect(getElement(grid, 50 + offsetX, 99 + offsetY)).toBe(GRASS);
+    expect(grid.grassHeight[(99 + offsetY) * grid.width + (50 + offsetX)]).toBe(0);
+    expect(grid.grassHeight[(98 + offsetY) * grid.width + (50 + offsetX)]).toBe(1);
+    expect(grid.grassHeight[(97 + offsetY) * grid.width + (50 + offsetX)]).toBe(2);
+    expect(grid.grassCooldown[(97 + offsetY) * grid.width + (50 + offsetX)]).toBe(7);
+
+    expect(95 + offsetX).toBeGreaterThanOrEqual(60); // confirms the marker cell really is dropped
+
+    let survivingGrass = 0;
+    for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === GRASS) survivingGrass++;
+    expect(grid.grassCount).toBe(survivingGrass);
+    expect(grid.grassCount).toBe(3);
   });
 });

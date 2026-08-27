@@ -1,7 +1,10 @@
 import { OBJECT_FOOTPRINT_SIZE } from '../lib/layout';
 import { clearGrid, setCell } from './grid';
 import { clearObjects, placeObject, type ObjectsState } from './objects';
-import { DIRT, SAND, WATER, type Grid, type SceneId } from './types';
+import { DIRT, EMPTY, GRASS, SAND, WATER, type Grid, type SceneId } from './types';
+
+/** Flooded columns nearest each crest to seed with grass, guaranteeing water adjacency (FR-028a). */
+const SHORELINE_SEED_COLUMNS = 2;
 
 export interface SceneRegion {
   x0: number;
@@ -99,6 +102,34 @@ export function generateLandscape1(grid: Grid, objects: ObjectsState): void {
   const unicornCx = x0 + tallerCrest;
   const unicornCy = heights[tallerCrest] - OBJECT_FOOTPRINT_SIZE / 2;
   placeObject(grid, objects, 'unicorn', unicornCx, unicornCy);
+
+  // Hill cap: decorative grass along every dry column's own surface (FR-028a) — never touches
+  // water, and never overwrites the unicorn's footprint where it rests on the taller crest.
+  for (let i = 0; i < bandWidth; i++) {
+    if (heights[i] > waterSurfaceRow) continue; // flooded — no hill-cap grass here
+    const x = x0 + i;
+    const y = heights[i] - 1;
+    if (y < 0) continue;
+    if (grid.elements[y * width + x] !== EMPTY) continue; // e.g. the unicorn's footprint
+    setCell(grid, x, y, GRASS, positionalShade(x, y));
+  }
+
+  // Shoreline seed: a small, fixed, guaranteed-water-adjacent seed near each crest — the deliberate
+  // "drinks and grows a little" trigger (FR-028a).
+  for (let k = 0; k < SHORELINE_SEED_COLUMNS; k++) {
+    const leftI = crest1 + 1 + k;
+    if (leftI < crest2 && heights[leftI] > waterSurfaceRow) {
+      const x = x0 + leftI;
+      const y = waterSurfaceRow - 1;
+      if (grid.elements[y * width + x] === EMPTY) setCell(grid, x, y, GRASS, positionalShade(x, y));
+    }
+    const rightI = crest2 - 1 - k;
+    if (rightI > crest1 && heights[rightI] > waterSurfaceRow) {
+      const x = x0 + rightI;
+      const y = waterSurfaceRow - 1;
+      if (grid.elements[y * width + x] === EMPTY) setCell(grid, x, y, GRASS, positionalShade(x, y));
+    }
+  }
 }
 
 /** Pink-sand beach sloping into a large pool: two rainbows, one unicorn near the shore (FR-018). */
