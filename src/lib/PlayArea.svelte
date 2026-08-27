@@ -413,6 +413,7 @@
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    if (drawing) handlePointerUp();
     const pos = clientToGrid(event.clientX, event.clientY);
     if (tool === 'rainbow' || tool === 'unicorn') {
       history.beginAction(grid, objectsState);
@@ -442,6 +443,7 @@
   }
 
   export function clearAll(): void {
+    if (drawing) handlePointerUp();
     history.beginAction(grid, objectsState);
     clearGridState(grid);
     clearObjects(objectsState);
@@ -451,6 +453,7 @@
   }
 
   export function loadScene(sceneId: SceneId): void {
+    if (drawing) handlePointerUp();
     history.beginAction(grid, objectsState);
     loadSceneState(sceneId, grid, objectsState);
     particles.length = 0;
