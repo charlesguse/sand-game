@@ -518,12 +518,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
+    background: linear-gradient(180deg, #ffffff 55%, #fbf1f9);
   }
 
   .play-area {
     display: block;
     image-rendering: pixelated;
     touch-action: none;
+    box-shadow: 0 6px 24px rgba(90, 61, 102, 0.1);
   }
 </style>
