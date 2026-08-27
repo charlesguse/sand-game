@@ -3,6 +3,7 @@ import {
   OBJECT,
   RAINBOW_SAND,
   STAR_POWER,
+  FOG,
   type Grid,
   type ObjectsState,
   type PlacedObject,
@@ -29,7 +30,7 @@ function applyWandCell(grid: Grid, x: number, y: number): void {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return;
   const i = y * grid.width + x;
   const element = grid.elements[i];
-  if (element === OBJECT || element === STAR_POWER) return;
+  if (element === OBJECT || element === STAR_POWER || element === FOG) return;
   if (element !== EMPTY) {
     setGlitter(grid, x, y, 1);
   } else if (isSprinkleSite(x, y)) {

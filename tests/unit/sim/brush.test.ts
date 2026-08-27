@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, getElement, clearGrid } from '../../../src/sim/grid';
+import { createGrid, setCell, getElement, clearGrid, createFog } from '../../../src/sim/grid';
 import { applyBrush } from '../../../src/sim/brush';
 import {
   EMPTY,
@@ -10,6 +10,7 @@ import {
   OBJECT,
   GRASS,
   STAR_POWER,
+  FOG,
 } from '../../../src/sim/types';
 import { BRUSH_RADII } from '../../../src/lib/layout';
 
@@ -131,7 +132,7 @@ describe('brush — grass', () => {
 
 describe('brush — star power', () => {
   it.each(Object.entries(BRUSH_RADII))(
-    'the star brush deposits an unfuelled star power cell into EMPTY footprint cells and never overwrites WATER/SAND/DIRT/RAINBOW_SAND/OBJECT/STAR_POWER (%s)',
+    'the star brush deposits an unfuelled star power cell into EMPTY footprint cells, charms WATER into FOG, and never overwrites SAND/DIRT/RAINBOW_SAND/OBJECT/STAR_POWER (%s)',
     (_size, radius) => {
       const grid = createGrid(40, 40);
       // Seeded at distance 1 along each axis so every cell stays inside the footprint at every radius (>= 1).
@@ -146,7 +147,7 @@ describe('brush — star power', () => {
       expect(getElement(grid, 19, 20)).toBe(SAND);
       expect(getElement(grid, 21, 20)).toBe(DIRT);
       expect(getElement(grid, 20, 19)).toBe(RAINBOW_SAND);
-      expect(getElement(grid, 20, 21)).toBe(WATER); // never overwrites water
+      expect(getElement(grid, 20, 21)).toBe(FOG); // charmed into fog, never star power (FR-008)
       expect(getElement(grid, 20, 20 + radius + 2)).toBe(OBJECT);
 
       // A previously-empty cell within the footprint got an unfuelled star power cell.
@@ -175,6 +176,45 @@ describe('brush — star power', () => {
 
     expect(grid.starPowerLife[5 * 10 + 5]).toBe(before);
   });
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'the star brush turns every water cell inside its footprint into fog, one for one, and places no star power into water (%s, FR-008)',
+    (_size, radius) => {
+      const grid = createGrid(60, 60);
+      let waterCount = 0;
+      for (let y = 15; y < 45; y++) {
+        for (let x = 15; x < 45; x++) {
+          setCell(grid, x, y, WATER, 5);
+          waterCount++;
+        }
+      }
+
+      applyBrush(grid, 'star', 30, 30, radius, 9);
+
+      let fogInFootprint = 0;
+      let starPowerInFootprint = 0;
+      const r2 = radius * radius;
+      for (let y = 15; y < 45; y++) {
+        for (let x = 15; x < 45; x++) {
+          const dx = x - 30;
+          const dy = y - 30;
+          const inFootprint = dx * dx + dy * dy <= r2;
+          const element = getElement(grid, x, y);
+          if (inFootprint) {
+            expect(element).toBe(FOG);
+            fogInFootprint++;
+          } else {
+            expect(element).toBe(WATER);
+          }
+          if (element === STAR_POWER) starPowerInFootprint++;
+        }
+      }
+      expect(fogInFootprint).toBeGreaterThan(0);
+      expect(starPowerInFootprint).toBe(0);
+      expect(grid.fogCloudCount).toBe(fogInFootprint);
+      expect(fogInFootprint + (waterCount - fogInFootprint)).toBe(waterCount);
+    },
+  );
 });
 
 describe('brush — eraser and clear-all across every element', () => {
@@ -228,4 +268,50 @@ describe('brush — eraser and clear-all across every element', () => {
     clearGrid(grid);
     expect([...grid.elements]).toEqual(new Array(3).fill(0));
   });
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'dragging the eraser through fog and cloud removes them on the spot, leaving those cells EMPTY with 0 water cells left behind (%s, Scenario 3, FR-026)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      createFog(grid, 15, 15);
+      createFog(grid, 16, 15);
+      grid.cloud[15 * 30 + 16] = 1;
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) {
+          const dx = x - 15;
+          const dy = y - 15;
+          if (dx * dx + dy * dy <= radius * radius) {
+            expect(getElement(grid, x, y)).toBe(EMPTY);
+          }
+        }
+      }
+      expect(grid.fogCloudCount).toBe(0);
+    },
+  );
+
+  it.each(Object.entries(BRUSH_RADII))(
+    'a single drag of any element brush through a region of fog and cloud places that element in 100% of the covered cells — a wisp of mist never blocks drawing (%s, FR-026, SC-017)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      for (let y = 10; y < 20; y++) {
+        for (let x = 10; x < 20; x++) createFog(grid, x, y);
+      }
+      grid.cloud[15 * 30 + 15] = 1; // one covered cell is a cloud, not just rising fog
+
+      applyBrush(grid, 'sand', 15, 15, radius, 5);
+
+      for (let y = 10; y < 20; y++) {
+        for (let x = 10; x < 20; x++) {
+          const dx = x - 15;
+          const dy = y - 15;
+          if (dx * dx + dy * dy <= radius * radius) {
+            expect(getElement(grid, x, y)).toBe(SAND);
+          }
+        }
+      }
+    },
+  );
 });

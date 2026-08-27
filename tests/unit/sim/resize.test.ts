@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, setGlitter, igniteStarPower, getElement, getGlitter } from '../../../src/sim/grid';
+import {
+  createGrid,
+  setCell,
+  setGlitter,
+  igniteStarPower,
+  createFog,
+  getElement,
+  getGlitter,
+} from '../../../src/sim/grid';
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
 import { resizeGrid } from '../../../src/sim/resize';
 import { step } from '../../../src/sim/step';
-import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, EMPTY } from '../../../src/sim/types';
+import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, FOG, EMPTY } from '../../../src/sim/types';
 
 const OLD_WIDTH = 100;
 const OLD_HEIGHT = 100;
@@ -226,5 +234,51 @@ describe('resizeGrid — star power carries across at the same offset (FR-029, S
     expect(getElement(grid, 50 + offsetX, 99 + offsetY)).toBe(RAINBOW_SAND);
     expect(grid.glitter[fuelledIndexNew]).toBe(1);
     expect(getElement(grid, 60 + offsetX, 99 + offsetY)).toBe(EMPTY);
+  });
+});
+
+describe('resizeGrid — fog and cloud carry across at the same offset (FR-034, Scenario 7)', () => {
+  it('carries every surviving fog/cloud cell at the same bottom-centre offset as every other element, remaining FOG and continuing to rise/gather/rain normally afterward, with fogCloudCount recomputed correctly', () => {
+    const oldGrid = createGrid(100, 100);
+    createFog(oldGrid, 50, 99); // rising fog
+    createFog(oldGrid, 60, 99);
+    oldGrid.cloud[99 * 100 + 60] = 1; // a cloud, at a different offset
+    oldGrid.cloudRainDelay[99 * 100 + 60] = 300;
+    createFog(oldGrid, 95, 97); // dropped by the resize below (offset destination out of bounds)
+
+    const fogIndexOld = 99 * 100 + 50;
+    const fogRiseCooldownOld = oldGrid.fogRiseCooldown[fogIndexOld];
+    const cloudIndexOld = 99 * 100 + 60;
+    const cloudRainDelayOld = oldGrid.cloudRainDelay[cloudIndexOld];
+
+    const { grid, offsetX, offsetY } = resizeGrid(oldGrid, 60, 140);
+
+    expect(95 + offsetX).toBeGreaterThanOrEqual(60); // confirms the marker cell really is dropped
+
+    const fogIndexNew = (99 + offsetY) * grid.width + (50 + offsetX);
+    const cloudIndexNew = (99 + offsetY) * grid.width + (60 + offsetX);
+
+    expect(getElement(grid, 50 + offsetX, 99 + offsetY)).toBe(FOG);
+    expect(grid.cloud[fogIndexNew]).toBe(0);
+    expect(grid.fogRiseCooldown[fogIndexNew]).toBe(fogRiseCooldownOld);
+
+    expect(getElement(grid, 60 + offsetX, 99 + offsetY)).toBe(FOG);
+    expect(grid.cloud[cloudIndexNew]).toBe(1);
+    expect(grid.cloudRainDelay[cloudIndexNew]).toBe(cloudRainDelayOld);
+
+    let survivingFogCloud = 0;
+    for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === FOG) survivingFogCloud++;
+    expect(grid.fogCloudCount).toBe(survivingFogCloud);
+    expect(grid.fogCloudCount).toBe(2);
+
+    // Both carried cells continue through the cycle normally afterward: the cloud (rainDelay 300)
+    // has rained into ordinary water (which then falls/flows like any other water) well before
+    // 700 steps, so its original index is no longer a cloud, and fogCloudCount still matches
+    // reality throughout.
+    for (let n = 0; n < 700; n++) step(grid);
+    expect(grid.cloud[cloudIndexNew]).toBe(0);
+    let actualFogCloud = 0;
+    for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === FOG) actualFogCloud++;
+    expect(grid.fogCloudCount).toBe(actualFogCloud);
   });
 });

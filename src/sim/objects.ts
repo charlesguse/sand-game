@@ -6,6 +6,7 @@ import {
   DIRT,
   RAINBOW_SAND,
   OBJECT,
+  FOG,
   type Grid,
   type ObjectKind,
   type ObjectsState,
@@ -31,7 +32,8 @@ export function applyRainbowConversions(grid: Grid, rainbows: PlacedObject[]): v
         if (inFootprintRow && px >= rainbow.x && px < rainbow.x + rainbow.size) continue;
         const i = py * grid.width + px;
         const element = grid.elements[i];
-        if (element === SAND || element === DIRT || element === WATER) {
+        if (element === SAND || element === DIRT || element === WATER || element === FOG) {
+          if (element === FOG) grid.fogCloudCount--;
           grid.elements[i] = RAINBOW_SAND;
           grid.hues[i] = randomHue();
         }

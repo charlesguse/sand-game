@@ -9,8 +9,10 @@ import {
   setGlitter,
   getGlitter,
   igniteStarPower,
+  createFog,
+  FOG_FIELD_SHARE_CEILING,
 } from '../../../src/sim/grid';
-import { EMPTY, SAND, GRASS, STAR_POWER } from '../../../src/sim/types';
+import { EMPTY, SAND, GRASS, STAR_POWER, FOG, WATER } from '../../../src/sim/types';
 
 describe('grid', () => {
   it('createGrid zeroes elements, shades, moved, and hues', () => {
@@ -172,5 +174,87 @@ describe('grid', () => {
     expect([...grid.starPowerAge]).toEqual(new Array(9).fill(0));
     expect([...grid.starPowerLife]).toEqual(new Array(9).fill(0));
     expect([...grid.starPowerFuelled]).toEqual(new Array(9).fill(0));
+  });
+
+  it('createFog sets elements/cloud/fogRiseCooldown/fogStuckSteps/fogAge/glitter and increments fogCloudCount (contracts/weather-mechanics.md)', () => {
+    const grid = createGrid(5, 5);
+    const result = createFog(grid, 2, 2);
+    const i = 2 * 5 + 2;
+
+    expect(result).toBe(true);
+    expect(grid.elements[i]).toBe(FOG);
+    expect(grid.cloud[i]).toBe(0);
+    expect(grid.fogRiseCooldown[i]).toBeGreaterThanOrEqual(3);
+    expect(grid.fogRiseCooldown[i]).toBeLessThanOrEqual(5);
+    expect(grid.fogStuckSteps[i]).toBe(0);
+    expect(grid.fogAge[i]).toBe(0);
+    expect(getGlitter(grid, 2, 2)).toBe(true);
+    expect(grid.fogCloudCount).toBe(1);
+  });
+
+  it('createFog is a no-op when (x, y) is out of bounds', () => {
+    const grid = createGrid(3, 3);
+    expect(createFog(grid, -1, 0)).toBe(false);
+    expect(createFog(grid, 5, 5)).toBe(false);
+    expect([...grid.elements]).toEqual(new Array(9).fill(0));
+    expect(grid.fogCloudCount).toBe(0);
+  });
+
+  it('createFog returns false and touches nothing once fogCloudCount is at or above the FR-011 ceiling', () => {
+    const grid = createGrid(10, 10);
+    const ceiling = Math.floor(grid.width * grid.height * FOG_FIELD_SHARE_CEILING);
+    let created = 0;
+    outer: for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        if (created >= ceiling) break outer;
+        createFog(grid, x, y);
+        created++;
+      }
+    }
+    expect(grid.fogCloudCount).toBe(ceiling);
+
+    const before = Array.from(grid.elements);
+    const result = createFog(grid, grid.width - 1, grid.height - 1);
+
+    expect(result).toBe(false);
+    expect(grid.fogCloudCount).toBe(ceiling);
+    expect(Array.from(grid.elements)).toEqual(before);
+  });
+
+  it("setCell's fog reset rule: writing any non-FOG element to a previously-fog cell zeroes cloud/fogRiseCooldown/fogStuckSteps/fogAge/cloudRainDelay and decrements fogCloudCount", () => {
+    const grid = createGrid(5, 5);
+    createFog(grid, 0, 0);
+    const i = 0;
+    grid.cloud[i] = 1;
+    grid.cloudRainDelay[i] = 200;
+    expect(grid.fogCloudCount).toBe(1);
+
+    setCell(grid, 0, 0, WATER, 5);
+
+    expect(grid.cloud[i]).toBe(0);
+    expect(grid.fogRiseCooldown[i]).toBe(0);
+    expect(grid.fogStuckSteps[i]).toBe(0);
+    expect(grid.fogAge[i]).toBe(0);
+    expect(grid.cloudRainDelay[i]).toBe(0);
+    expect(grid.fogCloudCount).toBe(0);
+  });
+
+  it('clearGrid on a grid containing fog/cloud fills all five new arrays to 0 and resets fogCloudCount to 0', () => {
+    const grid = createGrid(5, 5);
+    createFog(grid, 0, 0);
+    createFog(grid, 1, 1);
+    grid.cloud[1 * 5 + 1] = 1;
+    expect(grid.fogCloudCount).toBe(2);
+
+    clearGrid(grid);
+
+    const size = 25;
+    expect([...grid.elements]).toEqual(new Array(size).fill(EMPTY));
+    expect([...grid.cloud]).toEqual(new Array(size).fill(0));
+    expect([...grid.fogRiseCooldown]).toEqual(new Array(size).fill(0));
+    expect([...grid.fogStuckSteps]).toEqual(new Array(size).fill(0));
+    expect([...grid.fogAge]).toEqual(new Array(size).fill(0));
+    expect([...grid.cloudRainDelay]).toEqual(new Array(size).fill(0));
+    expect(grid.fogCloudCount).toBe(0);
   });
 });

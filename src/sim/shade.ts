@@ -12,3 +12,13 @@ export function randomBurnLife(): number {
 export function randomHue(): number {
   return Math.floor(Math.random() * 256);
 }
+
+/** Returns an integer fog rise cooldown in [3, 5] inclusive. */
+export function randomFogRiseCooldown(): number {
+  return 3 + Math.floor(Math.random() * 3);
+}
+
+/** Returns an integer cloud rain delay in [180, 480] inclusive. */
+export function randomCloudRainDelay(): number {
+  return 180 + Math.floor(Math.random() * 301);
+}

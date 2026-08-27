@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sceneRegions, generateLandscape1, generateLandscape2, loadScene } from '../../../src/sim/scenes';
-import { createGrid, getElement, setCell, igniteStarPower } from '../../../src/sim/grid';
+import { createGrid, getElement, setCell, igniteStarPower, createFog } from '../../../src/sim/grid';
 import {
   createObjectsState,
   placeObject,
@@ -8,7 +8,7 @@ import {
   eraseObjectsInBrush,
 } from '../../../src/sim/objects';
 import { step } from '../../../src/sim/step';
-import { DIRT, SAND, WATER, EMPTY, GRASS, STAR_POWER, type Grid } from '../../../src/sim/types';
+import { DIRT, SAND, WATER, EMPTY, GRASS, STAR_POWER, FOG, type Grid } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
 
 /** Topmost row in [y0, y1) for column x holding `element` (the terrain fill, ignoring any OBJECT overlay), or y1 if none. */
@@ -376,6 +376,31 @@ describe('scenes — loadScene', () => {
     generateLandscape1(freshGrid, freshObjects);
     expect(Array.from(grid.elements)).toEqual(Array.from(freshGrid.elements));
     expect(grid.grassCount).toBe(freshGrid.grassCount);
+  });
+
+  it('clears every existing fog/cloud cell before generating the chosen scene, with no error, and no scene ever contains FOG immediately after loading (Scenario 5, FR-035)', () => {
+    const sizes: [number, number][] = [
+      [270, 160],
+      [150, 100],
+      [500, 240],
+    ];
+    for (const [width, height] of sizes) {
+      for (const sceneId of ['empty', 'landscape1', 'landscape2'] as const) {
+        const grid = createGrid(width, height);
+        const objects = createObjectsState();
+        createFog(grid, 5, 5);
+        createFog(grid, 6, 5);
+        grid.cloud[5 * width + 6] = 1;
+        expect(grid.fogCloudCount).toBeGreaterThan(0);
+
+        loadScene(sceneId, grid, objects);
+
+        expect(grid.fogCloudCount).toBe(0);
+        for (let i = 0; i < grid.elements.length; i++) {
+          expect(grid.elements[i]).not.toBe(FOG);
+        }
+      }
+    }
   });
 });
 

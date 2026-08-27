@@ -1,5 +1,5 @@
 import { createGrid } from './grid';
-import { GRASS, OBJECT, type Grid } from './types';
+import { GRASS, OBJECT, FOG, type Grid } from './types';
 
 /**
  * Allocates a fresh grid at the new dimensions and carries every non-OBJECT source cell across at
@@ -36,7 +36,13 @@ export function resizeGrid(
       grid.starPowerAge[destIndex] = oldGrid.starPowerAge[srcIndex];
       grid.starPowerLife[destIndex] = oldGrid.starPowerLife[srcIndex];
       grid.starPowerFuelled[destIndex] = oldGrid.starPowerFuelled[srcIndex];
+      grid.cloud[destIndex] = oldGrid.cloud[srcIndex];
+      grid.fogRiseCooldown[destIndex] = oldGrid.fogRiseCooldown[srcIndex];
+      grid.fogStuckSteps[destIndex] = oldGrid.fogStuckSteps[srcIndex];
+      grid.fogAge[destIndex] = oldGrid.fogAge[srcIndex];
+      grid.cloudRainDelay[destIndex] = oldGrid.cloudRainDelay[srcIndex];
       if (oldGrid.elements[srcIndex] === GRASS) grid.grassCount++;
+      if (oldGrid.elements[srcIndex] === FOG) grid.fogCloudCount++;
     }
   }
 

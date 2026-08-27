@@ -40,6 +40,7 @@
     OBJECT,
     GRASS,
     STAR_POWER,
+    FOG,
     type Grid,
     type PlacedObject,
     type Tool,
@@ -205,6 +206,30 @@
     [210, 145, 15],
   ];
 
+  // Fog ramp: 8 pale pearly/lavender shades for rising sparkle-mist, indexed by shades[i] % length.
+  const FOG_RAMP: [number, number, number][] = [
+    [250, 248, 255],
+    [244, 240, 252],
+    [238, 232, 250],
+    [230, 222, 248],
+    [222, 212, 245],
+    [214, 202, 242],
+    [206, 194, 238],
+    [198, 186, 235],
+  ];
+
+  // Cloud ramp: 8 brighter, higher-lightness off-whites for gathered cloud, indexed by shades[i] % length.
+  const CLOUD_RAMP: [number, number, number][] = [
+    [255, 255, 255],
+    [253, 253, 252],
+    [251, 251, 249],
+    [249, 249, 246],
+    [247, 246, 243],
+    [245, 244, 240],
+    [243, 242, 238],
+    [241, 240, 236],
+  ];
+
   // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
   function hslToRgb(h: number, s: number, l: number): [number, number, number] {
     const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -223,13 +248,19 @@
     return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
   }
 
-  function colorFor(element: number, shade: number, hue: number): [number, number, number] {
+  function colorFor(
+    element: number,
+    shade: number,
+    hue: number,
+    isCloud: boolean,
+  ): [number, number, number] {
     if (element === SAND) return PINK_RAMP[shade % PINK_RAMP.length];
     if (element === WATER) return BLUE_RAMP[shade % BLUE_RAMP.length];
     if (element === DIRT) return PURPLE_RAMP[shade % PURPLE_RAMP.length];
     if (element === RAINBOW_SAND) return hslToRgb((hue / 255) * 360, 0.85, 0.6);
     if (element === GRASS) return GREEN_RAMP[shade % GREEN_RAMP.length];
     if (element === STAR_POWER) return GOLD_RAMP[shade % GOLD_RAMP.length];
+    if (element === FOG) return isCloud ? CLOUD_RAMP[shade % CLOUD_RAMP.length] : FOG_RAMP[shade % FOG_RAMP.length];
     return [255, 255, 255];
   }
 
@@ -239,7 +270,7 @@
   }
 
   function render(): void {
-    const { width, height, elements, shades, hues, glitter } = grid;
+    const { width, height, elements, shades, hues, glitter, cloud } = grid;
     const data = imageData.data;
     for (let i = 0; i < width * height; i++) {
       const element = elements[i];
@@ -251,7 +282,7 @@
         data[o + 3] = 255;
         continue;
       }
-      let [r, g, b] = colorFor(element, shades[i], hues[i]);
+      let [r, g, b] = colorFor(element, shades[i], hues[i], cloud[i] === 1);
       if (glitter[i] === 1) {
         const shimmer = Math.sin(lastFrameNow * 0.006 + i) * 20;
         r = Math.max(0, Math.min(255, r + shimmer));
