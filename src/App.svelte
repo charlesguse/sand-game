@@ -5,6 +5,8 @@
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
+  let canUndo = $state(false);
+  let canRedo = $state(false);
   let playArea: PlayArea;
 
   function selectTool(next: Tool): void {
@@ -22,17 +24,34 @@
   function selectScene(id: SceneId): void {
     playArea.loadScene(id);
   }
+
+  function handleHistoryChange(nextCanUndo: boolean, nextCanRedo: boolean): void {
+    canUndo = nextCanUndo;
+    canRedo = nextCanRedo;
+  }
+
+  function undo(): void {
+    playArea.undo();
+  }
+
+  function redo(): void {
+    playArea.redo();
+  }
 </script>
 
 <main>
-  <PlayArea bind:this={playArea} {tool} {brushSize} />
+  <PlayArea bind:this={playArea} {tool} {brushSize} onHistoryChange={handleHistoryChange} />
   <Toolbar
     {tool}
     {brushSize}
+    {canUndo}
+    {canRedo}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
     onSelectScene={selectScene}
     onClearAll={clearAll}
+    onUndo={undo}
+    onRedo={redo}
   />
 </main>
 

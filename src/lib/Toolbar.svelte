@@ -5,13 +5,28 @@
   interface Props {
     tool: Tool;
     brushSize: BrushSize;
+    canUndo: boolean;
+    canRedo: boolean;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
     onSelectScene: (sceneId: SceneId) => void;
     onClearAll: () => void;
+    onUndo: () => void;
+    onRedo: () => void;
   }
 
-  let { tool, brushSize, onSelectTool, onSelectBrushSize, onSelectScene, onClearAll }: Props = $props();
+  let {
+    tool,
+    brushSize,
+    canUndo,
+    canRedo,
+    onSelectTool,
+    onSelectBrushSize,
+    onSelectScene,
+    onClearAll,
+    onUndo,
+    onRedo,
+  }: Props = $props();
 </script>
 
 <div class="toolbar" style="--control-min: {MIN_TOUCH_TARGET}px">
@@ -95,6 +110,11 @@
     >
       ✨
     </button>
+  </div>
+
+  <div class="group history">
+    <button class="control" aria-label="Undo" disabled={!canUndo} onclick={onUndo}>↩️</button>
+    <button class="control" aria-label="Redo" disabled={!canRedo} onclick={onRedo}>↪️</button>
   </div>
 
   <div class="group scenes">
@@ -186,6 +206,11 @@
     border-color: #ff69b4;
     transform: scale(1.15);
     box-shadow: 0 0 10px #ff69b4aa;
+  }
+
+  .control:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   @media (max-height: 480px) and (orientation: landscape) {

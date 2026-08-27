@@ -10,6 +10,7 @@
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { resizeGrid } from '../sim/resize';
   import { loadScene as loadSceneState } from '../sim/scenes';
+  import { HistoryManager } from '../sim/history';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
@@ -51,11 +52,13 @@
   interface Props {
     tool: Tool;
     brushSize: BrushSize;
+    onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
   }
 
-  let { tool, brushSize }: Props = $props();
+  let { tool, brushSize, onHistoryChange }: Props = $props();
 
   const objectsState = createObjectsState();
+  const history = new HistoryManager();
   const particles: Particle[] = [];
 
   const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄' };
@@ -139,6 +142,10 @@
       drawing = false;
       lastGridPos = null;
     }
+
+    // The old history's WorldStates are sized to the old grid — discard both (FR-022).
+    history.reset();
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -406,12 +413,17 @@
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    if (drawing) handlePointerUp();
     const pos = clientToGrid(event.clientX, event.clientY);
     if (tool === 'rainbow' || tool === 'unicorn') {
+      history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
+      history.commitAction(grid, objectsState);
+      onHistoryChange?.(history.canUndo(), history.canRedo());
       canvas.setPointerCapture(event.pointerId);
       return;
     }
+    history.beginAction(grid, objectsState);
     drawing = true;
     lastGridPos = null;
     paintAt(pos);
@@ -426,17 +438,41 @@
   function handlePointerUp(): void {
     drawing = false;
     lastGridPos = null;
+    history.commitAction(grid, objectsState);
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function clearAll(): void {
+    if (drawing) handlePointerUp();
+    history.beginAction(grid, objectsState);
     clearGridState(grid);
     clearObjects(objectsState);
     particles.length = 0;
+    history.commitAction(grid, objectsState);
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function loadScene(sceneId: SceneId): void {
+    if (drawing) handlePointerUp();
+    history.beginAction(grid, objectsState);
     loadSceneState(sceneId, grid, objectsState);
     particles.length = 0;
+    history.commitAction(grid, objectsState);
+    onHistoryChange?.(history.canUndo(), history.canRedo());
+  }
+
+  export function undo(): void {
+    if (drawing) handlePointerUp();
+    if (history.undo(grid, objectsState)) {
+      onHistoryChange?.(history.canUndo(), history.canRedo());
+    }
+  }
+
+  export function redo(): void {
+    if (drawing) handlePointerUp();
+    if (history.redo(grid, objectsState)) {
+      onHistoryChange?.(history.canUndo(), history.canRedo());
+    }
   }
 
   onMount(() => {

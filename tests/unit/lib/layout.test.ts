@@ -13,8 +13,8 @@ import {
 
 // Mirrors Toolbar.svelte's actual control/group count (constitution Principle V — the
 // no-DOM suite doesn't import the .svelte file itself).
-const TOOLBAR_CONTROL_COUNT = 16;
-const TOOLBAR_GROUP_COUNT = 5;
+const TOOLBAR_CONTROL_COUNT = 18;
+const TOOLBAR_GROUP_COUNT = 6;
 
 interface ViewportCase {
   label: string;
