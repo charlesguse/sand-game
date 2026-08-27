@@ -188,6 +188,24 @@ describe('brush — eraser and clear-all across every element', () => {
   });
 
   it.each(Object.entries(BRUSH_RADII))(
+    'the eraser removes star power from every cell in its footprint, leaving those cells EMPTY with 0 glitter produced (%s, FR-024, Scenario 1)',
+    (_size, radius) => {
+      const grid = createGrid(30, 30);
+      applyBrush(grid, 'star', 15, 15, radius, 5);
+      expect(getElement(grid, 15, 15)).toBe(STAR_POWER);
+
+      applyBrush(grid, 'eraser', 15, 15, radius, 0);
+
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 30; x++) {
+          expect(getElement(grid, x, y)).toBe(EMPTY);
+          expect(grid.glitter[y * 30 + x]).toBe(0);
+        }
+      }
+    },
+  );
+
+  it.each(Object.entries(BRUSH_RADII))(
     'the eraser removes grass from every cell in its footprint, exactly as it does sand/water/dirt (%s, FR-022)',
     (_size, radius) => {
       const grid = createGrid(30, 30);

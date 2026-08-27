@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sceneRegions, generateLandscape1, generateLandscape2, loadScene } from '../../../src/sim/scenes';
-import { createGrid, getElement, setCell } from '../../../src/sim/grid';
+import { createGrid, getElement, setCell, igniteStarPower } from '../../../src/sim/grid';
 import {
   createObjectsState,
   placeObject,
@@ -8,7 +8,7 @@ import {
   eraseObjectsInBrush,
 } from '../../../src/sim/objects';
 import { step } from '../../../src/sim/step';
-import { DIRT, SAND, WATER, EMPTY, GRASS, type Grid } from '../../../src/sim/types';
+import { DIRT, SAND, WATER, EMPTY, GRASS, STAR_POWER, type Grid } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
 
 /** Topmost row in [y0, y1) for column x holding `element` (the terrain fill, ignoring any OBJECT overlay), or y1 if none. */
@@ -516,5 +516,70 @@ describe('scenes — interaction after load (US3)', () => {
 
     expect(objects.rainbows.length).toBe(3);
     expect(objects.rainbows.some((o) => o.id === sceneRainbowId)).toBe(false);
+  });
+});
+
+function countStarPower(grid: Grid): number {
+  let count = 0;
+  for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === STAR_POWER) count++;
+  return count;
+}
+
+describe('scenes — loadScene clears star power (FR-030, Scenario 3, 4)', () => {
+  it('clears every existing star power cell before generating the chosen scene\'s contents, with no error and nothing left burning', () => {
+    const grid = createGrid(270, 160);
+    const objects = createObjectsState();
+    igniteStarPower(grid, 5, 5, true);
+    igniteStarPower(grid, 6, 6, false);
+    expect(countStarPower(grid)).toBe(2);
+
+    loadScene('landscape1', grid, objects);
+
+    expect(countStarPower(grid)).toBe(0);
+  });
+
+  const sizes: [number, number][] = [
+    [150, 100],
+    [GRID_WIDTH, GRID_HEIGHT],
+    [500, 240],
+  ];
+
+  it.each(sizes)(
+    'none of the three scenes ever contains a STAR_POWER cell immediately after loading, at %ix%i',
+    (width, height) => {
+      const grid = createGrid(width, height);
+      const objects = createObjectsState();
+
+      loadScene('empty', grid, objects);
+      expect(countStarPower(grid)).toBe(0);
+
+      loadScene('landscape1', grid, objects);
+      expect(countStarPower(grid)).toBe(0);
+
+      loadScene('landscape2', grid, objects);
+      expect(countStarPower(grid)).toBe(0);
+    },
+  );
+
+  it("landscape-1's grass/waterline growth behavior is unchanged from spec 007 even after star power has previously been on the field", () => {
+    const grid = createGrid(270, 160);
+    const objects = createObjectsState();
+    igniteStarPower(grid, 5, 5, true);
+
+    loadScene('landscape1', grid, objects);
+    const regions = sceneRegions(270, 160);
+    const { x0, x1, y0, y1 } = regions.lowerPortion;
+    const heightsBefore = heightProfile(grid, x0, x1, y0, y1);
+    const waterBefore = countWater(grid);
+
+    for (let i = 0; i < 2000; i++) step(grid);
+
+    const heightsAfter = heightProfile(grid, x0, x1, y0, y1);
+    const waterAfter = countWater(grid);
+
+    expect(heightsAfter).toEqual(heightsBefore);
+    expect(waterAfter).toBeLessThanOrEqual(waterBefore);
+    expect(waterAfter).toBeGreaterThanOrEqual(waterBefore / 2);
+    expect(countStarPower(grid)).toBe(0);
   });
 });
