@@ -54,17 +54,17 @@ Single client-only web app (established 001–009): `src/sim/*` (framework-free 
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T005 [P] [US1] In `tests/unit/sim/history.test.ts`, write capture/restore round-trip tests: one stroke with each of the 7 painting tools (💗💧💜🌱⭐🧽✨) captured, drawn, and undone to a cell-for-cell identical world in every visible property (FR-005, FR-010, SC-002)
-- [ ] T006 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that an eraser stroke's removed cells are fully restored by undo (FR-010, FR-012)
-- [ ] T007 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a ⭐ stroke igniting grass, left to spread across several `step()` calls, is fully rewound (spread included) by undo (FR-008, FR-010)
-- [ ] T008 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a stroke followed by many `step()` calls (settling) still restores the exact pre-stroke state on undo — capture happens before the action, not after (FR-008)
-- [ ] T009 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that several strokes undone one at a time each step back exactly one stroke, most recent first (FR-013)
-- [ ] T010 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a single-tap "dot" stroke (`beginAction` immediately followed by one change and `commitAction`, no intervening steps) is one action undone by one `undo()` call
-- [ ] T011 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.undo()` on an empty undo stack returns `false` and changes nothing (FR-003, FR-013)
-- [ ] T012 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that every element type and every visible cell property (shade, glitter, grass height, burning, fog/cloud/rain) survives a capture/restore round trip unchanged (FR-024)
-- [ ] T013 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a captured state holds no internal countdown, and that a restored burning cell, rising fog, or gathering cloud runs its restarted countdown to completion normally rather than stalling (FR-028, FR-024)
-- [ ] T014 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that the simulation continues to advance from a restored state as a valid world (no stuck cells, no cell in an impossible state) for at least 600 `step()` calls (FR-011, SC-004)
-- [ ] T015 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test asserting the per-state capture byte size at spec 006's `CELL_BUDGET = 43,200` (`5 * 43,200 = 216,000` bytes) stays within the FR-028 budget (FR-028, SC-014)
+- [X] T005 [P] [US1] In `tests/unit/sim/history.test.ts`, write capture/restore round-trip tests: one stroke with each of the 7 painting tools (💗💧💜🌱⭐🧽✨) captured, drawn, and undone to a cell-for-cell identical world in every visible property (FR-005, FR-010, SC-002)
+- [X] T006 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that an eraser stroke's removed cells are fully restored by undo (FR-010, FR-012)
+- [X] T007 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a ⭐ stroke igniting grass, left to spread across several `step()` calls, is fully rewound (spread included) by undo (FR-008, FR-010)
+- [X] T008 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a stroke followed by many `step()` calls (settling) still restores the exact pre-stroke state on undo — capture happens before the action, not after (FR-008)
+- [X] T009 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that several strokes undone one at a time each step back exactly one stroke, most recent first (FR-013)
+- [X] T010 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a single-tap "dot" stroke (`beginAction` immediately followed by one change and `commitAction`, no intervening steps) is one action undone by one `undo()` call
+- [X] T011 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that `HistoryManager.undo()` on an empty undo stack returns `false` and changes nothing (FR-003, FR-013)
+- [X] T012 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that every element type and every visible cell property (shade, glitter, grass height, burning, fog/cloud/rain) survives a capture/restore round trip unchanged (FR-024)
+- [X] T013 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that a captured state holds no internal countdown, and that a restored burning cell, rising fog, or gathering cloud runs its restarted countdown to completion normally rather than stalling (FR-028, FR-024)
+- [X] T014 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test that the simulation continues to advance from a restored state as a valid world (no stuck cells, no cell in an impossible state) for at least 600 `step()` calls (FR-011, SC-004)
+- [X] T015 [P] [US1] In `tests/unit/sim/history.test.ts`, write a test asserting the per-state capture byte size at spec 006's `CELL_BUDGET = 43,200` (`5 * 43,200 = 216,000` bytes) stays within the FR-028 budget (FR-028, SC-014)
 
 ### Implementation for User Story 1
 
