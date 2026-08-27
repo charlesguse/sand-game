@@ -2,7 +2,7 @@
   "issue": 20,
   "spec_dir": "specs/008-star-power-burns-grass",
   "feature_num": "008",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/008-star-power-burns-grass"
 }
