@@ -2,7 +2,7 @@
   "issue": 28,
   "spec_dir": "specs/010-undo-redo",
   "feature_num": "010",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/010-undo-redo"
 }
