@@ -147,8 +147,8 @@ Single client-only project (established by 001–006): `src/sim/*` (framework-fr
 
 **Purpose**: Final validation that the whole feature holds together — non-regression, build, and the manual/on-device checks quickstart.md calls out as the maintainer's job.
 
-- [ ] T038 Run `npm test` and confirm every pre-existing test in `tests/unit/**/*.test.ts` still passes, changed only where the spec's Superseded requirements section makes an assertion obsolete (landscape-1's composition assertions in `scenes.test.ts`, `TOOLBAR_CONTROL_COUNT` in `layout.test.ts`) — every other file's assertions unchanged (FR-033, SC-017)
-- [ ] T039 Run `npm run build` and confirm `dist/index.html` is the only emitted file and is fully playable when opened directly from disk with no network requests (FR-034, SC-019)
+- [X] T038 Run `npm test` and confirm every pre-existing test in `tests/unit/**/*.test.ts` still passes, changed only where the spec's Superseded requirements section makes an assertion obsolete (landscape-1's composition assertions in `scenes.test.ts`, `TOOLBAR_CONTROL_COUNT` in `layout.test.ts`) — every other file's assertions unchanged (FR-033, SC-017)
+- [X] T039 Run `npm run build` and confirm `dist/index.html` is the only emitted file and is fully playable when opened directly from disk with no network requests (FR-034, SC-019)
 - [ ] T040 Perform the on-device checks from quickstart.md's "Manual-only checks" and performance-check sections on a mid-range laptop, a tablet, and a low-end tablet of the Amazon Fire 7 Kids class: grass reads instantly as green and alive; watering looks like sprouting; the shrinking pool is legible; a grown lawn shows varied heights; the grass button belongs with the others; sand piles convincingly on grass; the wand glitters it magically; the hills-and-lake scene's shoreline grass drinks and settles without draining the lake; a full garden with flowing water sustains >= 30fps (targeting 60fps) and stays within 20% of an equally-full sand field's per-step cost (SC-014, SC-015) — **requires real devices including a Fire-7-class tablet; cannot be performed in this headless environment, left for the maintainer**
 
 ---
