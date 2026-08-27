@@ -658,3 +658,61 @@ describe('history — adversarial robustness (US4, FR-003, FR-019, FR-020, SC-00
     expect(count).toBe(2);
   });
 });
+
+describe('history — object placement undo (FR-005, FR-012)', () => {
+  it('undo removes exactly one placed rainbow, leaving every other cell and object unchanged', () => {
+    const grid = createGrid(15, 15);
+    const objects = createObjectsState();
+    setCell(grid, 2, 2, SAND, 4);
+    placeObject(grid, objects, 'unicorn', 4, 8);
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    const before = visibleSnapshot(grid, objects);
+    placeObject(grid, objects, 'rainbow', 10, 10);
+    history.commitAction(grid, objects);
+
+    expect(objects.rainbows.length).toBe(1);
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(visibleSnapshot(grid, objects)).toEqual(before);
+    expect(objects.rainbows.length).toBe(0);
+    expect(objects.unicorns.length).toBe(1);
+  });
+
+  it('undo removes exactly one placed unicorn, leaving every other cell and object unchanged', () => {
+    const grid = createGrid(15, 15);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'rainbow', 4, 8);
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    const before = visibleSnapshot(grid, objects);
+    placeObject(grid, objects, 'unicorn', 10, 10);
+    history.commitAction(grid, objects);
+
+    expect(objects.unicorns.length).toBe(1);
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(visibleSnapshot(grid, objects)).toEqual(before);
+    expect(objects.unicorns.length).toBe(0);
+    expect(objects.rainbows.length).toBe(1);
+  });
+});
+
+describe('history — simulation never records (FR-006)', () => {
+  it('running step() many times with no beginAction/commitAction never populates the undo history', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    for (let y = 5; y < 15; y++) {
+      for (let x = 5; x < 15; x++) setCell(grid, x, y, GRASS, 3);
+    }
+    igniteStarPower(grid, 10, 10, true);
+    createFog(grid, 2, 2);
+    const history = new HistoryManager();
+
+    for (let n = 0; n < 200; n++) {
+      step(grid);
+      expect(history.canUndo()).toBe(false);
+    }
+    expect(history.canRedo()).toBe(false);
+  });
+});

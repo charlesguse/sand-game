@@ -246,5 +246,5 @@ With multiple developers, after Phase 2 (Foundational) lands:
 
 ## Phase 8: Convergence
 
-- [ ] T046 Add a test in `tests/unit/sim/history.test.ts` that places a 🌈 or 🦄 object via `beginAction`/`placeObject`/`commitAction` (one recorded action) and asserts `undo()` removes exactly that placed object, leaving every other cell and object unchanged, per FR-033's explicit test list (FR-005, FR-012) (missing)
-- [ ] T047 Add a test in `tests/unit/sim/history.test.ts` that runs `step()` many times with no intervening `beginAction`/`commitAction` call and asserts `HistoryManager.canUndo()` stays `false` throughout — simulation changes alone must never populate the undo history, per FR-033's explicit test list (FR-006) (missing)
+- [X] T046 Add a test in `tests/unit/sim/history.test.ts` that places a 🌈 or 🦄 object via `beginAction`/`placeObject`/`commitAction` (one recorded action) and asserts `undo()` removes exactly that placed object, leaving every other cell and object unchanged, per FR-033's explicit test list (FR-005, FR-012) — **done**: added both a rainbow-placement and a unicorn-placement case
+- [X] T047 Add a test in `tests/unit/sim/history.test.ts` that runs `step()` many times with no intervening `beginAction`/`commitAction` call and asserts `HistoryManager.canUndo()` stays `false` throughout — simulation changes alone must never populate the undo history, per FR-033's explicit test list (FR-006) — **done**: 200 `step()` calls over a field with active grass/fire/fog, asserting `canUndo()` stays `false` and `canRedo()` stays `false`
