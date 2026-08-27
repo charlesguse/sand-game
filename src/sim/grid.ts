@@ -1,5 +1,7 @@
-import { EMPTY, GRASS, STAR_POWER, type Grid } from './types';
-import { randomShade, randomBurnLife } from './shade';
+import { EMPTY, FOG, GRASS, STAR_POWER, type Grid } from './types';
+import { randomShade, randomBurnLife, randomFogRiseCooldown } from './shade';
+
+export const FOG_FIELD_SHARE_CEILING = 0.2;
 
 export function createGrid(width: number, height: number): Grid {
   const size = width * height;
@@ -17,6 +19,12 @@ export function createGrid(width: number, height: number): Grid {
     starPowerAge: new Uint8Array(size),
     starPowerLife: new Uint8Array(size),
     starPowerFuelled: new Uint8Array(size),
+    cloud: new Uint8Array(size),
+    fogRiseCooldown: new Uint8Array(size),
+    fogStuckSteps: new Uint16Array(size),
+    fogAge: new Uint16Array(size),
+    cloudRainDelay: new Uint16Array(size),
+    fogCloudCount: 0,
   };
 }
 
@@ -39,6 +47,8 @@ export function setCell(grid: Grid, x: number, y: number, element: number, shade
   const i = y * grid.width + x;
   const wasGrass = grid.elements[i] === GRASS;
   const becomesGrass = element === GRASS;
+  const wasFog = grid.elements[i] === FOG;
+  const becomesFog = element === FOG;
 
   grid.elements[i] = element;
   grid.shades[i] = element === EMPTY ? 0 : shade;
@@ -64,6 +74,17 @@ export function setCell(grid: Grid, x: number, y: number, element: number, shade
     grid.starPowerLife[i] = 0;
     grid.starPowerFuelled[i] = 0;
   }
+
+  if (becomesFog && !wasFog) grid.fogCloudCount++;
+  else if (!becomesFog && wasFog) grid.fogCloudCount--;
+
+  if (element !== FOG) {
+    grid.cloud[i] = 0;
+    grid.fogRiseCooldown[i] = 0;
+    grid.fogStuckSteps[i] = 0;
+    grid.fogAge[i] = 0;
+    grid.cloudRainDelay[i] = 0;
+  }
 }
 
 export function clearGrid(grid: Grid): void {
@@ -75,6 +96,12 @@ export function clearGrid(grid: Grid): void {
   grid.starPowerAge.fill(0);
   grid.starPowerLife.fill(0);
   grid.starPowerFuelled.fill(0);
+  grid.cloud.fill(0);
+  grid.fogRiseCooldown.fill(0);
+  grid.fogStuckSteps.fill(0);
+  grid.fogAge.fill(0);
+  grid.cloudRainDelay.fill(0);
+  grid.fogCloudCount = 0;
 }
 
 export function setGlitter(grid: Grid, x: number, y: number, value: 0 | 1): void {
@@ -95,4 +122,18 @@ export function igniteStarPower(grid: Grid, x: number, y: number, fuelled: boole
   grid.starPowerFuelled[i] = fuelled ? 1 : 0;
   grid.starPowerLife[i] = randomBurnLife();
   setGlitter(grid, x, y, 1);
+}
+
+/** The only way a fog cell is created. No-op if (x, y) is out of bounds or the sky is already full. */
+export function createFog(grid: Grid, x: number, y: number): boolean {
+  if (!inBounds(grid, x, y)) return false;
+  if (grid.fogCloudCount >= Math.floor(grid.width * grid.height * FOG_FIELD_SHARE_CEILING)) return false;
+  setCell(grid, x, y, FOG, randomShade());
+  const i = y * grid.width + x;
+  grid.cloud[i] = 0;
+  grid.fogRiseCooldown[i] = randomFogRiseCooldown();
+  grid.fogStuckSteps[i] = 0;
+  grid.fogAge[i] = 0;
+  setGlitter(grid, x, y, 1);
+  return true;
 }

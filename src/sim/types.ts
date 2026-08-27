@@ -6,6 +6,7 @@ export const RAINBOW_SAND = 4;
 export const OBJECT = 5;
 export const GRASS = 6;
 export const STAR_POWER = 7;
+export const FOG = 8;
 
 export type Element =
   | typeof EMPTY
@@ -15,7 +16,8 @@ export type Element =
   | typeof RAINBOW_SAND
   | typeof OBJECT
   | typeof GRASS
-  | typeof STAR_POWER;
+  | typeof STAR_POWER
+  | typeof FOG;
 
 export interface Grid {
   readonly width: number;
@@ -31,6 +33,12 @@ export interface Grid {
   readonly starPowerAge: Uint8Array;
   readonly starPowerLife: Uint8Array;
   readonly starPowerFuelled: Uint8Array;
+  readonly cloud: Uint8Array;
+  readonly fogRiseCooldown: Uint8Array;
+  readonly fogStuckSteps: Uint16Array;
+  readonly fogAge: Uint16Array;
+  readonly cloudRainDelay: Uint16Array;
+  fogCloudCount: number;
 }
 
 export type Tool =
