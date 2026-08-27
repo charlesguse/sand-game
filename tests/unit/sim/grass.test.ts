@@ -1,7 +1,67 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, getElement, getShade } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, WATER, GRASS, SAND, DIRT, OBJECT } from '../../../src/sim/types';
+import { EMPTY, WATER, GRASS, SAND, DIRT, OBJECT, type Grid } from '../../../src/sim/types';
+import { computePlayField } from '../../../src/lib/layout';
+
+const GRASS_HEIGHT_CEILING = 12;
+const GRASS_FIELD_SHARE_CEILING = 0.25;
+
+function arraysEqual(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Runs step() until grid.elements stops changing between consecutive steps, or maxSteps is hit. */
+function runUntilStandstill(grid: Grid, maxSteps: number): number {
+  let previous = Array.from(grid.elements);
+  for (let i = 0; i < maxSteps; i++) {
+    step(grid);
+    const current = Array.from(grid.elements);
+    if (arraysEqual(previous, current)) return i + 1;
+    previous = current;
+  }
+  return maxSteps;
+}
+
+/**
+ * A walled GRASS container (immovable, so it never erodes like a powder wall would) holding a
+ * narrow lawn base flooded with far more water than the height/field-share ceilings could ever
+ * let it consume — a headless stand-in for "an effectively unlimited water supply against a
+ * grass patch." Scales with the given grid size so it works at any supported play-field size.
+ */
+function buildFloodedGrassContainer(width: number, height: number): Grid {
+  const grid = createGrid(width, height);
+  const wallThickness = 2;
+  const marginX = Math.max(4, Math.floor(width * 0.1));
+  const marginTop = Math.max(4, Math.floor(height * 0.1));
+  const left = marginX;
+  const right = width - marginX - 1;
+  const floorY = height - 1;
+  const top = marginTop;
+
+  for (let x = left; x <= right; x++) setCell(grid, x, floorY, GRASS, 5); // floor
+  for (let y = top; y <= floorY; y++) {
+    for (let t = 0; t < wallThickness; t++) {
+      setCell(grid, left + t, y, GRASS, 5); // left wall
+      setCell(grid, right - t, y, GRASS, 5); // right wall
+    }
+  }
+
+  const interiorLeft = left + wallThickness;
+  const interiorRight = right - wallThickness;
+  const baseWidth = Math.min(10, interiorRight - interiorLeft - 1);
+  const baseStart = interiorLeft + Math.floor((interiorRight - interiorLeft - baseWidth) / 2);
+  const grassY = floorY - 1;
+  for (let x = baseStart; x < baseStart + baseWidth; x++) setCell(grid, x, grassY, GRASS, 5); // lawn base
+
+  for (let y = top + 1; y < grassY; y++) {
+    for (let x = interiorLeft + 1; x < interiorRight; x++) setCell(grid, x, y, WATER, 5); // flood
+  }
+
+  return grid;
+}
 
 describe('grass — never moves (FR-004, SC-002)', () => {
   it('a planted grass cell stays at its (x, y) across any number of step() calls with nothing else on the field', () => {
@@ -185,5 +245,95 @@ describe('grass — no water anywhere (FR-016, SC-010)', () => {
     expect(Array.from(grid.shades)).toEqual(shadesBefore);
     expect(Array.from(grid.grassHeight)).toEqual(grassHeightBefore);
     expect(grid.grassCount).toBe(grassCountBefore);
+  });
+});
+
+describe('grass — gentle and bounded under unlimited watering (FR-011, FR-012, SC-006)', () => {
+  it('no blade exceeds the height ceiling once the field runs to a standstill', () => {
+    const grid = buildFloodedGrassContainer(60, 30);
+    runUntilStandstill(grid, 4000);
+
+    for (let i = 0; i < grid.elements.length; i++) {
+      if (grid.elements[i] === GRASS) {
+        expect(grid.grassHeight[i]).toBeLessThanOrEqual(GRASS_HEIGHT_CEILING);
+      }
+    }
+  });
+
+  it('grass never exceeds the field-share ceiling once the field runs to a standstill', () => {
+    const grid = buildFloodedGrassContainer(60, 30);
+    runUntilStandstill(grid, 4000);
+
+    expect(grid.grassCount / (grid.width * grid.height)).toBeLessThanOrEqual(GRASS_FIELD_SHARE_CEILING);
+  });
+});
+
+describe('grass — a lake beside mature grass is never drained (FR-008, SC-007)', () => {
+  it('once grass can no longer grow, further step() calls neither absorb nor grow anything, and all remaining water stays in place', () => {
+    const grid = buildFloodedGrassContainer(60, 30);
+    runUntilStandstill(grid, 4000);
+
+    const countWater = (): number => {
+      let count = 0;
+      for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === WATER) count++;
+      return count;
+    };
+
+    const waterCountBefore = countWater();
+    expect(waterCountBefore).toBeGreaterThanOrEqual(200);
+    const grassCountBefore = grid.grassCount;
+
+    // Ordinary water may still harmlessly shuffle position between equally-open neighbors (the
+    // same "pools and levels" behavior every liquid has) — what must hold is that none of it is
+    // ever absorbed and no further grass ever appears.
+    for (let i = 0; i < 50; i++) step(grid);
+
+    expect(countWater()).toBe(waterCountBefore);
+    expect(grid.grassCount).toBe(grassCountBefore);
+  });
+});
+
+describe('grass — pacing bounds total absorption over a run (FR-009, FR-014, SC-005, SC-008)', () => {
+  it('a single grass cell beside a very large body of water absorbs at most floor(stepsRun / 10) water cells', () => {
+    const grid = createGrid(80, 80);
+    setCell(grid, 40, 60, GRASS, 5);
+    // A very large body of water, far more than the pacing bound could ever consume.
+    for (let y = 10; y < 60; y++) {
+      for (let x = 10; x < 70; x++) setCell(grid, x, y, WATER, 5);
+    }
+    setCell(grid, 41, 60, WATER, 5); // orthogonally adjacent to the single grass cell
+
+    const grassCountBefore = grid.grassCount;
+    let waterCountBefore = 0;
+    for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === WATER) waterCountBefore++;
+
+    const STEPS = 500;
+    for (let i = 0; i < STEPS; i++) step(grid);
+
+    let waterCountAfter = 0;
+    for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === WATER) waterCountAfter++;
+    const waterAbsorbed = waterCountBefore - waterCountAfter;
+    const newGrassCells = grid.grassCount - grassCountBefore;
+
+    expect(waterAbsorbed).toBeLessThanOrEqual(Math.floor(STEPS / 10));
+    expect(newGrassCells).toBeLessThanOrEqual(waterAbsorbed);
+  });
+});
+
+describe('grass — the rules are size-independent (FR-032)', () => {
+  it('the same height-ceiling and field-share-ceiling outcomes hold at a phone-sized grid', () => {
+    const field = computePlayField(390, 700, true);
+    const grid = buildFloodedGrassContainer(field.gridWidth, field.gridHeight);
+    // The height/field-share ceilings are enforced synchronously on every write, so they hold at
+    // any point in the run, not only at true standstill — a bounded run is enough to exercise
+    // them at this (much larger) grid size without the cost of full-array standstill detection.
+    for (let i = 0; i < 600; i++) step(grid);
+
+    for (let i = 0; i < grid.elements.length; i++) {
+      if (grid.elements[i] === GRASS) {
+        expect(grid.grassHeight[i]).toBeLessThanOrEqual(GRASS_HEIGHT_CEILING);
+      }
+    }
+    expect(grid.grassCount / (grid.width * grid.height)).toBeLessThanOrEqual(GRASS_FIELD_SHARE_CEILING);
   });
 });

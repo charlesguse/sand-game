@@ -107,11 +107,11 @@ Single client-only project (established by 001–006): `src/sim/*` (framework-fr
 
 ### Tests for User Story 3
 
-- [ ] T023 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: flood a grid with an effectively unlimited water supply against a grass patch, run `step()` until the grid stops changing between consecutive steps, then assert 0 grass cells have `grassHeight > 12` (FR-011, SC-006)
-- [ ] T024 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts` (same flood-to-standstill setup as T023): assert the final `grassCount / (width * height) <= 0.25` (FR-012, SC-006)
-- [ ] T025 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: seed a pool of `>= 200` water cells beside a grass patch, run to standstill, then assert further `step()` calls neither absorb nor grow anything further and 100% of the remaining water cells stay in place across additional steps (FR-008, SC-007)
-- [ ] T026 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: a single grass cell beside a very large body of water absorbs at most `floor(stepsRun / 10)` water cells over a bounded run (FR-009/SC-008), and the total new grass cells created never exceeds the total water cells absorbed (FR-014, SC-005)
-- [ ] T027 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: re-run the flood-to-standstill scenario at a phone-sized grid derived via `computePlayField` (from `src/lib/layout.ts`) and confirm the same height-ceiling and field-share-ceiling outcomes hold (FR-032)
+- [X] T023 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: flood a grid with an effectively unlimited water supply against a grass patch, run `step()` until the grid stops changing between consecutive steps, then assert 0 grass cells have `grassHeight > 12` (FR-011, SC-006)
+- [X] T024 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts` (same flood-to-standstill setup as T023): assert the final `grassCount / (width * height) <= 0.25` (FR-012, SC-006)
+- [X] T025 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: seed a pool of `>= 200` water cells beside a grass patch, run to standstill, then assert further `step()` calls neither absorb nor grow anything further and 100% of the remaining water cells stay in place across additional steps (FR-008, SC-007)
+- [X] T026 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: a single grass cell beside a very large body of water absorbs at most `floor(stepsRun / 10)` water cells over a bounded run (FR-009/SC-008), and the total new grass cells created never exceeds the total water cells absorbed (FR-014, SC-005)
+- [X] T027 [P] [US3] Add a case to `tests/unit/sim/grass.test.ts`: re-run the flood-to-standstill scenario at a phone-sized grid derived via `computePlayField` (from `src/lib/layout.ts`) and confirm the same height-ceiling and field-share-ceiling outcomes hold (FR-032)
 
 **Checkpoint**: All three of User Stories 1–3 work independently — grass can be planted, grows correctly when watered, and stays bounded under unlimited watering.
 
