@@ -123,7 +123,7 @@
 
   {#if showFullscreen}
     <div class="group screen">
-      <button class="control" aria-label="Full screen" onclick={onToggleFullscreen}>⛶</button>
+      <button class="control" aria-label="Full screen" onclick={onToggleFullscreen}>📺</button>
     </div>
   {/if}
 
