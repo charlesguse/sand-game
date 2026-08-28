@@ -120,8 +120,9 @@
   let grid: Grid;
   let imageData: ImageData;
   let flashMask: Uint8Array;
-  let drawing = false;
-  let lastGridPos: { x: number; y: number } | null = null;
+  // One entry per active pointer (finger), each holding that pointer's last painted grid
+  // position — lets every finger paint its own continuous stroke independently (Task 3).
+  const strokes = new Map<number, { x: number; y: number }>();
   let displayWidth = $state(0);
   let displayHeight = $state(0);
 
@@ -246,10 +247,11 @@
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
 
-    if (drawing) {
-      // End any in-progress stroke cleanly rather than continuing it across the swap (FR-028).
-      drawing = false;
-      lastGridPos = null;
+    if (strokes.size > 0) {
+      // End every in-progress stroke cleanly rather than continuing it across the swap
+      // (FR-028), discarding rather than committing — history.remap below already nulls out
+      // any pending capture, so this is purely resetting the pointer-tracking state to match.
+      strokes.clear();
     }
 
     // Upstream's FR-022 discards the undo/redo history on every re-derivation — a call made when
@@ -417,26 +419,29 @@
     };
   }
 
-  function paintAt(pos: { x: number; y: number }): void {
+  // `from` is this pointer's own last painted position (or null on its first paint) — passed in
+  // by the caller rather than read off shared state, so concurrent pointers never see each
+  // other's line continuations.
+  function paintAt(pos: { x: number; y: number }, from: { x: number; y: number } | null): void {
     const radius = BRUSH_RADII[brushSize];
     const shade = randomShade();
     if (tool === 'eraser') {
-      if (lastGridPos) {
-        eraseObjectsInBrushLine(grid, objectsState, lastGridPos, pos, radius);
+      if (from) {
+        eraseObjectsInBrushLine(grid, objectsState, from, pos, radius);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
       }
     }
     if (tool === 'wand') {
-      const from = lastGridPos ?? pos;
-      if (lastGridPos) {
-        applyWandLine(grid, lastGridPos, pos, radius);
+      const wandFrom = from ?? pos;
+      if (from) {
+        applyWandLine(grid, from, pos, radius);
       } else {
         applyWand(grid, pos.x, pos.y, radius);
       }
       playChime();
       const now = performance.now();
-      for (const unicorn of unicornsTouchedByWandLine(objectsState, from, pos, radius)) {
+      for (const unicorn of unicornsTouchedByWandLine(objectsState, wandFrom, pos, radius)) {
         const timers = unicornTimers.get(unicorn.id) ?? {
           lastBurstAt: -Infinity,
           lastIdleAt: now,
@@ -450,19 +455,42 @@
         }
         unicornTimers.set(unicorn.id, timers);
       }
-    } else if (lastGridPos) {
-      applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
+    } else if (from) {
+      applyBrushLine(grid, tool, from, pos, radius, shade);
       if (isPourTool(tool)) playPour(tool);
     } else {
       applyBrush(grid, tool, pos.x, pos.y, radius, shade);
       if (isPourTool(tool)) playPour(tool);
     }
-    lastGridPos = pos;
+  }
+
+  // Ends one pointer's stroke: removes it from strokes, and only when that empties the map
+  // (the last finger just lifted) commits the whole multi-finger scribble as a single undo step.
+  function endStroke(pointerId: number): void {
+    if (!strokes.delete(pointerId)) return;
+    if (strokes.size === 0) {
+      history.commitAction(grid, objectsState);
+      scheduleSave();
+      onHistoryChange?.(history.canUndo(), history.canRedo());
+    }
+  }
+
+  // Force-ends every active stroke at once (still exactly one commit, same as endStroke's final
+  // pointer case) — used where another action is about to begin its own history entry and any
+  // in-progress finger paint must be settled first, no matter how many fingers are down.
+  function endAllStrokes(): void {
+    if (strokes.size === 0) return;
+    strokes.clear();
+    history.commitAction(grid, objectsState);
+    scheduleSave();
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   function handlePointerDown(event: PointerEvent): void {
     initSoundOnGesture();
-    if (drawing) handlePointerUp();
+    // Defensive: a stray second pointerdown for the same id with no pointerup in between
+    // (browser quirk) — settle that pointer's old stroke before starting whatever comes next.
+    endStroke(event.pointerId);
     const pos = clientToGrid(event.clientX, event.clientY);
     poodleTarget = pos;
     if (tool === 'poodle') {
@@ -480,30 +508,29 @@
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    history.beginAction(grid, objectsState);
-    drawing = true;
-    lastGridPos = null;
-    paintAt(pos);
+    if (strokes.size === 0) {
+      history.beginAction(grid, objectsState);
+    }
+    strokes.set(event.pointerId, pos);
+    paintAt(pos, null);
     canvas.setPointerCapture(event.pointerId);
   }
 
   function handlePointerMove(event: PointerEvent): void {
     const pos = clientToGrid(event.clientX, event.clientY);
     poodleTarget = pos;
-    if (!drawing) return;
-    paintAt(pos);
+    const from = strokes.get(event.pointerId);
+    if (from === undefined) return;
+    paintAt(pos, from);
+    strokes.set(event.pointerId, pos);
   }
 
-  function handlePointerUp(): void {
-    drawing = false;
-    lastGridPos = null;
-    history.commitAction(grid, objectsState);
-    scheduleSave();
-    onHistoryChange?.(history.canUndo(), history.canRedo());
+  function handlePointerUp(event: PointerEvent): void {
+    endStroke(event.pointerId);
   }
 
   export function clearAll(): void {
-    if (drawing) handlePointerUp();
+    endAllStrokes();
     history.beginAction(grid, objectsState);
     clearGridState(grid);
     clearObjects(objectsState);
@@ -516,7 +543,7 @@
   }
 
   export function loadScene(sceneId: SceneId): void {
-    if (drawing) handlePointerUp();
+    endAllStrokes();
     history.beginAction(grid, objectsState);
     loadSceneState(sceneId, grid, objectsState);
     clearPets(petsState);
@@ -527,14 +554,14 @@
   }
 
   export function undo(): void {
-    if (drawing) handlePointerUp();
+    endAllStrokes();
     history.undo(grid, objectsState);
     playWhoosh();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function redo(): void {
-    if (drawing) handlePointerUp();
+    endAllStrokes();
     history.redo(grid, objectsState);
     playWhoosh();
     onHistoryChange?.(history.canUndo(), history.canRedo());
