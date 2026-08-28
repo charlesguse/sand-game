@@ -413,16 +413,14 @@
 
   export function undo(): void {
     if (drawing) handlePointerUp();
-    if (history.undo(grid, objectsState)) {
-      onHistoryChange?.(history.canUndo(), history.canRedo());
-    }
+    history.undo(grid, objectsState);
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function redo(): void {
     if (drawing) handlePointerUp();
-    if (history.redo(grid, objectsState)) {
-      onHistoryChange?.(history.canUndo(), history.canRedo());
-    }
+    history.redo(grid, objectsState);
+    onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   onMount(() => {
