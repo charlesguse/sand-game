@@ -1,5 +1,5 @@
 import { isSolid } from './element';
-import { type Grid } from './types';
+import { EMPTY, GUMDROP, type Grid } from './types';
 
 export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging';
 
@@ -29,6 +29,14 @@ const STEP_INTERVAL = 4;
 const MAX_CLIMB = 2;
 /** Horizontal distance within which the poodle considers itself arrived. */
 const ARRIVE_DISTANCE = 1.5;
+/** How far a poodle can smell a gumdrop, in cells. */
+export const GUMDROP_SCENT_RADIUS = 25;
+/** Frames spent happily eating. */
+const EAT_DURATION = 20;
+/** Horizontal distance at which the poodle can reach a gumdrop. */
+const EAT_REACH = 2;
+/** How far above/below the poodle's feet to search when clearing an eaten gumdrop. */
+const EAT_SEARCH_HEIGHT = 3;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -64,6 +72,58 @@ function groundBelow(grid: Grid, x: number, fromY: number): number {
   return grid.height - 1;
 }
 
+/**
+ * Nearest gumdrop within scent range, or -1 if none. Scans a bounded window
+ * around the poodle rather than the whole grid, so cost does not grow with
+ * canvas size.
+ */
+function nearestGumdropX(grid: Grid, poodle: Poodle): number {
+  const cx = Math.round(poodle.x);
+  const cy = Math.round(poodle.y);
+  let bestX = -1;
+  let bestDist = Infinity;
+
+  const minX = Math.max(0, cx - GUMDROP_SCENT_RADIUS);
+  const maxX = Math.min(grid.width - 1, cx + GUMDROP_SCENT_RADIUS);
+  const minY = Math.max(0, cy - GUMDROP_SCENT_RADIUS);
+  const maxY = Math.min(grid.height - 1, cy + GUMDROP_SCENT_RADIUS);
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (grid.elements[y * grid.width + x] !== GUMDROP) continue;
+      const dist = Math.abs(x - cx) + Math.abs(y - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = x;
+      }
+    }
+  }
+  return bestDist <= GUMDROP_SCENT_RADIUS ? bestX : -1;
+}
+
+/**
+ * Clears the GUMDROP cell nearest the poodle's feet at the given column, if
+ * one exists within a small neighbourhood. Returns true if a cell was cleared.
+ */
+function eatGumdropNear(grid: Grid, gx: number, poodle: Poodle): boolean {
+  const cy = Math.round(poodle.y);
+  const minY = Math.max(0, cy - EAT_SEARCH_HEIGHT);
+  const maxY = Math.min(grid.height - 1, cy + EAT_SEARCH_HEIGHT);
+  let bestY = -1;
+  let bestDist = Infinity;
+  for (let y = minY; y <= maxY; y++) {
+    if (grid.elements[y * grid.width + gx] !== GUMDROP) continue;
+    const dist = Math.abs(y - cy);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestY = y;
+    }
+  }
+  if (bestY === -1) return false;
+  grid.elements[bestY * grid.width + gx] = EMPTY;
+  return true;
+}
+
 /** Advances one poodle by one frame. Allocation-free. */
 function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number } | null, stride: number): void {
   if (poodle.timer > 0) {
@@ -74,12 +134,23 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
 
   poodle.y = groundBelow(grid, poodle.x, poodle.y);
 
-  if (target === null) {
+  const gumdropX = nearestGumdropX(grid, poodle);
+  let targetX: number;
+  if (gumdropX !== -1) {
+    if (Math.abs(gumdropX - poodle.x) <= EAT_REACH && eatGumdropNear(grid, gumdropX, poodle)) {
+      poodle.state = 'eating';
+      poodle.timer = EAT_DURATION;
+      return;
+    }
+    targetX = gumdropX;
+  } else if (target !== null) {
+    targetX = target.x;
+  } else {
     poodle.state = 'idle';
     return;
   }
 
-  const dx = target.x - poodle.x;
+  const dx = targetX - poodle.x;
   if (Math.abs(dx) <= ARRIVE_DISTANCE) {
     poodle.state = 'idle';
     return;

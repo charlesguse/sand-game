@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
-import { createPetsState, addPoodle, stepPets, POODLE_CAP } from '../../../src/sim/pets';
-import { SAND, type Grid } from '../../../src/sim/types';
+import { createPetsState, addPoodle, stepPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
+import { SAND, GUMDROP, EMPTY, type Grid } from '../../../src/sim/types';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
 function withFloor(width: number, height: number, depth: number): Grid {
@@ -136,5 +136,62 @@ describe('trotting toward where she touched', () => {
     run(grid, pets, null, 100);
     expect(pets.poodles[0].state).toBe('idle');
     expect(Number.isFinite(pets.poodles[0].x)).toBe(true);
+  });
+});
+
+describe('chasing gumdrops', () => {
+  it('walks toward a gumdrop instead of her finger', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 20, 31, GUMDROP, 0);
+    run(grid, pets, { x: 70, y: 31 }, 120);
+    expect(pets.poodles[0].x).toBeLessThan(40);
+  });
+
+  it('eats the gumdrop when it arrives', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 24, 31, GUMDROP, 0);
+    run(grid, pets, null, 300);
+    expect(grid.elements[31 * grid.width + 24]).toBe(EMPTY);
+  });
+
+  it('is in the eating state just after a gumdrop goes', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 27, 31, GUMDROP, 0);
+    let sawEating = false;
+    for (let i = 0; i < 300; i++) {
+      stepPets(grid, pets, null);
+      if (pets.poodles[0].state === 'eating') sawEating = true;
+    }
+    expect(sawEating).toBe(true);
+  });
+
+  it('ignores a gumdrop far outside its range', () => {
+    const grid = withFloor(200, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 100, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 100 - (GUMDROP_SCENT_RADIUS + 20), 31, GUMDROP, 0);
+    const startX = pets.poodles[0].x;
+    run(grid, pets, null, 60);
+    expect(pets.poodles[0].x).toBeCloseTo(startX, 0);
+  });
+
+  it('goes back to following her finger once the sweets are gone', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 26, 31, GUMDROP, 0);
+    run(grid, pets, { x: 70, y: 31 }, 400);
+    expect(pets.poodles[0].x).toBeGreaterThan(40);
   });
 });
