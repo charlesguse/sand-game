@@ -75,6 +75,14 @@
     >
       ⭐
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'gumdrop'}
+      aria-label="Gumdrops"
+      onclick={() => onSelectTool('gumdrop')}
+    >
+      🍬
+    </button>
   </div>
 
   <div class="group objects">

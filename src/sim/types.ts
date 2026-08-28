@@ -7,6 +7,7 @@ export const OBJECT = 5;
 export const GRASS = 6;
 export const STAR_POWER = 7;
 export const FOG = 8;
+export const GUMDROP = 9;
 
 export type Element =
   | typeof EMPTY
@@ -17,7 +18,8 @@ export type Element =
   | typeof OBJECT
   | typeof GRASS
   | typeof STAR_POWER
-  | typeof FOG;
+  | typeof FOG
+  | typeof GUMDROP;
 
 export interface Grid {
   readonly width: number;
@@ -50,7 +52,8 @@ export type Tool =
   | 'rainbow'
   | 'unicorn'
   | 'eraser'
-  | 'wand';
+  | 'wand'
+  | 'gumdrop';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 

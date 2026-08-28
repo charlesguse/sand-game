@@ -1,4 +1,4 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG } from '../sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP } from '../sim/types';
 
 export type Rgb = [number, number, number];
 
@@ -84,6 +84,17 @@ const CLOUD_RAMP: Rgb[] = [
   [241, 240, 236],
 ];
 
+// Candy ramp: a small fixed set of gumdrop colors, indexed by hue so a poured
+// handful reads as distinct sweets rather than a continuous rainbow spread.
+const GUMDROP_COLORS: Rgb[] = [
+  [244, 63, 148],
+  [255, 138, 76],
+  [255, 214, 74],
+  [122, 214, 122],
+  [96, 178, 245],
+  [176, 122, 240],
+];
+
 // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -110,5 +121,6 @@ export function colorFor(element: number, shade: number, hue: number, isCloud: b
   if (element === GRASS) return GREEN_RAMP[shade % GREEN_RAMP.length];
   if (element === STAR_POWER) return GOLD_RAMP[shade % GOLD_RAMP.length];
   if (element === FOG) return isCloud ? CLOUD_RAMP[shade % CLOUD_RAMP.length] : FOG_RAMP[shade % FOG_RAMP.length];
+  if (element === GUMDROP) return GUMDROP_COLORS[hue % GUMDROP_COLORS.length];
   return [255, 255, 255];
 }

@@ -1,4 +1,4 @@
-import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, type Grid } from './types';
+import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, GUMDROP, type Grid } from './types';
 import { isPowder, isLiquid, isSolid } from './element';
 import { setCell, setGlitter, igniteStarPower, createFog } from './grid';
 import { randomShade, randomHue, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
@@ -16,6 +16,11 @@ function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.shades[toIndex] = grid.shades[fromIndex];
   grid.hues[toIndex] = grid.hues[fromIndex];
   grid.glitter[toIndex] = grid.glitter[fromIndex];
+  grid.grassHeight[toIndex] = grid.grassHeight[fromIndex];
+  grid.grassCooldown[toIndex] = grid.grassCooldown[fromIndex];
+  grid.starPowerAge[toIndex] = grid.starPowerAge[fromIndex];
+  grid.starPowerLife[toIndex] = grid.starPowerLife[fromIndex];
+  grid.starPowerFuelled[toIndex] = grid.starPowerFuelled[fromIndex];
   grid.cloud[toIndex] = grid.cloud[fromIndex];
   grid.fogRiseCooldown[toIndex] = grid.fogRiseCooldown[fromIndex];
   grid.fogStuckSteps[toIndex] = grid.fogStuckSteps[fromIndex];
@@ -25,6 +30,11 @@ function moveCell(grid: Grid, fromIndex: number, toIndex: number): void {
   grid.shades[fromIndex] = 0;
   grid.hues[fromIndex] = 0;
   grid.glitter[fromIndex] = 0;
+  grid.grassHeight[fromIndex] = 0;
+  grid.grassCooldown[fromIndex] = 0;
+  grid.starPowerAge[fromIndex] = 0;
+  grid.starPowerLife[fromIndex] = 0;
+  grid.starPowerFuelled[fromIndex] = 0;
   grid.cloud[fromIndex] = 0;
   grid.fogRiseCooldown[fromIndex] = 0;
   grid.fogStuckSteps[fromIndex] = 0;
@@ -42,6 +52,11 @@ function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
   const aShade = grid.shades[aIndex];
   const aHue = grid.hues[aIndex];
   const aGlitter = grid.glitter[aIndex];
+  const aGrassHeight = grid.grassHeight[aIndex];
+  const aGrassCooldown = grid.grassCooldown[aIndex];
+  const aStarPowerAge = grid.starPowerAge[aIndex];
+  const aStarPowerLife = grid.starPowerLife[aIndex];
+  const aStarPowerFuelled = grid.starPowerFuelled[aIndex];
   const aCloud = grid.cloud[aIndex];
   const aFogRiseCooldown = grid.fogRiseCooldown[aIndex];
   const aFogStuckSteps = grid.fogStuckSteps[aIndex];
@@ -51,6 +66,11 @@ function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
   grid.shades[aIndex] = grid.shades[bIndex];
   grid.hues[aIndex] = grid.hues[bIndex];
   grid.glitter[aIndex] = grid.glitter[bIndex];
+  grid.grassHeight[aIndex] = grid.grassHeight[bIndex];
+  grid.grassCooldown[aIndex] = grid.grassCooldown[bIndex];
+  grid.starPowerAge[aIndex] = grid.starPowerAge[bIndex];
+  grid.starPowerLife[aIndex] = grid.starPowerLife[bIndex];
+  grid.starPowerFuelled[aIndex] = grid.starPowerFuelled[bIndex];
   grid.cloud[aIndex] = grid.cloud[bIndex];
   grid.fogRiseCooldown[aIndex] = grid.fogRiseCooldown[bIndex];
   grid.fogStuckSteps[aIndex] = grid.fogStuckSteps[bIndex];
@@ -60,6 +80,11 @@ function swapCells(grid: Grid, aIndex: number, bIndex: number): void {
   grid.shades[bIndex] = aShade;
   grid.hues[bIndex] = aHue;
   grid.glitter[bIndex] = aGlitter;
+  grid.grassHeight[bIndex] = aGrassHeight;
+  grid.grassCooldown[bIndex] = aGrassCooldown;
+  grid.starPowerAge[bIndex] = aStarPowerAge;
+  grid.starPowerLife[bIndex] = aStarPowerLife;
+  grid.starPowerFuelled[bIndex] = aStarPowerFuelled;
   grid.cloud[bIndex] = aCloud;
   grid.fogRiseCooldown[bIndex] = aFogRiseCooldown;
   grid.fogStuckSteps[bIndex] = aFogStuckSteps;
@@ -116,6 +141,26 @@ function stepPowder(grid: Grid, x: number, y: number, i: number): void {
     enter(belowRightIndex);
   }
   // else: rest, no change.
+}
+
+/**
+ * Gumdrops fall straight down and stop. Unlike powders they never slide
+ * diagonally, so a poured handful heaps up steeply into a candy pile
+ * instead of collapsing into a flat dune.
+ */
+function stepGumdrop(grid: Grid, x: number, y: number, i: number): void {
+  const { width, height, elements } = grid;
+  const belowY = y + 1;
+  if (belowY >= height) return;
+
+  const belowIndex = belowY * width + x;
+  if (elements[belowIndex] === EMPTY) {
+    moveCell(grid, i, belowIndex);
+    return;
+  }
+  if (isLiquid(elements[belowIndex]) || elements[belowIndex] === FOG) {
+    swapCells(grid, i, belowIndex);
+  }
 }
 
 function stepLiquid(grid: Grid, x: number, y: number, i: number): void {
@@ -418,6 +463,8 @@ export function step(grid: Grid): void {
         stepPowder(grid, x, y, i);
       } else if (isLiquid(element)) {
         stepLiquid(grid, x, y, i);
+      } else if (element === GUMDROP) {
+        stepGumdrop(grid, x, y, i);
       } else if (element === GRASS) {
         stepGrass(grid, x, y, i);
       } else if (element === STAR_POWER) {
