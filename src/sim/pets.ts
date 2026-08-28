@@ -1,5 +1,5 @@
 import { isSolid } from './element';
-import { EMPTY, GUMDROP, type Grid } from './types';
+import { EMPTY, GUMDROP, WATER, type Grid } from './types';
 
 export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging';
 
@@ -58,6 +58,8 @@ const GUMDROP_PATIENCE = 40;
  * re-committing to the same unreachable spot.
  */
 const GUMDROP_COOLDOWN = 150;
+/** Frames spent shaking off water. */
+const SHAKE_DURATION = 30;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -83,6 +85,11 @@ export function addPoodle(state: PetsState, x: number, y: number): void {
 function cellIsSolid(grid: Grid, x: number, y: number): boolean {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
   return isSolid(grid.elements[y * grid.width + x]);
+}
+
+function cellIsWater(grid: Grid, x: number, y: number): boolean {
+  if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
+  return grid.elements[y * grid.width + x] === WATER;
 }
 
 /**
@@ -168,6 +175,20 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
   }
 
   poodle.y = groundBelow(grid, poodle.x, poodle.y);
+
+  const feetX = Math.round(poodle.x);
+  const feetY = Math.round(poodle.y);
+  const inWater = cellIsWater(grid, feetX, feetY) || cellIsWater(grid, feetX, feetY + 1);
+  if (inWater) poodle.soggy = true;
+
+  if (poodle.soggy && !inWater) {
+    // Only start shaking once she's actually out of the water — starting it
+    // while still standing in a pond would shake forever and never resolve.
+    poodle.state = 'shaking';
+    poodle.timer = SHAKE_DURATION;
+    poodle.soggy = false;
+    return;
+  }
 
   let targetX: number | null = null;
 

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createPetsState, addPoodle, stepPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
-import { SAND, GUMDROP, EMPTY, type Grid } from '../../../src/sim/types';
+import { SAND, GUMDROP, EMPTY, WATER, type Grid } from '../../../src/sim/types';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
 function withFloor(width: number, height: number, depth: number): Grid {
@@ -248,5 +248,40 @@ describe('chasing gumdrops', () => {
     // Finger target is back on the poodle's own side.
     run(grid, pets, { x: 5, y: 31 }, 800);
     expect(pets.poodles[0].x).toBeLessThan(20);
+  });
+});
+
+describe('getting wet', () => {
+  it('becomes soggy after walking through water', () => {
+    const grid = withFloor(60, 40, 8);
+    for (let x = 25; x < 35; x++) setCell(grid, x, 31, WATER, 0);
+    const pets = createPetsState();
+    addPoodle(pets, 20, 30);
+    run(grid, pets, null, 20);
+    let sawSoggy = false;
+    for (let i = 0; i < 300; i++) {
+      stepPets(grid, pets, { x: 45, y: 31 });
+      if (pets.poodles[0].soggy || pets.poodles[0].state === 'shaking') sawSoggy = true;
+    }
+    expect(sawSoggy).toBe(true);
+  });
+
+  it('shakes itself dry and carries on', () => {
+    const grid = withFloor(60, 40, 8);
+    for (let x = 25; x < 35; x++) setCell(grid, x, 31, WATER, 0);
+    const pets = createPetsState();
+    addPoodle(pets, 20, 30);
+    run(grid, pets, null, 20);
+    run(grid, pets, { x: 55, y: 31 }, 600);
+    expect(pets.poodles[0].soggy).toBe(false);
+    expect(pets.poodles[0].state).not.toBe('shaking');
+  });
+
+  it('stays dry when it never meets water', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 20, 30);
+    run(grid, pets, { x: 45, y: 31 }, 200);
+    expect(pets.poodles[0].soggy).toBe(false);
   });
 });
