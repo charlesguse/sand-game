@@ -90,6 +90,28 @@ export function addPoodle(state: PetsState, x: number, y: number): void {
   });
 }
 
+/**
+ * Shifts every poodle by (offsetX, offsetY) — the same offset the grid's
+ * objects get on a resize re-derivation — and clamps the result back inside
+ * the new grid rather than dropping it. Unlike repositionObjects, a poodle
+ * is never removed: an out-of-bounds landing is clamped to the nearest edge
+ * cell instead, because losing a pet on a rotation is worse than a frame or
+ * two of odd footing. The per-frame groundBelow settle resolves the vertical
+ * position (and any horizontal overlap with terrain) on the next step, so
+ * this only needs to land the coordinates somewhere sane and in-bounds.
+ */
+export function repositionPoodles(
+  poodles: Poodle[],
+  newGrid: Grid,
+  offsetX: number,
+  offsetY: number,
+): void {
+  for (const poodle of poodles) {
+    poodle.x = Math.min(Math.max(poodle.x + offsetX, 0), newGrid.width - 1);
+    poodle.y = Math.min(Math.max(poodle.y + offsetY, 0), newGrid.height - 1);
+  }
+}
+
 function cellIsSolid(grid: Grid, x: number, y: number): boolean {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
   return isSolid(grid.elements[y * grid.width + x]);
@@ -98,6 +120,11 @@ function cellIsSolid(grid: Grid, x: number, y: number): boolean {
 function cellIsWater(grid: Grid, x: number, y: number): boolean {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
   return grid.elements[y * grid.width + x] === WATER;
+}
+
+function cellIsGumdrop(grid: Grid, x: number, y: number): boolean {
+  if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
+  return grid.elements[y * grid.width + x] === GUMDROP;
 }
 
 /**
@@ -117,15 +144,19 @@ function groundBelow(grid: Grid, x: number, fromY: number): number {
  * around the poodle rather than the whole grid, so cost does not grow with
  * canvas size.
  *
- * The vertical span of the scan is capped at EAT_SEARCH_HEIGHT — the same
- * window eatGumdropNear uses to actually eat — instead of the full scent
- * radius. This is a pruning optimization only: it keeps the scan cheaper and
- * avoids proposing a gumdrop that's obviously too far above or below to eat
- * from the poodle's *current* standing height. It says nothing about
- * horizontal obstructions (walls, pits) between here and there, so it is not
- * by itself a guarantee the returned gumdrop is reachable — that guarantee
- * comes from the pursuit/give-up bookkeeping in stepPoodle, which abandons a
- * target that stops getting closer regardless of why.
+ * The scan window is square, GUMDROP_SCENT_RADIUS cells in every direction —
+ * matching what "scent radius" actually claims to mean. It used to cap the
+ * vertical span at EAT_SEARCH_HEIGHT, a leftover geometric guard from before
+ * the pursuit/give-up patience mechanism existed (see GUMDROP_PATIENCE):
+ * that guard made a gumdrop just a few rows above or below the poodle
+ * invisible even when well within the nominal radius, which defeated the
+ * point of dropping one to steer her. Patience — abandoning a target that
+ * stops getting closer, for whatever reason — is what actually prevents the
+ * softlock now, terrain-independent of this scan's shape. This window says
+ * nothing about horizontal obstructions (walls, pits) between here and
+ * there, so it is not by itself a guarantee the returned gumdrop is
+ * reachable; that guarantee still comes entirely from the pursuit bookkeeping
+ * in stepPoodle.
  */
 function nearestGumdropX(grid: Grid, poodle: Poodle): number {
   const cx = Math.round(poodle.x);
@@ -135,8 +166,8 @@ function nearestGumdropX(grid: Grid, poodle: Poodle): number {
 
   const minX = Math.max(0, cx - GUMDROP_SCENT_RADIUS);
   const maxX = Math.min(grid.width - 1, cx + GUMDROP_SCENT_RADIUS);
-  const minY = Math.max(0, cy - EAT_SEARCH_HEIGHT);
-  const maxY = Math.min(grid.height - 1, cy + EAT_SEARCH_HEIGHT);
+  const minY = Math.max(0, cy - GUMDROP_SCENT_RADIUS);
+  const maxY = Math.min(grid.height - 1, cy + GUMDROP_SCENT_RADIUS);
 
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -184,6 +215,22 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
 
   const occupiedX = Math.round(poodle.x);
   const occupiedY = Math.round(poodle.y);
+
+  if (cellIsGumdrop(grid, occupiedX, occupiedY)) {
+    // A gumdrop landed exactly on her own cell (dropped there directly, or
+    // uncovered by her own digging). isSolid() counts GUMDROP as solid for
+    // burial purposes below, but this is eating, not digging: check for it
+    // first so the two don't share a predicate and this gumdrop doesn't get
+    // silently deleted with no eating state and no sparkle.
+    grid.elements[occupiedY * grid.width + occupiedX] = EMPTY;
+    poodle.state = 'eating';
+    poodle.timer = EAT_DURATION;
+    poodle.pursuitX = -1;
+    poodle.pursuitBestDist = Infinity;
+    poodle.pursuitStaleFrames = 0;
+    return;
+  }
+
   if (cellIsSolid(grid, occupiedX, occupiedY)) {
     // Buried: the cell she's standing in is solid. Dig it out one scoop at a
     // time rather than in one jump, so this reads as digging rather than
@@ -199,7 +246,10 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
     // clear the ordinary ground-settle below takes over and rests her on
     // whatever surface she uncovered.
     grid.elements[occupiedY * grid.width + occupiedX] = EMPTY;
-    poodle.y = occupiedY - 1;
+    // Clamp rather than let a column reaching row 0 push her to y = -1 —
+    // she'd render above the canvas top for a few frames before the settle
+    // corrects it.
+    poodle.y = Math.max(0, occupiedY - 1);
     poodle.state = 'digging';
     poodle.timer = DIG_DURATION;
     return;

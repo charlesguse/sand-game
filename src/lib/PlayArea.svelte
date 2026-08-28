@@ -26,7 +26,7 @@
     clearObjects,
     OBJECT_KINDS,
   } from '../sim/objects';
-  import { createPetsState, addPoodle, stepPets, clearPets } from '../sim/pets';
+  import { createPetsState, addPoodle, stepPets, clearPets, repositionPoodles } from '../sim/pets';
   import {
     type Particle,
     PARTICLE_LIFETIME_MS,
@@ -137,6 +137,7 @@
     for (const kind of OBJECT_KINDS) {
       objectsState.byKind[kind] = repositionObjects(objectsState.byKind[kind], newGrid, offsetX, offsetY);
     }
+    repositionPoodles(petsState.poodles, newGrid, offsetX, offsetY);
 
     grid = newGrid;
     canvas.width = grid.width;

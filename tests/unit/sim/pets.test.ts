@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
-import { createPetsState, addPoodle, stepPets, clearPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
+import {
+  createPetsState,
+  addPoodle,
+  stepPets,
+  clearPets,
+  repositionPoodles,
+  POODLE_CAP,
+  GUMDROP_SCENT_RADIUS,
+} from '../../../src/sim/pets';
 import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
@@ -229,6 +237,31 @@ describe('chasing gumdrops', () => {
     expect(pets.poodles[0].x).toBeLessThan(20);
   });
 
+  it('pursues a gumdrop well more than EAT_SEARCH_HEIGHT rows above it, on a reachable staircase', () => {
+    const grid = withFloor(80, 40, 8);
+    // A staircase rising in MAX_CLIMB-sized (2-row) steps, so every step is
+    // climbable, topping out 6 rows above the poodle's resting height (31) —
+    // well past the old EAT_SEARCH_HEIGHT (3) cap, but comfortably inside
+    // GUMDROP_SCENT_RADIUS.
+    const steps = [
+      { x0: 32, x1: 34, top: 30 },
+      { x0: 34, x1: 36, top: 28 },
+      { x0: 36, x1: 38, top: 26 },
+    ];
+    for (const { x0, x1, top } of steps) {
+      for (let y = top; y < 40; y++) {
+        for (let x = x0; x < x1; x++) setCell(grid, x, y, SAND, 0);
+      }
+    }
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    // Gumdrop atop the tallest step: 7 columns away, 6 rows above.
+    setCell(grid, 37, 25, GUMDROP, 0);
+    run(grid, pets, null, 500);
+    expect(grid.elements[25 * grid.width + 37]).toBe(EMPTY);
+  });
+
   it('does not get stuck in a pit exactly as deep as its vertical scent range', () => {
     const grid = withFloor(80, 40, 8);
     // A pit with a climbable shelf on the entry side (a 1-cell step down from
@@ -345,6 +378,71 @@ describe('digging out', () => {
     run(grid, pets, null, 400);
     const i = Math.round(pets.poodles[0].y) * grid.width + Math.round(pets.poodles[0].x);
     expect(grid.elements[i]).not.toBe(SAND);
+  });
+
+  it('never dips below y = 0 even buried in a full-height column', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    // A column solid from the very top of the grid down through the floor.
+    for (let y = 0; y <= 31; y++) setCell(grid, 30, y, SAND, 0);
+    pets.poodles[0].y = 30;
+    for (let i = 0; i < 300; i++) {
+      stepPets(grid, pets, null);
+      expect(pets.poodles[0].y).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe('a gumdrop at her own cell', () => {
+  it('gets eaten rather than dug out', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const x = Math.round(pets.poodles[0].x);
+    const y = Math.round(pets.poodles[0].y);
+    setCell(grid, x, y, GUMDROP, 0);
+    stepPets(grid, pets, null);
+    expect(pets.poodles[0].state).toBe('eating');
+    expect(grid.elements[y * grid.width + x]).toBe(EMPTY);
+  });
+});
+
+describe('repositioning on resize', () => {
+  it('shifts every poodle by the same offset the grid content gets', () => {
+    const pets = createPetsState();
+    addPoodle(pets, 20, 15);
+    addPoodle(pets, 30, 10);
+    const newGrid = createGrid(80, 40);
+    repositionPoodles(pets.poodles, newGrid, 10, 5);
+    expect(pets.poodles[0].x).toBeCloseTo(30);
+    expect(pets.poodles[0].y).toBeCloseTo(20);
+    expect(pets.poodles[1].x).toBeCloseTo(40);
+    expect(pets.poodles[1].y).toBeCloseTo(15);
+  });
+
+  it('clamps a poodle back inside the new grid rather than dropping it', () => {
+    const pets = createPetsState();
+    addPoodle(pets, 5, 5);
+    const newGrid = createGrid(40, 20);
+    // An offset that would push her well outside the new, smaller grid.
+    repositionPoodles(pets.poodles, newGrid, -20, -20);
+    expect(pets.poodles).toHaveLength(1);
+    expect(pets.poodles[0].x).toBeGreaterThanOrEqual(0);
+    expect(pets.poodles[0].x).toBeLessThan(40);
+    expect(pets.poodles[0].y).toBeGreaterThanOrEqual(0);
+    expect(pets.poodles[0].y).toBeLessThan(20);
+  });
+
+  it('clamps against the far edge too, not just zero', () => {
+    const pets = createPetsState();
+    addPoodle(pets, 35, 15);
+    const newGrid = createGrid(20, 10);
+    repositionPoodles(pets.poodles, newGrid, 20, 20);
+    expect(pets.poodles[0].x).toBeLessThanOrEqual(newGrid.width - 1);
+    expect(pets.poodles[0].y).toBeLessThanOrEqual(newGrid.height - 1);
   });
 });
 
