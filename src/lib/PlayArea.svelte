@@ -10,7 +10,8 @@
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { resizeGrid } from '../sim/resize';
   import { loadScene as loadSceneState } from '../sim/scenes';
-  import { HistoryManager } from '../sim/history';
+  import { HistoryManager, restoreWorldState, remapWorldState } from '../sim/history';
+  import { serializeWorld, deserializeWorld } from '../sim/save';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
@@ -80,6 +81,9 @@
     { lastBurstAt: number; lastIdleAt: number; lastWandBurstAt: number }
   >();
 
+  const SAVE_KEY = 'madisons-sand-world-v1';
+  const SAVE_DEBOUNCE_MS = 2000;
+
   let container: HTMLDivElement;
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
@@ -96,6 +100,63 @@
     const viewportH = window.visualViewport?.height ?? window.innerHeight;
     const isPhone = isPhoneSized(viewportW, viewportH);
     return computePlayField(container.clientWidth, container.clientHeight, isPhone);
+  }
+
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Every localStorage touchpoint is wrapped so a quota or privacy failure is silent — the
+  // game must be indistinguishable from today when storage is unavailable (no dialogs, no
+  // thrown errors reaching the frame loop).
+  function saveNow(): void {
+    try {
+      const json = serializeWorld(grid, objectsState, petsState);
+      if (json === '') return; // serializeWorld failed internally; keep whatever save exists
+      localStorage.setItem(SAVE_KEY, json);
+    } catch {
+      // Storage unavailable (private mode, quota). Silent — nothing the child does is ever wrong.
+    }
+  }
+
+  function scheduleSave(): void {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, SAVE_DEBOUNCE_MS);
+  }
+
+  function handleVisibilityHidden(): void {
+    if (document.visibilityState === 'hidden') saveNow();
+  }
+
+  // Restores a saved world onto the just-created grid, before the first frame. Best-effort and
+  // silent: any failure (missing key, corrupt payload, shape refusal) leaves the fresh grid
+  // exactly as it was, with no error surfaced.
+  function tryRestore(): void {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (raw === null) return;
+
+      const saved = deserializeWorld(raw);
+      if (saved === null) return;
+
+      let state = saved.state;
+      if (saved.width !== grid.width || saved.height !== grid.height) {
+        // Same anchor resizeGrid uses, so a restored world lines up the same way live
+        // re-derivation does. Best-effort carry — loss acceptable here (unlike undo).
+        const offsetX = Math.round((grid.width - saved.width) / 2);
+        const offsetY = grid.height - saved.height;
+        state = remapWorldState(state, saved.width, saved.height, grid.width, grid.height, offsetX, offsetY);
+      }
+
+      if (!restoreWorldState(grid, objectsState, state)) return;
+
+      clearPets(petsState);
+      for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
+
+      // History starts empty after a restore — the restored world is the new baseline.
+      history.reset();
+      onHistoryChange?.(history.canUndo(), history.canRedo());
+    } catch {
+      // Silent restore failure — start fresh exactly as if there were no save.
+    }
   }
 
   // Repositions obj by (offsetX, offsetY), re-stamping its OBJECT footprint into newGrid only if
@@ -365,6 +426,7 @@
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
       history.commitAction(grid, objectsState);
+      scheduleSave();
       onHistoryChange?.(history.canUndo(), history.canRedo());
       canvas.setPointerCapture(event.pointerId);
       return;
@@ -387,6 +449,7 @@
     drawing = false;
     lastGridPos = null;
     history.commitAction(grid, objectsState);
+    scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
@@ -398,6 +461,7 @@
     clearPets(petsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
+    scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
@@ -408,6 +472,7 @@
     clearPets(petsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
+    scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
@@ -433,16 +498,22 @@
     flashMask = createFlashMask(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
+    tryRestore();
     const observer = new ResizeObserver(scheduleResize);
     observer.observe(container);
     window.visualViewport?.addEventListener('resize', scheduleResize);
     window.addEventListener('orientationchange', scheduleResize);
+    document.addEventListener('visibilitychange', handleVisibilityHidden);
+    window.addEventListener('pagehide', saveNow);
     requestAnimationFrame(frame);
     return () => {
       clearTimeout(resizeTimer);
+      clearTimeout(saveTimer);
       observer.disconnect();
       window.visualViewport?.removeEventListener('resize', scheduleResize);
       window.removeEventListener('orientationchange', scheduleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityHidden);
+      window.removeEventListener('pagehide', saveNow);
     };
   });
 </script>
