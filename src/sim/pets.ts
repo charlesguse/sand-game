@@ -68,6 +68,11 @@ export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
 }
 
+/** Sends every poodle home. `nextId` keeps counting so ids stay unique. */
+export function clearPets(state: PetsState): void {
+  state.poodles.length = 0;
+}
+
 export function addPoodle(state: PetsState, x: number, y: number): void {
   if (state.poodles.length >= POODLE_CAP) state.poodles.shift();
   state.poodles.push({

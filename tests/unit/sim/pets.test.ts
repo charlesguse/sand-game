@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
-import { createPetsState, addPoodle, stepPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
+import { createPetsState, addPoodle, stepPets, clearPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
 import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
@@ -345,5 +345,24 @@ describe('digging out', () => {
     run(grid, pets, null, 400);
     const i = Math.round(pets.poodles[0].y) * grid.width + Math.round(pets.poodles[0].x);
     expect(grid.elements[i]).not.toBe(SAND);
+  });
+});
+
+describe('clearing the pack', () => {
+  it('removes every poodle', () => {
+    const pets = createPetsState();
+    addPoodle(pets, 10, 5);
+    addPoodle(pets, 20, 5);
+    clearPets(pets);
+    expect(pets.poodles).toHaveLength(0);
+  });
+
+  it('keeps handing out fresh ids afterwards', () => {
+    const pets = createPetsState();
+    addPoodle(pets, 10, 5);
+    const firstId = pets.poodles[0].id;
+    clearPets(pets);
+    addPoodle(pets, 10, 5);
+    expect(pets.poodles[0].id).not.toBe(firstId);
   });
 });

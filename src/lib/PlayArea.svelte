@@ -26,7 +26,7 @@
     clearObjects,
     OBJECT_KINDS,
   } from '../sim/objects';
-  import { createPetsState, addPoodle, stepPets } from '../sim/pets';
+  import { createPetsState, addPoodle, stepPets, clearPets } from '../sim/pets';
   import {
     type Particle,
     PARTICLE_LIFETIME_MS,
@@ -216,6 +216,14 @@
 
     ctx.font = `${OBJECT_FOOTPRINT_SIZE}px sans-serif`;
     for (const poodle of petsState.poodles) {
+      if (poodle.state === 'eating') {
+        spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 4);
+      } else if (poodle.state === 'shaking') {
+        spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 2);
+      } else if (poodle.state === 'trotting' && Math.random() < 0.08) {
+        spawnIdleSparkle(particles, poodle.x, poodle.y, lastFrameNow);
+      }
+
       ctx.save();
       ctx.translate(poodle.x, poodle.y);
       if (poodle.facing === -1) ctx.scale(-1, 1);
@@ -366,6 +374,7 @@
     history.beginAction(grid, objectsState);
     clearGridState(grid);
     clearObjects(objectsState);
+    clearPets(petsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     onHistoryChange?.(history.canUndo(), history.canRedo());
@@ -375,6 +384,7 @@
     if (drawing) handlePointerUp();
     history.beginAction(grid, objectsState);
     loadSceneState(sceneId, grid, objectsState);
+    clearPets(petsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     onHistoryChange?.(history.canUndo(), history.canRedo());
