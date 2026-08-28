@@ -14,10 +14,10 @@ import {
 } from './types';
 import { randomHue } from './shade';
 
-export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm'];
+export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm', 'flamingo'];
 
 export function createObjectsState(): ObjectsState {
-  return { byKind: { rainbow: [], unicorn: [], palm: [] }, nextId: 0 };
+  return { byKind: { rainbow: [], unicorn: [], palm: [], flamingo: [] }, nextId: 0 };
 }
 
 /** For each rainbow, converts any SAND/DIRT/WATER cell in its zone to RAINBOW_SAND with a fresh hue. Allocates nothing. */

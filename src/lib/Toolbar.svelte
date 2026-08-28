@@ -118,6 +118,14 @@
     >
       🐩
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'flamingo'}
+      aria-label="Flamingo"
+      onclick={() => onSelectTool('flamingo')}
+    >
+      🦩
+    </button>
   </div>
 
   <div class="group actions">

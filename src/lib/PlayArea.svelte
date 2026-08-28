@@ -60,9 +60,16 @@
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
-  const OBJECT_GLYPHS: Record<ObjectKind, string> = { rainbow: '🌈', unicorn: '🦄', palm: '🌴' };
+  const OBJECT_GLYPHS: Record<ObjectKind, string> = {
+    rainbow: '🌈',
+    unicorn: '🦄',
+    palm: '🌴',
+    flamingo: '🦩',
+  };
   const PALM_SWAY_RADIANS = 0.06;
   const PALM_SWAY_SPEED = 0.0011;
+  const FLAMINGO_BOB_SPEED = 0.0016;
+  const FLAMINGO_BOB_PIXELS = 2.5;
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
@@ -161,6 +168,12 @@
     ctx.font = `${obj.size}px sans-serif`;
     const cx = obj.x + obj.size / 2;
     const cy = obj.y + obj.size / 2;
+
+    if (obj.kind === 'flamingo') {
+      const bob = Math.sin(lastFrameNow * FLAMINGO_BOB_SPEED + obj.id) * FLAMINGO_BOB_PIXELS;
+      ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy + bob);
+      return;
+    }
 
     if (obj.kind !== 'palm') {
       ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy);
@@ -340,7 +353,7 @@
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm') {
+    if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo') {
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
       history.commitAction(grid, objectsState);

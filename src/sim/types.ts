@@ -53,13 +53,14 @@ export type Tool =
   | 'unicorn'
   | 'palm'
   | 'poodle'
+  | 'flamingo'
   | 'eraser'
   | 'wand'
   | 'gumdrop';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
-export type ObjectKind = 'rainbow' | 'unicorn' | 'palm';
+export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo';
 
 export interface PlacedObject {
   readonly id: number;
