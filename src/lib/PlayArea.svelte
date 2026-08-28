@@ -133,6 +133,8 @@
 
     // Re-derivation (FR-026): swap to a freshly resized grid, carrying content at a fixed
     // bottom-centre-anchored offset.
+    const oldWidth = grid.width;
+    const oldHeight = grid.height;
     const { grid: newGrid, offsetX, offsetY } = resizeGrid(grid, field.gridWidth, field.gridHeight);
     for (const kind of OBJECT_KINDS) {
       objectsState.byKind[kind] = repositionObjects(objectsState.byKind[kind], newGrid, offsetX, offsetY);
@@ -153,8 +155,13 @@
       lastGridPos = null;
     }
 
-    // The old history's WorldStates are sized to the old grid — discard both (FR-022).
-    history.reset();
+    // Upstream's FR-022 discards the undo/redo history on every re-derivation — a call made when
+    // re-derivation only ever happened on a physical device rotation. This fork's fullscreen
+    // button turns re-derivation into a one-tap control right next to Undo, and Madison rotates
+    // the iPad (or taps fullscreen) constantly, so wiping history there makes Undo useless. We
+    // deliberately diverge from FR-022: remap every stored WorldState to the new grid dimensions
+    // instead of discarding them. Do not "fix" this back to history.reset().
+    history.remap(oldWidth, oldHeight, grid.width, grid.height, offsetX, offsetY);
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 

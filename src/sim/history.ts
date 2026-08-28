@@ -2,6 +2,7 @@ import {
   FOG,
   GRASS,
   GUMDROP,
+  OBJECT,
   RAINBOW_SAND,
   STAR_POWER,
   type Grid,
@@ -117,6 +118,83 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
   objects.byKind = cloneObjectsByKind(state.byKind);
 }
 
+/**
+ * Re-anchors a captured WorldState from its old grid dimensions to new ones, mirroring exactly
+ * what resizeGrid (src/sim/resize.ts) and repositionObjects (PlayArea.svelte) already do to the
+ * *live* world, so a restored snapshot lines up the same way the live grid does after a
+ * re-derivation.
+ *
+ * Fork divergence from upstream FR-022 (specs/010-undo-redo/spec.md): upstream discards the
+ * entire undo/redo history on every re-derivation. That was written when re-derivation only ever
+ * happened on a physical device rotation. This fork's fullscreen toggle turns re-derivation into
+ * a one-tap control sitting right next to Undo, and the target user rotates/toggles constantly —
+ * wiping history on every tap makes Undo effectively useless. So this fork remaps and keeps
+ * history across re-derivation instead of discarding it. Do not "fix" this back to reset().
+ *
+ * OBJECT cells are skipped when copying elements (exactly as resizeGrid does) and re-stamped
+ * below only for objects that survive the reposition. This ordering is required, not
+ * cosmetic: restoreWorldState writes state.elements straight into the grid and never re-stamps
+ * footprints itself. Copying OBJECT cells verbatim and then dropping an object that no longer
+ * fits would leave orphan OBJECT cells — permanently solid, invisible, unerasable — with no
+ * object behind them. Skipping OBJECT on copy and re-stamping only kept objects' footprints
+ * makes that outcome structurally impossible: every OBJECT cell in the output corresponds to a
+ * kept object's footprint, by construction.
+ */
+export function remapWorldState(
+  state: WorldState,
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+  offsetX: number,
+  offsetY: number,
+): WorldState {
+  const newSize = newWidth * newHeight;
+  const elements = new Uint8Array(newSize);
+  const colorAux = new Uint8Array(newSize);
+  const cloud = new Uint8Array(newSize);
+  const glitter = new Uint8Array(newSize);
+  const grassHeight = new Uint8Array(newSize);
+
+  for (let y = 0; y < oldHeight; y++) {
+    for (let x = 0; x < oldWidth; x++) {
+      const srcIndex = y * oldWidth + x;
+      if (state.elements[srcIndex] === OBJECT) continue;
+
+      const destX = x + offsetX;
+      const destY = y + offsetY;
+      if (destX < 0 || destX >= newWidth || destY < 0 || destY >= newHeight) continue;
+
+      const destIndex = destY * newWidth + destX;
+      elements[destIndex] = state.elements[srcIndex];
+      colorAux[destIndex] = state.colorAux[srcIndex];
+      cloud[destIndex] = state.cloud[srcIndex];
+      glitter[destIndex] = state.glitter[srcIndex];
+      grassHeight[destIndex] = state.grassHeight[srcIndex];
+    }
+  }
+
+  const byKind = {} as Record<ObjectKind, PlacedObject[]>;
+  for (const kind of OBJECT_KINDS) {
+    const kept: PlacedObject[] = [];
+    for (const obj of state.byKind[kind]) {
+      const x = obj.x + offsetX;
+      const y = obj.y + offsetY;
+      if (x < 0 || x + obj.size > newWidth || y < 0 || y + obj.size > newHeight) continue;
+
+      for (let py = y; py < y + obj.size; py++) {
+        for (let px = x; px < x + obj.size; px++) {
+          elements[py * newWidth + px] = OBJECT;
+        }
+      }
+      kept.push({ ...obj, x, y });
+    }
+    byKind[kind] = kept;
+  }
+
+  return { elements, colorAux, cloud, glitter, grassHeight, byKind };
+}
+
 function objectListsEqual(a: readonly PlacedObject[], b: readonly PlacedObject[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -198,6 +276,32 @@ export class HistoryManager {
   reset(): void {
     this.undoStack = [];
     this.redoStack = [];
+    this.pending = null;
+  }
+
+  /**
+   * Re-anchors every stored state — undo stack and redo stack, in place, order preserved — to
+   * new grid dimensions via remapWorldState. This is the fork's deliberate replacement for
+   * reset() at a re-derivation site (see remapWorldState's doc comment for why upstream's FR-022
+   * no longer fits this fork). Any pending (in-progress) capture is discarded rather than
+   * remapped, matching how reset() treats it: resize() already aborts an in-progress stroke
+   * before calling this, so a pending capture is stale and would restore to a state the child
+   * never asked for.
+   */
+  remap(
+    oldWidth: number,
+    oldHeight: number,
+    newWidth: number,
+    newHeight: number,
+    offsetX: number,
+    offsetY: number,
+  ): void {
+    this.undoStack = this.undoStack.map((state) =>
+      remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY),
+    );
+    this.redoStack = this.redoStack.map((state) =>
+      remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY),
+    );
     this.pending = null;
   }
 }

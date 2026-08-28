@@ -16,6 +16,7 @@ import {
   WATER,
   DIRT,
   RAINBOW_SAND,
+  OBJECT,
   GRASS,
   STAR_POWER,
   FOG,
@@ -24,7 +25,13 @@ import {
   type SceneId,
 } from '../../../src/sim/types';
 import { CELL_BUDGET, GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
-import { captureWorldState, restoreWorldState, HistoryManager, HISTORY_DEPTH } from '../../../src/sim/history';
+import {
+  captureWorldState,
+  restoreWorldState,
+  remapWorldState,
+  HistoryManager,
+  HISTORY_DEPTH,
+} from '../../../src/sim/history';
 
 function visibleSnapshot(grid: Grid, objects: ObjectsState) {
   const size = grid.width * grid.height;
@@ -748,5 +755,169 @@ describe('history — simulation never records (FR-006)', () => {
       expect(history.canUndo()).toBe(false);
     }
     expect(history.canRedo()).toBe(false);
+  });
+});
+
+describe('history — remapWorldState re-anchors a snapshot to new grid dimensions (fork divergence from upstream FR-022, see resize() in PlayArea.svelte)', () => {
+  it('remaps a captured world to a larger grid, landing content at the given offset, cell for cell', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    setCell(grid, 2, 3, SAND, 7);
+    setCell(grid, 5, 5, WATER, 2);
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = 4;
+    const offsetY = 6;
+    const remapped = remapWorldState(state, 10, 10, 20, 20, offsetX, offsetY);
+
+    const newGrid = createGrid(20, 20);
+    const newObjects = createObjectsState();
+    restoreWorldState(newGrid, newObjects, remapped);
+
+    expect(getElement(newGrid, 2 + offsetX, 3 + offsetY)).toBe(SAND);
+    expect(newGrid.shades[(3 + offsetY) * 20 + (2 + offsetX)]).toBe(7);
+    expect(getElement(newGrid, 5 + offsetX, 5 + offsetY)).toBe(WATER);
+
+    let nonEmptyCount = 0;
+    for (let i = 0; i < 20 * 20; i++) if (newGrid.elements[i] !== EMPTY) nonEmptyCount++;
+    expect(nonEmptyCount).toBe(2);
+  });
+
+  it('remaps to a smaller grid, dropping content that falls outside without error or corrupting what remains', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    setCell(grid, 1, 1, SAND, 5);
+    setCell(grid, 7, 7, DIRT, 9);
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = -5;
+    const offsetY = -5;
+    const remapped = remapWorldState(state, 20, 20, 10, 10, offsetX, offsetY);
+
+    const newGrid = createGrid(10, 10);
+    const newObjects = createObjectsState();
+    expect(() => restoreWorldState(newGrid, newObjects, remapped)).not.toThrow();
+
+    expect(getElement(newGrid, 2, 2)).toBe(DIRT);
+    expect(newGrid.shades[2 * 10 + 2]).toBe(9);
+
+    let nonEmptyCount = 0;
+    for (let i = 0; i < 10 * 10; i++) if (newGrid.elements[i] !== EMPTY) nonEmptyCount++;
+    expect(nonEmptyCount).toBe(1);
+  });
+
+  it('canUndo() is still true after a remap that follows a recorded action — the actual bug', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 3, 3, SAND, 4);
+    history.commitAction(grid, objects);
+    expect(history.canUndo()).toBe(true);
+
+    history.remap(10, 10, 20, 20, 5, 10);
+
+    expect(history.canUndo()).toBe(true);
+  });
+
+  it('remaps the redo stack too, not just undo', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 4, 4, WATER, 6);
+    history.commitAction(grid, objects);
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(history.canRedo()).toBe(true);
+
+    const offsetX = 3;
+    const offsetY = 8;
+    history.remap(10, 10, 20, 20, offsetX, offsetY);
+
+    const newGrid = createGrid(20, 20);
+    const newObjects = createObjectsState();
+    expect(history.redo(newGrid, newObjects)).toBe(true);
+    expect(getElement(newGrid, 4 + offsetX, 4 + offsetY)).toBe(WATER);
+    expect(newGrid.shades[(4 + offsetY) * 20 + (4 + offsetX)]).toBe(6);
+  });
+
+  it('drops an object that no longer fits, leaving no orphan OBJECT cells in the remapped elements', () => {
+    const grid = createGrid(30, 30);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'unicorn', 15, 15);
+    const state = captureWorldState(grid, objects);
+
+    // Remap to a much smaller grid so the object's 24x24 footprint can't possibly fit anywhere.
+    const remapped = remapWorldState(state, 30, 30, 10, 10, 0, 0);
+
+    expect(remapped.byKind.unicorn.length).toBe(0);
+    for (let i = 0; i < remapped.elements.length; i++) {
+      expect(remapped.elements[i]).not.toBe(OBJECT);
+    }
+  });
+
+  it('keeps an object that still fits, shifted by the offset, with its OBJECT footprint present', () => {
+    const grid = createGrid(30, 30);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'palm', 10, 10);
+    const original = objects.byKind.palm[0];
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = 5;
+    const offsetY = 5;
+    const remapped = remapWorldState(state, 30, 30, 40, 40, offsetX, offsetY);
+
+    expect(remapped.byKind.palm.length).toBe(1);
+    const moved = remapped.byKind.palm[0];
+    expect(moved.x).toBe(original.x + offsetX);
+    expect(moved.y).toBe(original.y + offsetY);
+    expect(moved.size).toBe(original.size);
+    expect(moved.id).toBe(original.id);
+
+    for (let py = moved.y; py < moved.y + moved.size; py++) {
+      for (let px = moved.x; px < moved.x + moved.size; px++) {
+        expect(remapped.elements[py * 40 + px]).toBe(OBJECT);
+      }
+    }
+  });
+
+  it('a RAINBOW_SAND cell keeps its hue through remap then restore', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    setCell(grid, 4, 4, RAINBOW_SAND, 0);
+    grid.hues[4 * 10 + 4] = 123;
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = 2;
+    const offsetY = 2;
+    const remapped = remapWorldState(state, 10, 10, 20, 20, offsetX, offsetY);
+
+    const newGrid = createGrid(20, 20);
+    const newObjects = createObjectsState();
+    restoreWorldState(newGrid, newObjects, remapped);
+
+    expect(getElement(newGrid, 4 + offsetX, 4 + offsetY)).toBe(RAINBOW_SAND);
+    expect(newGrid.hues[(4 + offsetY) * 20 + (4 + offsetX)]).toBe(123);
+  });
+
+  it('a GUMDROP cell keeps its hue through remap then restore', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    setCell(grid, 6, 6, GUMDROP, 0);
+    grid.hues[6 * 10 + 6] = 77;
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = -1;
+    const offsetY = 3;
+    const remapped = remapWorldState(state, 10, 10, 15, 15, offsetX, offsetY);
+
+    const newGrid = createGrid(15, 15);
+    const newObjects = createObjectsState();
+    restoreWorldState(newGrid, newObjects, remapped);
+
+    expect(getElement(newGrid, 6 + offsetX, 6 + offsetY)).toBe(GUMDROP);
+    expect(newGrid.hues[(6 + offsetY) * 15 + (6 + offsetX)]).toBe(77);
   });
 });
