@@ -51,13 +51,14 @@ export type Tool =
   | 'star'
   | 'rainbow'
   | 'unicorn'
+  | 'palm'
   | 'eraser'
   | 'wand'
   | 'gumdrop';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
-export type ObjectKind = 'rainbow' | 'unicorn';
+export type ObjectKind = 'rainbow' | 'unicorn' | 'palm';
 
 export interface PlacedObject {
   readonly id: number;
@@ -68,7 +69,6 @@ export interface PlacedObject {
 }
 
 export interface ObjectsState {
-  rainbows: PlacedObject[];
-  unicorns: PlacedObject[];
+  byKind: Record<ObjectKind, PlacedObject[]>;
   nextId: number;
 }

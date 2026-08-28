@@ -37,8 +37,8 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
     cloud: Array.from(grid.cloud),
     glitter: Array.from(grid.glitter),
     grassHeight: Array.from(grid.grassHeight),
-    rainbows: objects.rainbows.map((o) => ({ ...o })),
-    unicorns: objects.unicorns.map((o) => ({ ...o })),
+    rainbows: objects.byKind.rainbow.map((o) => ({ ...o })),
+    unicorns: objects.byKind.unicorn.map((o) => ({ ...o })),
   };
 }
 
@@ -422,7 +422,7 @@ describe('history — clear/scene rescue (US2, FR-012, SC-003)', () => {
     setCell(grid, 5, 5, WATER, 5);
     expect(getElement(grid, 5, 5)).toBe(WATER);
     placeObject(grid, objects, 'rainbow', 9, 9);
-    expect(objects.rainbows.length).toBeGreaterThan(0);
+    expect(objects.byKind.rainbow.length).toBeGreaterThan(0);
     for (let n = 0; n < 20; n++) expect(() => step(grid)).not.toThrow();
   });
 
@@ -672,11 +672,11 @@ describe('history — object placement undo (FR-005, FR-012)', () => {
     placeObject(grid, objects, 'rainbow', 10, 10);
     history.commitAction(grid, objects);
 
-    expect(objects.rainbows.length).toBe(1);
+    expect(objects.byKind.rainbow.length).toBe(1);
     expect(history.undo(grid, objects)).toBe(true);
     expect(visibleSnapshot(grid, objects)).toEqual(before);
-    expect(objects.rainbows.length).toBe(0);
-    expect(objects.unicorns.length).toBe(1);
+    expect(objects.byKind.rainbow.length).toBe(0);
+    expect(objects.byKind.unicorn.length).toBe(1);
   });
 
   it('undo removes exactly one placed unicorn, leaving every other cell and object unchanged', () => {
@@ -690,11 +690,11 @@ describe('history — object placement undo (FR-005, FR-012)', () => {
     placeObject(grid, objects, 'unicorn', 10, 10);
     history.commitAction(grid, objects);
 
-    expect(objects.unicorns.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(1);
     expect(history.undo(grid, objects)).toBe(true);
     expect(visibleSnapshot(grid, objects)).toEqual(before);
-    expect(objects.unicorns.length).toBe(0);
-    expect(objects.rainbows.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(0);
+    expect(objects.byKind.rainbow.length).toBe(1);
   });
 });
 

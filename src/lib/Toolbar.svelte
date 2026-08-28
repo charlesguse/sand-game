@@ -102,6 +102,14 @@
     >
       🦄
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'palm'}
+      aria-label="Palm tree"
+      onclick={() => onSelectTool('palm')}
+    >
+      🌴
+    </button>
   </div>
 
   <div class="group actions">

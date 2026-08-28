@@ -24,6 +24,7 @@
     eraseObjectsInBrush,
     eraseObjectsInBrushLine,
     clearObjects,
+    OBJECT_KINDS,
   } from '../sim/objects';
   import {
     type Particle,
@@ -55,7 +56,9 @@
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
-  const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄' };
+  const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄', palm: '🌴' };
+  const PALM_SWAY_RADIANS = 0.06;
+  const PALM_SWAY_SPEED = 0.0011;
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
@@ -120,8 +123,9 @@
     // Re-derivation (FR-026): swap to a freshly resized grid, carrying content at a fixed
     // bottom-centre-anchored offset.
     const { grid: newGrid, offsetX, offsetY } = resizeGrid(grid, field.gridWidth, field.gridHeight);
-    objectsState.rainbows = repositionObjects(objectsState.rainbows, newGrid, offsetX, offsetY);
-    objectsState.unicorns = repositionObjects(objectsState.unicorns, newGrid, offsetX, offsetY);
+    for (const kind of OBJECT_KINDS) {
+      objectsState.byKind[kind] = repositionObjects(objectsState.byKind[kind], newGrid, offsetX, offsetY);
+    }
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -149,9 +153,23 @@
     resizeTimer = setTimeout(resize, RESIZE_SETTLE_MS);
   }
 
-  function drawObjectGlyph(obj: { kind: string; x: number; y: number; size: number }): void {
+  function drawObjectGlyph(obj: { id: number; kind: string; x: number; y: number; size: number }): void {
     ctx.font = `${obj.size}px sans-serif`;
-    ctx.fillText(OBJECT_GLYPHS[obj.kind], obj.x + obj.size / 2, obj.y + obj.size / 2);
+    const cx = obj.x + obj.size / 2;
+    const cy = obj.y + obj.size / 2;
+
+    if (obj.kind !== 'palm') {
+      ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy);
+      return;
+    }
+
+    const baseY = obj.y + obj.size;
+    const angle = Math.sin(lastFrameNow * PALM_SWAY_SPEED + obj.id) * PALM_SWAY_RADIANS;
+    ctx.save();
+    ctx.translate(cx, baseY);
+    ctx.rotate(angle);
+    ctx.fillText(OBJECT_GLYPHS[obj.kind], 0, cy - baseY);
+    ctx.restore();
   }
 
   function render(): void {
@@ -188,8 +206,9 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const obj of objectsState.rainbows) drawObjectGlyph(obj);
-    for (const obj of objectsState.unicorns) drawObjectGlyph(obj);
+    for (const kind of OBJECT_KINDS) {
+      for (const obj of objectsState.byKind[kind]) drawObjectGlyph(obj);
+    }
 
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
@@ -200,12 +219,12 @@
   }
 
   function updateUnicorns(now: number): void {
-    const liveIds = new Set(objectsState.unicorns.map((u) => u.id));
+    const liveIds = new Set(objectsState.byKind.unicorn.map((u) => u.id));
     for (const id of unicornTimers.keys()) {
       if (!liveIds.has(id)) unicornTimers.delete(id);
     }
 
-    for (const unicorn of objectsState.unicorns) {
+    for (const unicorn of objectsState.byKind.unicorn) {
       const atX = unicorn.x + unicorn.size / 2;
       const atY = unicorn.y + unicorn.size / 2;
       const timers = unicornTimers.get(unicorn.id) ?? {
@@ -232,7 +251,7 @@
   function frame(now: number): void {
     lastFrameNow = now;
     step(grid);
-    applyRainbowConversions(grid, objectsState.rainbows);
+    applyRainbowConversions(grid, objectsState.byKind.rainbow);
     updateUnicorns(now);
     tickParticles(particles, now);
     updateFlashMask(grid, flashMask);
@@ -293,7 +312,7 @@
   function handlePointerDown(event: PointerEvent): void {
     if (drawing) handlePointerUp();
     const pos = clientToGrid(event.clientX, event.clientY);
-    if (tool === 'rainbow' || tool === 'unicorn') {
+    if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm') {
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
       history.commitAction(grid, objectsState);

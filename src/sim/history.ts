@@ -4,9 +4,11 @@ import {
   RAINBOW_SAND,
   STAR_POWER,
   type Grid,
+  type ObjectKind,
   type ObjectsState,
   type PlacedObject,
 } from './types';
+import { OBJECT_KINDS } from './objects';
 import { randomBurnLife, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
 
 /** Undo/redo stack depth cap, each direction (FR-019, FR-020). */
@@ -18,12 +20,19 @@ export interface WorldState {
   readonly cloud: Uint8Array;
   readonly glitter: Uint8Array;
   readonly grassHeight: Uint8Array;
-  readonly rainbows: PlacedObject[];
-  readonly unicorns: PlacedObject[];
+  readonly byKind: Record<ObjectKind, PlacedObject[]>;
 }
 
 function cloneObjectList(list: PlacedObject[]): PlacedObject[] {
   return list.map((obj) => ({ ...obj }));
+}
+
+function cloneObjectsByKind(byKind: Record<ObjectKind, PlacedObject[]>): Record<ObjectKind, PlacedObject[]> {
+  const clone = {} as Record<ObjectKind, PlacedObject[]>;
+  for (const kind of OBJECT_KINDS) {
+    clone[kind] = cloneObjectList(byKind[kind]);
+  }
+  return clone;
 }
 
 /** Snapshots every visible property of grid/objects (FR-028). Allocates five typed arrays plus two small object-list clones. O(width * height). */
@@ -40,8 +49,7 @@ export function captureWorldState(grid: Grid, objects: ObjectsState): WorldState
     cloud: new Uint8Array(grid.cloud),
     glitter: new Uint8Array(grid.glitter),
     grassHeight: new Uint8Array(grid.grassHeight),
-    rainbows: cloneObjectList(objects.rainbows),
-    unicorns: cloneObjectList(objects.unicorns),
+    byKind: cloneObjectsByKind(objects.byKind),
   };
 }
 
@@ -104,8 +112,7 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
   grid.grassCount = grassCount;
   grid.fogCloudCount = fogCloudCount;
 
-  objects.rainbows = cloneObjectList(state.rainbows);
-  objects.unicorns = cloneObjectList(state.unicorns);
+  objects.byKind = cloneObjectsByKind(state.byKind);
 }
 
 function objectListsEqual(a: readonly PlacedObject[], b: readonly PlacedObject[]): boolean {
@@ -130,9 +137,10 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState): b
     if (grid.glitter[i] !== pending.glitter[i]) return false;
     if (grid.grassHeight[i] !== pending.grassHeight[i]) return false;
   }
-  return (
-    objectListsEqual(pending.rainbows, objects.rainbows) && objectListsEqual(pending.unicorns, objects.unicorns)
-  );
+  for (const kind of OBJECT_KINDS) {
+    if (!objectListsEqual(pending.byKind[kind], objects.byKind[kind])) return false;
+  }
+  return true;
 }
 
 /** Owns the bounded undo/redo stacks and the begin/commit/undo/redo/reset operations (research.md §3, §5). */
