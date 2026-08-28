@@ -1,5 +1,6 @@
 import { isSolid } from './element';
-import { EMPTY, GUMDROP, WATER, type Grid } from './types';
+import { EMPTY, GUMDROP, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
+import { randomHue } from './shade';
 
 export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging';
 
@@ -60,6 +61,8 @@ const GUMDROP_PATIENCE = 40;
 const GUMDROP_COOLDOWN = 150;
 /** Frames spent shaking off water. */
 const SHAKE_DURATION = 30;
+/** Frames spent per scoop when digging out. */
+const DIG_DURATION = 3;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -174,6 +177,29 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
     return;
   }
 
+  const occupiedX = Math.round(poodle.x);
+  const occupiedY = Math.round(poodle.y);
+  if (cellIsSolid(grid, occupiedX, occupiedY)) {
+    // Buried: the cell she's standing in is solid. Dig it out one scoop at a
+    // time rather than in one jump, so this reads as digging rather than
+    // teleporting, and so a very deep burial can't produce a single
+    // unbounded-cost frame. Each scoop only ever clears the cell she already
+    // occupies and steps up into the space it leaves — it never digs
+    // sideways or downward, so this can't tunnel her into a pocket she can't
+    // leave. Progress toward the surface is monotonic: the cell above is
+    // exactly the one evaluated next scoop, so even if displaced sand slumps
+    // back in behind her (or above, from neighbouring columns), the total
+    // amount of solid material above her position is finite and only ever
+    // shrinks — she cannot dig forever, and once the column above her is
+    // clear the ordinary ground-settle below takes over and rests her on
+    // whatever surface she uncovered.
+    grid.elements[occupiedY * grid.width + occupiedX] = EMPTY;
+    poodle.y = occupiedY - 1;
+    poodle.state = 'digging';
+    poodle.timer = DIG_DURATION;
+    return;
+  }
+
   poodle.y = groundBelow(grid, poodle.x, poodle.y);
 
   const feetX = Math.round(poodle.x);
@@ -270,6 +296,16 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
 
   poodle.x = nextX;
   poodle.y = nextY;
+
+  const groundX = Math.round(nextX);
+  const groundY = nextY + 1;
+  if (groundY < grid.height) {
+    const groundI = groundY * grid.width + groundX;
+    if (grid.elements[groundI] === SAND) {
+      grid.elements[groundI] = RAINBOW_SAND;
+      grid.hues[groundI] = randomHue();
+    }
+  }
 }
 
 export function stepPets(grid: Grid, pets: PetsState, target: { x: number; y: number } | null): void {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createPetsState, addPoodle, stepPets, POODLE_CAP, GUMDROP_SCENT_RADIUS } from '../../../src/sim/pets';
-import { SAND, GUMDROP, EMPTY, WATER, type Grid } from '../../../src/sim/types';
+import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
 function withFloor(width: number, height: number, depth: number): Grid {
@@ -283,5 +283,67 @@ describe('getting wet', () => {
     addPoodle(pets, 20, 30);
     run(grid, pets, { x: 45, y: 31 }, 200);
     expect(pets.poodles[0].soggy).toBe(false);
+  });
+});
+
+describe('grooming as it goes', () => {
+  // withFloor(60, 40, 8) fills rows 32-39 with SAND; groundBelow rests the
+  // poodle one row *above* the first solid cell (confirmed by the "stays on
+  // the surface" test above, which settles to y≈31 against this same floor).
+  // So row 31 is the poodle's own standing row (always empty) and row 32 is
+  // the actual sand surface under its feet — the row grooming acts on and
+  // the row these assertions check.
+  it('turns the sand it walks over into rainbow sand', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 15, 30);
+    run(grid, pets, null, 20);
+    run(grid, pets, { x: 45, y: 31 }, 400);
+
+    let rainbow = 0;
+    for (let x = 15; x <= 45; x++) {
+      if (grid.elements[32 * grid.width + x] === RAINBOW_SAND) rainbow++;
+    }
+    expect(rainbow).toBeGreaterThan(0);
+  });
+
+  it('leaves sand it never walked over alone', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 15, 30);
+    run(grid, pets, null, 20);
+    run(grid, pets, { x: 25, y: 31 }, 200);
+    expect(grid.elements[32 * grid.width + 55]).toBe(SAND);
+  });
+});
+
+describe('digging out', () => {
+  it('digs its way up when buried', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    for (let y = 24; y <= 31; y++) setCell(grid, 30, y, SAND, 0);
+    pets.poodles[0].y = 30;
+
+    let sawDigging = false;
+    for (let i = 0; i < 200; i++) {
+      stepPets(grid, pets, null);
+      if (pets.poodles[0].state === 'digging') sawDigging = true;
+    }
+    expect(sawDigging).toBe(true);
+    expect(pets.poodles[0].y).toBeLessThanOrEqual(31);
+  });
+
+  it('ends up somewhere it can stand, not stuck inside the sand', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    for (let y = 24; y <= 31; y++) setCell(grid, 30, y, SAND, 0);
+    pets.poodles[0].y = 30;
+    run(grid, pets, null, 400);
+    const i = Math.round(pets.poodles[0].y) * grid.width + Math.round(pets.poodles[0].x);
+    expect(grid.elements[i]).not.toBe(SAND);
   });
 });
