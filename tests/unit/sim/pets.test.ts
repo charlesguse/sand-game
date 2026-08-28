@@ -194,4 +194,20 @@ describe('chasing gumdrops', () => {
     run(grid, pets, { x: 70, y: 31 }, 400);
     expect(pets.poodles[0].x).toBeGreaterThan(40);
   });
+
+  it('does not get stuck beneath a gumdrop it cannot reach, on a tall mound', () => {
+    const grid = withFloor(80, 40, 8);
+    // A steep pillar rising well above the poodle's resting height (row 31),
+    // with its top surface at row 19 — 12 cells taller than the floor.
+    for (let y = 20; y < 32; y++) {
+      for (let x = 38; x < 43; x++) setCell(grid, x, y, SAND, 0);
+    }
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 40, 19, GUMDROP, 0);
+    // Finger target is well away from the mound, in the opposite direction.
+    run(grid, pets, { x: 5, y: 31 }, 400);
+    expect(pets.poodles[0].x).toBeLessThan(20);
+  });
 });

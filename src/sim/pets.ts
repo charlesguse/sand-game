@@ -76,6 +76,15 @@ function groundBelow(grid: Grid, x: number, fromY: number): number {
  * Nearest gumdrop within scent range, or -1 if none. Scans a bounded window
  * around the poodle rather than the whole grid, so cost does not grow with
  * canvas size.
+ *
+ * The vertical span of the scan is capped at EAT_SEARCH_HEIGHT — the same
+ * window eatGumdropNear uses to actually eat — rather than the full scent
+ * radius. A gumdrop perched somewhere the poodle cannot reach from its
+ * current standing height is never selected as an override target, so it can
+ * never capture movement away from her finger: without this, the poodle
+ * could walk up to (or get climb-blocked beneath) a gumdrop it can never
+ * eat, go idle there, and re-select the same unreachable gumdrop every
+ * frame forever, permanently ignoring her finger.
  */
 function nearestGumdropX(grid: Grid, poodle: Poodle): number {
   const cx = Math.round(poodle.x);
@@ -85,8 +94,8 @@ function nearestGumdropX(grid: Grid, poodle: Poodle): number {
 
   const minX = Math.max(0, cx - GUMDROP_SCENT_RADIUS);
   const maxX = Math.min(grid.width - 1, cx + GUMDROP_SCENT_RADIUS);
-  const minY = Math.max(0, cy - GUMDROP_SCENT_RADIUS);
-  const maxY = Math.min(grid.height - 1, cy + GUMDROP_SCENT_RADIUS);
+  const minY = Math.max(0, cy - EAT_SEARCH_HEIGHT);
+  const maxY = Math.min(grid.height - 1, cy + EAT_SEARCH_HEIGHT);
 
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
