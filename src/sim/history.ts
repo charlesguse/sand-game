@@ -1,4 +1,5 @@
 import {
+  EMPTY,
   FOG,
   GRASS,
   GUMDROP,
@@ -56,8 +57,38 @@ export function captureWorldState(grid: Grid, objects: ObjectsState): WorldState
   };
 }
 
-/** Writes state back into grid/objects in place; resets every excluded internal timer (grassCooldown, star-power age/life/fuelled, fog/cloud timers) to its own "freshly created" value (research.md §4); recomputes grassCount/fogCloudCount; leaves grid.moved and objects.nextId untouched. O(width * height). */
-export function restoreWorldState(grid: Grid, objects: ObjectsState, state: WorldState): void {
+/**
+ * True iff every typed array in state has exactly grid.width * grid.height elements. A state of
+ * the wrong shape (e.g. one that predates a resize and was never remapped) must never be
+ * restored: reading past the end of a typed array silently yields `undefined`, which writes as
+ * 0 (EMPTY) — quietly erasing the picture instead of failing loudly. Checking only `elements`
+ * would miss a partially-remapped state where some other array is the wrong length, so every
+ * array is checked. O(1) — length reads, no iteration.
+ */
+export function worldStateFits(state: WorldState, grid: Grid): boolean {
+  const size = grid.width * grid.height;
+  return (
+    state.elements.length === size &&
+    state.colorAux.length === size &&
+    state.cloud.length === size &&
+    state.glitter.length === size &&
+    state.grassHeight.length === size
+  );
+}
+
+/**
+ * Writes state back into grid/objects in place; resets every excluded internal timer
+ * (grassCooldown, star-power age/life/fuelled, fog/cloud timers) to its own "freshly created"
+ * value (research.md §4); recomputes grassCount/fogCloudCount; leaves grid.moved and
+ * objects.nextId untouched. O(width * height).
+ *
+ * Refuses (returns false, writes nothing at all — no partial mutation) when state does not fit
+ * grid, per worldStateFits. Never throws: a refusal must be silent and safe (constitution
+ * principle II — nothing the child does is ever "wrong"), not an error dialog or a crash.
+ */
+export function restoreWorldState(grid: Grid, objects: ObjectsState, state: WorldState): boolean {
+  if (!worldStateFits(state, grid)) return false;
+
   const size = grid.width * grid.height;
   let grassCount = 0;
   let fogCloudCount = 0;
@@ -116,6 +147,7 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
   grid.fogCloudCount = fogCloudCount;
 
   objects.byKind = cloneObjectsByKind(state.byKind);
+  return true;
 }
 
 /**
@@ -140,6 +172,33 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
  * makes that outcome structurally impossible: every OBJECT cell in the output corresponds to a
  * kept object's footprint, by construction.
  */
+/** True iff (x, y) offset by (offsetX, offsetY) lands inside a newWidth x newHeight grid. Shared by remapWorldState and wouldRemapLosslessly so their bounds arithmetic cannot drift apart. */
+function destInBounds(
+  x: number,
+  y: number,
+  offsetX: number,
+  offsetY: number,
+  newWidth: number,
+  newHeight: number,
+): boolean {
+  const destX = x + offsetX;
+  const destY = y + offsetY;
+  return destX >= 0 && destX < newWidth && destY >= 0 && destY < newHeight;
+}
+
+/** True iff obj's whole footprint, offset by (offsetX, offsetY), lands inside a newWidth x newHeight grid. Shared by remapWorldState and wouldRemapLosslessly. */
+function objectFits(
+  obj: PlacedObject,
+  offsetX: number,
+  offsetY: number,
+  newWidth: number,
+  newHeight: number,
+): boolean {
+  const x = obj.x + offsetX;
+  const y = obj.y + offsetY;
+  return x >= 0 && x + obj.size <= newWidth && y >= 0 && y + obj.size <= newHeight;
+}
+
 export function remapWorldState(
   state: WorldState,
   oldWidth: number,
@@ -160,12 +219,9 @@ export function remapWorldState(
     for (let x = 0; x < oldWidth; x++) {
       const srcIndex = y * oldWidth + x;
       if (state.elements[srcIndex] === OBJECT) continue;
+      if (!destInBounds(x, y, offsetX, offsetY, newWidth, newHeight)) continue;
 
-      const destX = x + offsetX;
-      const destY = y + offsetY;
-      if (destX < 0 || destX >= newWidth || destY < 0 || destY >= newHeight) continue;
-
-      const destIndex = destY * newWidth + destX;
+      const destIndex = (y + offsetY) * newWidth + (x + offsetX);
       elements[destIndex] = state.elements[srcIndex];
       colorAux[destIndex] = state.colorAux[srcIndex];
       cloud[destIndex] = state.cloud[srcIndex];
@@ -178,10 +234,10 @@ export function remapWorldState(
   for (const kind of OBJECT_KINDS) {
     const kept: PlacedObject[] = [];
     for (const obj of state.byKind[kind]) {
+      if (!objectFits(obj, offsetX, offsetY, newWidth, newHeight)) continue;
+
       const x = obj.x + offsetX;
       const y = obj.y + offsetY;
-      if (x < 0 || x + obj.size > newWidth || y < 0 || y + obj.size > newHeight) continue;
-
       for (let py = y; py < y + obj.size; py++) {
         for (let px = x; px < x + obj.size; px++) {
           elements[py * newWidth + px] = OBJECT;
@@ -193,6 +249,44 @@ export function remapWorldState(
   }
 
   return { elements, colorAux, cloud, glitter, grassHeight, byKind };
+}
+
+/**
+ * True iff remapping state with these old/new dimensions and offsets would lose nothing: every
+ * non-EMPTY cell lands inside the new bounds, and every object still fits. Reuses destInBounds
+ * and objectFits — the exact same arithmetic remapWorldState itself uses — so the two checks
+ * cannot drift apart. Bails on the first violation found (cells first, then objects), so a
+ * doomed state is rejected as cheaply as possible; a state that does pass has always walked
+ * every cell (same O(width * height) cost remapWorldState itself pays).
+ *
+ * OBJECT cells are skipped in the per-cell scan for the same reason remapWorldState skips them
+ * when copying: an OBJECT cell is a hollow marker for a placed object, not independent content,
+ * and whether it survives is entirely decided by the object-fit check below.
+ */
+function wouldRemapLosslessly(
+  state: WorldState,
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+  offsetX: number,
+  offsetY: number,
+): boolean {
+  for (let y = 0; y < oldHeight; y++) {
+    for (let x = 0; x < oldWidth; x++) {
+      const element = state.elements[y * oldWidth + x];
+      if (element === EMPTY || element === OBJECT) continue;
+      if (!destInBounds(x, y, offsetX, offsetY, newWidth, newHeight)) return false;
+    }
+  }
+
+  for (const kind of OBJECT_KINDS) {
+    for (const obj of state.byKind[kind]) {
+      if (!objectFits(obj, offsetX, offsetY, newWidth, newHeight)) return false;
+    }
+  }
+
+  return true;
 }
 
 function objectListsEqual(a: readonly PlacedObject[], b: readonly PlacedObject[]): boolean {
@@ -246,19 +340,44 @@ export class HistoryManager {
     this.redoStack.length = 0;
   }
 
-  /** Pops the most recent undo entry (false, no-op, if none — FR-013); captures the current state onto the redo stack (FR-015); restores the popped state; returns true. */
+  /**
+   * Pops the most recent undo entry (false, no-op, if none — FR-013); captures the current state
+   * onto the redo stack (FR-015); restores the popped state; returns true.
+   *
+   * If the popped state does not fit grid (wrong shape — e.g. a bug elsewhere left a
+   * pre-remap entry behind), it is unrestorable: discard it and clear the rest of the undo
+   * stack too, since every remaining entry was captured at the same now-stale shape and is
+   * therefore equally unusable. Returns false; grid/objects are left untouched (restoreWorldState
+   * never partially mutates). This degrades to exactly the old reset()-on-every-resize behaviour
+   * for that one stack instead of corrupting the child's picture.
+   */
   undo(grid: Grid, objects: ObjectsState): boolean {
     const state = this.undoStack.pop();
     if (state === undefined) return false;
+    if (!worldStateFits(state, grid)) {
+      this.undoStack.length = 0;
+      return false;
+    }
     this.redoStack.push(captureWorldState(grid, objects));
     restoreWorldState(grid, objects, state);
     return true;
   }
 
-  /** Pops the most recent redo entry (false, no-op, if none — FR-016); captures the current state onto the undo stack; restores the popped state; returns true. */
+  /**
+   * Pops the most recent redo entry (false, no-op, if none — FR-016); captures the current state
+   * onto the undo stack; restores the popped state; returns true.
+   *
+   * Mirrors undo()'s shape guard: a popped state that does not fit grid is discarded along with
+   * the rest of the redo stack (same stale shape, equally unusable), and grid/objects are left
+   * untouched.
+   */
   redo(grid: Grid, objects: ObjectsState): boolean {
     const state = this.redoStack.pop();
     if (state === undefined) return false;
+    if (!worldStateFits(state, grid)) {
+      this.redoStack.length = 0;
+      return false;
+    }
     this.undoStack.push(captureWorldState(grid, objects));
     restoreWorldState(grid, objects, state);
     return true;
@@ -287,6 +406,14 @@ export class HistoryManager {
    * remapped, matching how reset() treats it: resize() already aborts an in-progress stroke
    * before calling this, so a pending capture is stale and would restore to a state the child
    * never asked for.
+   *
+   * Only states that remap losslessly (wouldRemapLosslessly) are kept — remapWorldState itself
+   * silently drops any cell/object that falls outside the new bounds, so keeping a lossy remap
+   * would restore a picture quietly missing pieces (and the loss compounds across repeated
+   * rotations). Discarding those states instead restores upstream's "undo is always correct"
+   * guarantee: fewer undo steps survive a shrink, but every one that does restores exactly the
+   * picture it captured. Filtering (not just mapping) still preserves the relative order of the
+   * states that do survive.
    */
   remap(
     oldWidth: number,
@@ -296,12 +423,14 @@ export class HistoryManager {
     offsetX: number,
     offsetY: number,
   ): void {
-    this.undoStack = this.undoStack.map((state) =>
-      remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY),
-    );
-    this.redoStack = this.redoStack.map((state) =>
-      remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY),
-    );
+    const remapLosslessly = (state: WorldState): WorldState | null =>
+      wouldRemapLosslessly(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
+        ? remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
+        : null;
+    const isWorldState = (state: WorldState | null): state is WorldState => state !== null;
+
+    this.undoStack = this.undoStack.map(remapLosslessly).filter(isWorldState);
+    this.redoStack = this.redoStack.map(remapLosslessly).filter(isWorldState);
     this.pending = null;
   }
 }
