@@ -178,7 +178,7 @@ export function eraseObjectsInBrushLine(
   }
 }
 
-/** Resets both object lists to empty without touching grid. */
+/** Resets every object list (one per kind in OBJECT_KINDS) to empty without touching grid. */
 export function clearObjects(state: ObjectsState): void {
   for (const kind of OBJECT_KINDS) {
     state.byKind[kind] = [];

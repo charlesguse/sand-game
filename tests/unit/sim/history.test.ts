@@ -19,6 +19,7 @@ import {
   GRASS,
   STAR_POWER,
   FOG,
+  GUMDROP,
   type Grid,
   type SceneId,
 } from '../../../src/sim/types';
@@ -29,7 +30,8 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
   const size = grid.width * grid.height;
   const colorAux = new Array(size);
   for (let i = 0; i < size; i++) {
-    colorAux[i] = grid.elements[i] === RAINBOW_SAND ? grid.hues[i] : grid.shades[i];
+    colorAux[i] =
+      grid.elements[i] === RAINBOW_SAND || grid.elements[i] === GUMDROP ? grid.hues[i] : grid.shades[i];
   }
   return {
     elements: Array.from(grid.elements),
@@ -42,7 +44,7 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
   };
 }
 
-const PAINT_TOOLS = ['sand', 'water', 'dirt', 'grass', 'star', 'eraser'] as const;
+const PAINT_TOOLS = ['sand', 'water', 'dirt', 'grass', 'star', 'gumdrop', 'eraser'] as const;
 
 describe('history — capture/restore round trip per painting tool (US1, FR-005, FR-010, SC-002)', () => {
   for (const tool of PAINT_TOOLS) {
@@ -695,6 +697,38 @@ describe('history — object placement undo (FR-005, FR-012)', () => {
     expect(visibleSnapshot(grid, objects)).toEqual(before);
     expect(objects.byKind.unicorn.length).toBe(0);
     expect(objects.byKind.rainbow.length).toBe(1);
+  });
+});
+
+describe('history — gumdrop colour survives undo/redo (US1, FR-024)', () => {
+  it("undo then redo across a later, unrelated action preserves each gumdrop's own hue exactly", () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, GUMDROP, 0);
+    grid.hues[1 * 10 + 1] = 30;
+    setCell(grid, 2, 1, GUMDROP, 0);
+    grid.hues[1 * 10 + 2] = 90;
+    setCell(grid, 3, 1, GUMDROP, 0);
+    grid.hues[1 * 10 + 3] = 200;
+    history.commitAction(grid, objects);
+
+    // A second, unrelated tracked action — elsewhere on the grid.
+    history.beginAction(grid, objects);
+    setCell(grid, 8, 8, SAND, 5);
+    history.commitAction(grid, objects);
+
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(history.redo(grid, objects)).toBe(true);
+
+    expect(getElement(grid, 1, 1)).toBe(GUMDROP);
+    expect(getElement(grid, 2, 1)).toBe(GUMDROP);
+    expect(getElement(grid, 3, 1)).toBe(GUMDROP);
+    expect(grid.hues[1 * 10 + 1]).toBe(30);
+    expect(grid.hues[1 * 10 + 2]).toBe(90);
+    expect(grid.hues[1 * 10 + 3]).toBe(200);
   });
 });
 

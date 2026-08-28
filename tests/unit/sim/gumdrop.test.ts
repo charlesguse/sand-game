@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell } from '../../../src/sim/grid';
+import { createGrid, setCell, createFog } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, GUMDROP, SAND, type Grid } from '../../../src/sim/types';
+import { EMPTY, FOG, GUMDROP, SAND, WATER, type Grid } from '../../../src/sim/types';
 
 function at(grid: Grid, x: number, y: number): number {
   return grid.elements[y * grid.width + x];
@@ -65,6 +65,57 @@ describe('gumdrops heap instead of flowing flat', () => {
     expect(at(grid, 4, 10)).toBe(EMPTY);
     expect(at(grid, 6, 10)).toBe(EMPTY);
     expect(at(grid, 5, 9)).toBe(GUMDROP);
+  });
+});
+
+describe('gumdrops sink through water and fog', () => {
+  it('a gumdrop cell with water directly below swaps in one step', () => {
+    // width 1 so water has no sideways-escape neighbors, isolating the swap.
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, GUMDROP, 0);
+    setCell(grid, 0, 1, WATER, 9);
+    step(grid);
+    expect(at(grid, 0, 0)).toBe(WATER);
+    expect(at(grid, 0, 1)).toBe(GUMDROP);
+  });
+
+  it('a water column with gumdrops poured on top settles with every gumdrop at the bottom', () => {
+    const width = 5;
+    const height = 10;
+    const grid = createGrid(width, height);
+    for (let y = 3; y < height; y++) {
+      for (let x = 0; x < width; x++) setCell(grid, x, y, WATER, 5);
+    }
+    for (let x = 0; x < width; x++) setCell(grid, x, 0, GUMDROP, 0);
+
+    settle(grid, 300);
+
+    // Scanning bottom-to-top, every gumdrop cell in a column must be seen before
+    // any water cell — i.e. a gumdrop never rests above water it sank past.
+    for (let x = 0; x < width; x++) {
+      let sawWater = false;
+      let gumdropAboveWater = false;
+      let sawGumdrop = false;
+      for (let y = height - 1; y >= 0; y--) {
+        const element = at(grid, x, y);
+        if (element === WATER) sawWater = true;
+        if (element === GUMDROP) {
+          sawGumdrop = true;
+          if (sawWater) gumdropAboveWater = true;
+        }
+      }
+      expect(gumdropAboveWater).toBe(false);
+      expect(sawGumdrop).toBe(true);
+    }
+  });
+
+  it('a gumdrop cell with fog directly below swaps in one step', () => {
+    const grid = createGrid(5, 5);
+    createFog(grid, 0, 4);
+    setCell(grid, 0, 3, GUMDROP, 0);
+    step(grid);
+    expect(at(grid, 0, 3)).toBe(FOG);
+    expect(at(grid, 0, 4)).toBe(GUMDROP);
   });
 });
 

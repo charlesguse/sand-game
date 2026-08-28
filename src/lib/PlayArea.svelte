@@ -37,6 +37,7 @@
     EMPTY,
     OBJECT,
     type Grid,
+    type ObjectKind,
     type PlacedObject,
     type Tool,
     type BrushSize,
@@ -56,7 +57,7 @@
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
-  const OBJECT_GLYPHS: Record<string, string> = { rainbow: '🌈', unicorn: '🦄', palm: '🌴' };
+  const OBJECT_GLYPHS: Record<ObjectKind, string> = { rainbow: '🌈', unicorn: '🦄', palm: '🌴' };
   const PALM_SWAY_RADIANS = 0.06;
   const PALM_SWAY_SPEED = 0.0011;
 
@@ -153,7 +154,7 @@
     resizeTimer = setTimeout(resize, RESIZE_SETTLE_MS);
   }
 
-  function drawObjectGlyph(obj: { id: number; kind: string; x: number; y: number; size: number }): void {
+  function drawObjectGlyph(obj: PlacedObject): void {
     ctx.font = `${obj.size}px sans-serif`;
     const cx = obj.x + obj.size / 2;
     const cy = obj.y + obj.size / 2;
