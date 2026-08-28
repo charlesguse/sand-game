@@ -8,6 +8,7 @@
     canUndo: boolean;
     canRedo: boolean;
     showFullscreen: boolean;
+    muted: boolean;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
     onSelectScene: (sceneId: SceneId) => void;
@@ -15,6 +16,7 @@
     onUndo: () => void;
     onRedo: () => void;
     onToggleFullscreen: () => void;
+    onToggleMuted: () => void;
   }
 
   let {
@@ -23,6 +25,7 @@
     canUndo,
     canRedo,
     showFullscreen,
+    muted,
     onSelectTool,
     onSelectBrushSize,
     onSelectScene,
@@ -30,6 +33,7 @@
     onUndo,
     onRedo,
     onToggleFullscreen,
+    onToggleMuted,
   }: Props = $props();
 </script>
 
@@ -145,6 +149,9 @@
       onclick={() => onSelectTool('wand')}
     >
       ✨
+    </button>
+    <button class="control" aria-label="Sound" onclick={onToggleMuted}>
+      {muted ? '🔇' : '🔊'}
     </button>
   </div>
 

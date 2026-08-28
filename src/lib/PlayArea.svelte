@@ -27,7 +27,14 @@
     clearObjects,
     OBJECT_KINDS,
   } from '../sim/objects';
-  import { createPetsState, addPoodle, stepPets, clearPets, repositionPoodles } from '../sim/pets';
+  import {
+    createPetsState,
+    addPoodle,
+    stepPets,
+    clearPets,
+    repositionPoodles,
+    type PoodleState,
+  } from '../sim/pets';
   import {
     type Particle,
     PARTICLE_LIFETIME_MS,
@@ -46,6 +53,17 @@
     type SceneId,
   } from '../sim/types';
   import { colorFor } from './palette';
+  import {
+    initSoundOnGesture,
+    playPour,
+    playPop,
+    playBloop,
+    playWobble,
+    playWhoosh,
+    playSweep,
+    playChime,
+    type PourKind,
+  } from './sound';
 
   interface Props {
     tool: Tool;
@@ -80,6 +98,18 @@
     number,
     { lastBurstAt: number; lastIdleAt: number; lastWandBurstAt: number }
   >();
+
+  // Which brush strokes count as "pouring" a material (as opposed to the eraser, which also
+  // runs through applyBrush/applyBrushLine but isn't a pour) — see playPour's call sites below.
+  const POUR_TOOLS = new Set<Tool>(['sand', 'water', 'dirt', 'gumdrop', 'grass', 'star']);
+  function isPourTool(t: Tool): t is PourKind {
+    return POUR_TOOLS.has(t);
+  }
+
+  // Tracks each poodle's state from the previous frame so playBloop/playWobble fire once on
+  // entry into 'eating'/'shaking' rather than every frame for the whole 20/30-frame duration
+  // (spawnBurst below is deliberately per-frame for the sparkle visuals; sound is not).
+  const poodlePrevState = new Map<number, PoodleState>();
 
   const SAVE_KEY = 'madisons-sand-world-v1';
   const SAVE_DEBOUNCE_MS = 2000;
@@ -303,14 +333,22 @@
     }
 
     ctx.font = `${OBJECT_FOOTPRINT_SIZE}px sans-serif`;
+    const livePoodleIds = new Set(petsState.poodles.map((p) => p.id));
+    for (const id of poodlePrevState.keys()) {
+      if (!livePoodleIds.has(id)) poodlePrevState.delete(id);
+    }
     for (const poodle of petsState.poodles) {
+      const wasState = poodlePrevState.get(poodle.id);
       if (poodle.state === 'eating') {
         spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 4);
+        if (wasState !== 'eating') playBloop();
       } else if (poodle.state === 'shaking') {
         spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 2);
+        if (wasState !== 'shaking') playWobble();
       } else if (poodle.state === 'trotting' && Math.random() < 0.08) {
         spawnIdleSparkle(particles, poodle.x, poodle.y, lastFrameNow);
       }
+      poodlePrevState.set(poodle.id, poodle.state);
 
       ctx.save();
       ctx.translate(poodle.x, poodle.y);
@@ -396,6 +434,7 @@
       } else {
         applyWand(grid, pos.x, pos.y, radius);
       }
+      playChime();
       const now = performance.now();
       for (const unicorn of unicornsTouchedByWandLine(objectsState, from, pos, radius)) {
         const timers = unicornTimers.get(unicorn.id) ?? {
@@ -413,13 +452,16 @@
       }
     } else if (lastGridPos) {
       applyBrushLine(grid, tool, lastGridPos, pos, radius, shade);
+      if (isPourTool(tool)) playPour(tool);
     } else {
       applyBrush(grid, tool, pos.x, pos.y, radius, shade);
+      if (isPourTool(tool)) playPour(tool);
     }
     lastGridPos = pos;
   }
 
   function handlePointerDown(event: PointerEvent): void {
+    initSoundOnGesture();
     if (drawing) handlePointerUp();
     const pos = clientToGrid(event.clientX, event.clientY);
     poodleTarget = pos;
@@ -432,6 +474,7 @@
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
       history.commitAction(grid, objectsState);
+      playPop();
       scheduleSave();
       onHistoryChange?.(history.canUndo(), history.canRedo());
       canvas.setPointerCapture(event.pointerId);
@@ -467,6 +510,7 @@
     clearPets(petsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
+    playSweep();
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
@@ -485,12 +529,14 @@
   export function undo(): void {
     if (drawing) handlePointerUp();
     history.undo(grid, objectsState);
+    playWhoosh();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function redo(): void {
     if (drawing) handlePointerUp();
     history.redo(grid, objectsState);
+    playWhoosh();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
