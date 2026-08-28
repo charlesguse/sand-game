@@ -14,6 +14,32 @@ export interface SavedWorld {
   poodles: { x: number; y: number }[];
 }
 
+/**
+ * Resyncs objects.nextId after a restore so a freshly placed object can never collide with an
+ * id a just-restored object still holds. restoreWorldState (src/sim/history.ts) deliberately
+ * leaves nextId untouched — for undo/redo, nextId must keep climbing across restores within one
+ * session so ids stay unique there. A restore from storage is a different case: a fresh
+ * ObjectsState starts nextId at 0, while the restored objects can carry arbitrarily large saved
+ * ids from the previous session. Without this, the next placed object of any kind reuses id 0
+ * (or whichever id the counter is stuck at), and erasing it deletes the *restored* object's list
+ * entry while only clearing the *new* object's grid cells — leaving orphan OBJECT cells behind:
+ * permanently solid, invisible, unerasable.
+ *
+ * Pure and side-effect-free beyond the one field it sets: scans every kind's restored list for
+ * the maximum id and sets nextId to one past it. Leaves nextId untouched if every list is empty
+ * (nothing to collide with). Exported so PlayArea.svelte's restore glue and this module's own
+ * tests share one implementation rather than the invariant being duplicated and drifting.
+ */
+export function resyncNextId(objects: ObjectsState): void {
+  let maxId = -1;
+  for (const kind of OBJECT_KINDS) {
+    for (const obj of objects.byKind[kind]) {
+      if (obj.id > maxId) maxId = obj.id;
+    }
+  }
+  if (maxId >= 0) objects.nextId = maxId + 1;
+}
+
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 const BASE64_LOOKUP: Record<string, number> = (() => {

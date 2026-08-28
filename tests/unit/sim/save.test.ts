@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid } from '../../../src/sim/grid';
-import { createObjectsState, placeObject, OBJECT_KINDS } from '../../../src/sim/objects';
+import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../../../src/sim/objects';
 import { createPetsState, addPoodle } from '../../../src/sim/pets';
-import { SAND, WATER, RAINBOW_SAND, GUMDROP, DIRT } from '../../../src/sim/types';
+import { restoreWorldState } from '../../../src/sim/history';
+import { SAND, WATER, RAINBOW_SAND, GUMDROP, DIRT, OBJECT } from '../../../src/sim/types';
 import {
   SAVE_VERSION,
   serializeWorld,
   deserializeWorld,
   encodeBase64,
   decodeBase64,
+  resyncNextId,
 } from '../../../src/sim/save';
 
 // 60x40 so a 24px object footprint, placed in the far corner below, cannot clip back over
@@ -168,6 +170,70 @@ describe('save — hand-rolled base64 helpers (do not trust the happy path)', ()
       const encoded = encodeBase64(bytes);
       const decoded = decodeBase64(encoded);
       expect(Array.from(decoded)).toEqual(Array.from(bytes));
+    }
+  });
+
+  it('deserializeWorld returns null, never throws, when a base64 field contains a non-alphabet character', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    grid.elements[0] = SAND;
+
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    // '!' is outside the base64 alphabet (A-Z a-z 0-9 + / =) — decodeBase64 must throw on it,
+    // and that throw must be caught inside deserializeWorld rather than propagating.
+    const tampered = { ...wire, elements: '!!!!not-base64!!!!' };
+    const tamperedJson = JSON.stringify(tampered);
+
+    expect(() => deserializeWorld(tamperedJson)).not.toThrow();
+    expect(deserializeWorld(tamperedJson)).toBeNull();
+  });
+});
+
+describe('save — resyncNextId (Critical fix: id collisions after restore)', () => {
+  // Reproduces the reviewer's exact repro: place an object (id 0), save, restore into a fresh
+  // ObjectsState (nextId also starts at 0), place a new object of the same kind. Without
+  // resyncNextId the new object silently reuses id 0 — erasing it then deletes the *restored*
+  // object's list entry while only clearing the *new* object's grid cells, leaving the restored
+  // object's footprint as orphan OBJECT cells: permanently solid, invisible, unerasable.
+  it('a freshly placed object after restore never reuses an id a restored object still holds', () => {
+    const grid = createGrid(120, 120);
+    const sourceObjects = createObjectsState();
+    const pets = createPetsState();
+    placeObject(grid, sourceObjects, 'unicorn', 30, 30);
+    const restoredUnicornId = sourceObjects.byKind.unicorn[0].id;
+
+    const json = serializeWorld(grid, sourceObjects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+
+    // A fresh mount: brand-new grid/ObjectsState, exactly like a page reload.
+    const freshGrid = createGrid(120, 120);
+    const freshObjects = createObjectsState();
+    expect(restoreWorldState(freshGrid, freshObjects, saved.state)).toBe(true);
+
+    // This is the fix under test — the glue in PlayArea.svelte calls the same helper
+    // immediately after a successful restoreWorldState.
+    resyncNextId(freshObjects);
+
+    // Place a new unicorn well clear of the restored one's footprint.
+    placeObject(freshGrid, freshObjects, 'unicorn', 90, 90);
+    const newUnicorn = freshObjects.byKind.unicorn[1];
+    expect(newUnicorn.id).not.toBe(restoredUnicornId);
+
+    // Erasing the new object must not touch the restored one at all.
+    removeObject(freshGrid, freshObjects, newUnicorn);
+
+    expect(freshObjects.byKind.unicorn).toHaveLength(1);
+    expect(freshObjects.byKind.unicorn[0].id).toBe(restoredUnicornId);
+
+    const restored = freshObjects.byKind.unicorn[0];
+    for (let py = restored.y; py < restored.y + restored.size; py++) {
+      for (let px = restored.x; px < restored.x + restored.size; px++) {
+        expect(freshGrid.elements[py * freshGrid.width + px]).toBe(OBJECT);
+      }
     }
   });
 });

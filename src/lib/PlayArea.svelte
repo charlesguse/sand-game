@@ -11,7 +11,7 @@
   import { resizeGrid } from '../sim/resize';
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { HistoryManager, restoreWorldState, remapWorldState } from '../sim/history';
-  import { serializeWorld, deserializeWorld } from '../sim/save';
+  import { serializeWorld, deserializeWorld, resyncNextId } from '../sim/save';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
@@ -147,6 +147,12 @@
       }
 
       if (!restoreWorldState(grid, objectsState, state)) return;
+
+      // restoreWorldState deliberately leaves objectsState.nextId untouched (undo/redo needs it
+      // to keep climbing across restores). A fresh mount's ObjectsState starts nextId at 0,
+      // which would collide with whatever ids the just-restored objects still carry — resync it
+      // past the highest restored id so the next placed object never reuses one.
+      resyncNextId(objectsState);
 
       clearPets(petsState);
       for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
