@@ -110,6 +110,14 @@
     >
       🌴
     </button>
+    <button
+      class="control"
+      class:selected={tool === 'poodle'}
+      aria-label="Poodle"
+      onclick={() => onSelectTool('poodle')}
+    >
+      🐩
+    </button>
   </div>
 
   <div class="group actions">

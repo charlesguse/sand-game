@@ -26,6 +26,7 @@
     clearObjects,
     OBJECT_KINDS,
   } from '../sim/objects';
+  import { createPetsState, addPoodle, stepPets } from '../sim/pets';
   import {
     type Particle,
     PARTICLE_LIFETIME_MS,
@@ -54,6 +55,8 @@
   let { tool, brushSize, onHistoryChange }: Props = $props();
 
   const objectsState = createObjectsState();
+  const petsState = createPetsState();
+  let poodleTarget: { x: number; y: number } | null = null;
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
@@ -211,6 +214,15 @@
       for (const obj of objectsState.byKind[kind]) drawObjectGlyph(obj);
     }
 
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE}px sans-serif`;
+    for (const poodle of petsState.poodles) {
+      ctx.save();
+      ctx.translate(poodle.x, poodle.y);
+      if (poodle.facing === -1) ctx.scale(-1, 1);
+      ctx.fillText('🐩', 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -252,6 +264,7 @@
   function frame(now: number): void {
     lastFrameNow = now;
     step(grid);
+    stepPets(grid, petsState, poodleTarget);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
     updateUnicorns(now);
     tickParticles(particles, now);
@@ -313,6 +326,12 @@
   function handlePointerDown(event: PointerEvent): void {
     if (drawing) handlePointerUp();
     const pos = clientToGrid(event.clientX, event.clientY);
+    poodleTarget = pos;
+    if (tool === 'poodle') {
+      addPoodle(petsState, pos.x, pos.y);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm') {
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
@@ -329,8 +348,10 @@
   }
 
   function handlePointerMove(event: PointerEvent): void {
+    const pos = clientToGrid(event.clientX, event.clientY);
+    poodleTarget = pos;
     if (!drawing) return;
-    paintAt(clientToGrid(event.clientX, event.clientY));
+    paintAt(pos);
   }
 
   function handlePointerUp(): void {

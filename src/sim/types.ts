@@ -52,6 +52,7 @@ export type Tool =
   | 'rainbow'
   | 'unicorn'
   | 'palm'
+  | 'poodle'
   | 'eraser'
   | 'wand'
   | 'gumdrop';
