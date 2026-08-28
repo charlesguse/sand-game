@@ -1,8 +1,8 @@
-# 🌈 Rainbow Sand 🦄
+# 🌈 Madison's Sand 🦄
 
-A falling-sand toy for an almost-5-year-old who loves rainbows, unicorns,
-and pink. Draw with pink sand, pour water, sprinkle magic purple dirt, and
-watch rainbows and unicorns do fun things.
+A falling-sand toy for Madison, who is almost 5 and likes rainbows, unicorns,
+sparkles, poodles and the colour pink. Draw with pink sand, pour pink water,
+sprinkle magic purple dirt, and watch rainbows and unicorns do fun things.
 
 **Play it:** https://charlesguse.github.io/sand-game/ — or download that
 single page and double-click it; it runs straight from disk, no server

@@ -14,14 +14,14 @@ const PINK_RAMP: Rgb[] = [
   [219, 39, 119],
 ];
 
-// Blue ramp: 6 shades from pale sky to deep ocean, indexed by shades[i] % length.
-const BLUE_RAMP: Rgb[] = [
-  [173, 216, 240],
-  [130, 190, 235],
-  [90, 165, 230],
-  [55, 140, 220],
-  [30, 110, 205],
-  [15, 80, 180],
+// Water ramp: 6 shades of rose, lighter and less saturated than PINK_RAMP so water and sand stay distinguishable.
+const WATER_RAMP: Rgb[] = [
+  [255, 245, 250],
+  [255, 236, 246],
+  [254, 226, 241],
+  [252, 214, 235],
+  [250, 201, 229],
+  [246, 186, 221],
 ];
 
 // Purple ramp: 8 shades from pale lavender to deep magic purple, indexed by shades[i] % length.
@@ -104,7 +104,7 @@ export function hslToRgb(h: number, s: number, l: number): Rgb {
 
 export function colorFor(element: number, shade: number, hue: number, isCloud: boolean): Rgb {
   if (element === SAND) return PINK_RAMP[shade % PINK_RAMP.length];
-  if (element === WATER) return BLUE_RAMP[shade % BLUE_RAMP.length];
+  if (element === WATER) return WATER_RAMP[shade % WATER_RAMP.length];
   if (element === DIRT) return PURPLE_RAMP[shade % PURPLE_RAMP.length];
   if (element === RAINBOW_SAND) return hslToRgb((hue / 255) * 360, 0.85, 0.6);
   if (element === GRASS) return GREEN_RAMP[shade % GREEN_RAMP.length];

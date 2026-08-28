@@ -48,3 +48,28 @@ describe('hslToRgb', () => {
     expect(g).toBe(b);
   });
 });
+
+describe('water is pink, and readable as its own element', () => {
+  it('renders water in the pink family, not blue', () => {
+    for (let shade = 0; shade < 6; shade++) {
+      const [r, g, b] = colorFor(WATER, shade, 0, false);
+      expect(r).toBeGreaterThan(b);
+      expect(r).toBeGreaterThan(g);
+    }
+  });
+
+  it('stays lighter than sand at the same shade, so the two pinks read apart', () => {
+    for (let shade = 0; shade < 6; shade++) {
+      const water = colorFor(WATER, shade, 0, false);
+      const sand = colorFor(SAND, shade, 0, false);
+      const lightness = (c: number[]) => c[0] + c[1] + c[2];
+      expect(lightness(water)).toBeGreaterThan(lightness(sand));
+    }
+  });
+
+  it('never renders the same colour as sand at the same shade', () => {
+    for (let shade = 0; shade < 6; shade++) {
+      expect(colorFor(WATER, shade, 0, false)).not.toEqual(colorFor(SAND, shade, 0, false));
+    }
+  });
+});

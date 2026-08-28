@@ -29,3 +29,16 @@ describe('index.html iOS standalone shell', () => {
     expect(html).not.toMatch(/(?:src|href)="https?:\/\//);
   });
 });
+
+describe('the game is named for Madison', () => {
+  it('names her in the page title', () => {
+    expect(html).toMatch(/<title>[^<]*Madison[^<]*<\/title>/);
+  });
+
+  it('uses the same name for the Home Screen icon as for the page', () => {
+    const title = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+    const appTitle = html.match(/name="apple-mobile-web-app-title"[^>]*content="([^"]*)"/)?.[1] ?? '';
+    expect(appTitle.length).toBeGreaterThan(0);
+    expect(title).toContain(appTitle);
+  });
+});
