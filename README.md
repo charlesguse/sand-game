@@ -35,7 +35,7 @@ Two steps, and the second one matters more than anything in the code.
 
 **1. Add it to the Home Screen.** Open the game in Safari, tap Share → *Add to
 Home Screen*. Launched from that icon it runs standalone — no address bar, no
-tab strip. There is also a ⛶ button in the toolbar for fullscreen in a normal
+tab strip. There is also a 📺 button in the toolbar for fullscreen in a normal
 browser tab.
 
 **2. Turn on Guided Access.** This is what actually stops a small child from
