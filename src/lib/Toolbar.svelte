@@ -7,12 +7,14 @@
     brushSize: BrushSize;
     canUndo: boolean;
     canRedo: boolean;
+    showFullscreen: boolean;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
     onSelectScene: (sceneId: SceneId) => void;
     onClearAll: () => void;
     onUndo: () => void;
     onRedo: () => void;
+    onToggleFullscreen: () => void;
   }
 
   let {
@@ -20,12 +22,14 @@
     brushSize,
     canUndo,
     canRedo,
+    showFullscreen,
     onSelectTool,
     onSelectBrushSize,
     onSelectScene,
     onClearAll,
     onUndo,
     onRedo,
+    onToggleFullscreen,
   }: Props = $props();
 </script>
 
@@ -116,6 +120,12 @@
     <button class="control" aria-label="Undo" disabled={!canUndo} onclick={onUndo}>↩️</button>
     <button class="control" aria-label="Redo" disabled={!canRedo} onclick={onRedo}>↪️</button>
   </div>
+
+  {#if showFullscreen}
+    <div class="group screen">
+      <button class="control" aria-label="Full screen" onclick={onToggleFullscreen}>📺</button>
+    </div>
+  {/if}
 
   <div class="group scenes">
     <button class="control" aria-label="Empty canvas" onclick={() => onSelectScene('empty')}>⬜</button>

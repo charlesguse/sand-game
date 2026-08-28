@@ -2,12 +2,19 @@
   import Toolbar from './lib/Toolbar.svelte';
   import PlayArea from './lib/PlayArea.svelte';
   import type { Tool, BrushSize, SceneId } from './sim/types';
+  import { isFullscreenSupported, toggleFullscreen } from './lib/fullscreen';
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
   let canUndo = $state(false);
   let canRedo = $state(false);
   let playArea: PlayArea;
+
+  const showFullscreen = isFullscreenSupported(document.documentElement);
+
+  function handleToggleFullscreen(): void {
+    void toggleFullscreen(document.documentElement, document);
+  }
 
   function selectTool(next: Tool): void {
     tool = next;
@@ -46,12 +53,14 @@
     {brushSize}
     {canUndo}
     {canRedo}
+    {showFullscreen}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
     onSelectScene={selectScene}
     onClearAll={clearAll}
     onUndo={undo}
     onRedo={redo}
+    onToggleFullscreen={handleToggleFullscreen}
   />
 </main>
 
