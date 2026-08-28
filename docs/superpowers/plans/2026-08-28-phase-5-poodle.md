@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give Madison a poodle that trots to where she touches, eats gumdrops, shakes off water, grooms sand into rainbow, and digs itself out when buried.
+**Goal:** Give Madison a poodle that trots to where she touches, eats gumdrops, shakes off water, grooms sand into rainbow, and digs itself out when buried — plus pink flamingos.
 
 **Architecture:** A poodle is deliberately **not** a grid element. Moving creatures in a cellular automaton are miserable — double-stepping, `moved`-flag bookkeeping, partial updates. Instead a new `src/sim/pets.ts` owns a short list of poodle entities, each with a position, a state and a timer, stepped once per frame *after* `step(grid)`. It reads the grid to find the ground and writes to it to groom, dig and eat. At most three exist, so the per-frame cost is negligible and it never touches the per-cell hot loop. It is pure logic with no DOM, so every behaviour is unit-testable.
 
@@ -864,6 +864,137 @@ git commit -m "feat: poodle sparkles, and clear-all sends the pack home"
 
 ---
 
+### Task 7: Pink flamingos
+
+A fourth object kind. Cheap by design — `ObjectsState` is already keyed by
+`ObjectKind`, so this is the change that proves that refactor paid off.
+
+**Files:**
+- Modify: `src/sim/types.ts` (`ObjectKind`, `Tool`)
+- Modify: `src/sim/objects.ts` (`OBJECT_KINDS`, `createObjectsState`)
+- Modify: `src/lib/PlayArea.svelte` (glyph, bob animation, placement routing)
+- Modify: `src/lib/Toolbar.svelte` (🦩 button)
+- Test: `tests/unit/sim/flamingo.test.ts` (create)
+
+- [ ] **Step 1: Write the failing tests**
+
+Create `tests/unit/sim/flamingo.test.ts`:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { createGrid } from '../../../src/sim/grid';
+import { createObjectsState, placeObject, OBJECT_KINDS } from '../../../src/sim/objects';
+import { OBJECT, type Grid } from '../../../src/sim/types';
+
+function at(grid: Grid, x: number, y: number): number {
+  return grid.elements[y * grid.width + x];
+}
+
+describe('flamingos are placeable objects', () => {
+  it('stamps an OBJECT footprint into the grid', () => {
+    const grid = createGrid(40, 40);
+    const state = createObjectsState();
+    placeObject(grid, state, 'flamingo', 20, 20);
+    expect(state.byKind.flamingo).toHaveLength(1);
+    expect(at(grid, 20, 20)).toBe(OBJECT);
+  });
+
+  it('is included in OBJECT_KINDS so every kind-driven loop covers it', () => {
+    expect(OBJECT_KINDS).toContain('flamingo');
+  });
+
+  it('keeps its own cap of 3 without evicting the other kinds', () => {
+    const grid = createGrid(80, 80);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 10, 10);
+    placeObject(grid, state, 'unicorn', 30, 10);
+    placeObject(grid, state, 'palm', 50, 10);
+    for (let i = 0; i < 5; i++) placeObject(grid, state, 'flamingo', 10 + i * 9, 50);
+    expect(state.byKind.flamingo).toHaveLength(3);
+    expect(state.byKind.rainbow).toHaveLength(1);
+    expect(state.byKind.unicorn).toHaveLength(1);
+    expect(state.byKind.palm).toHaveLength(1);
+  });
+
+  it('starts with an empty flamingo list', () => {
+    expect(createObjectsState().byKind.flamingo).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npx vitest run tests/unit/sim/flamingo.test.ts`
+Expected: FAIL — `'flamingo'` is not a valid `ObjectKind`.
+
+- [ ] **Step 3: Add the kind**
+
+In `src/sim/types.ts`, add `| 'flamingo'` to `ObjectKind` and `| 'flamingo'` to `Tool`.
+
+In `src/sim/objects.ts`, add `'flamingo'` to `OBJECT_KINDS` and `flamingo: []` to `createObjectsState`'s `byKind` literal.
+
+**Expect a TypeScript error at this point** in `src/lib/PlayArea.svelte`: `OBJECT_GLYPHS` is typed `Record<ObjectKind, string>`, so it will not compile until the flamingo glyph is added in the next step. That error is the type system working as intended — do not widen the type to silence it.
+
+- [ ] **Step 4: Add the glyph and the bob**
+
+In `src/lib/PlayArea.svelte`, add `flamingo: '🦩'` to `OBJECT_GLYPHS`.
+
+Give the flamingo its own idle motion, distinct from the palm's sway. Where the palm rotates about its trunk base, the flamingo **bobs gently up and down**, as though balancing on one leg. In `drawObjectGlyph`, add a branch alongside the palm one:
+
+```ts
+    if (obj.kind === 'flamingo') {
+      const bob = Math.sin(lastFrameNow * FLAMINGO_BOB_SPEED + obj.id) * FLAMINGO_BOB_PIXELS;
+      ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy + bob);
+      return;
+    }
+```
+
+with, next to the palm constants:
+
+```ts
+  const FLAMINGO_BOB_SPEED = 0.0016;
+  const FLAMINGO_BOB_PIXELS = 2.5;
+```
+
+The `+ obj.id` phase offset is the same trick as the palm — it stops a group of flamingos bobbing in lockstep. No `ctx.save()`/`restore()` is needed here because this branch applies no transform.
+
+- [ ] **Step 5: Let her place them**
+
+In `src/lib/PlayArea.svelte`, add `'flamingo'` to the object placement branch condition alongside `'rainbow'`, `'unicorn'` and `'palm'`.
+
+In `src/lib/Toolbar.svelte`, add to the `objects` group:
+
+```svelte
+    <button
+      class="control"
+      class:selected={tool === 'flamingo'}
+      aria-label="Flamingo"
+      onclick={() => onSelectTool('flamingo')}
+    >
+      🦩
+    </button>
+```
+
+`🦩` (U+1F9A9) is emoji-presentation by default.
+
+- [ ] **Step 6: Verify**
+
+Run: `npm test && npm run build`
+Expected: all pass. The pre-existing objects, scenes, history, resize and wand suites are the check that a fourth kind slotted in without disturbing the others — if any fail, a kind-driven loop was missed.
+
+Run: `grep -cE '(src|href)="https?://' dist/index.html`
+Expected: `0`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "feat: add pink flamingos"
+```
+
+
+---
+
 ## Verification
 
 ```bash
@@ -882,3 +1013,4 @@ Expected: all tests pass; `dist/index.html` emitted as a single file with zero e
 6. Bury it under a pile — it digs out rather than staying stuck.
 7. Clear-all removes the poodles along with everything else.
 8. Three poodles at once still holds 60fps.
+9. Flamingos bob gently on the spot, out of phase with each other, and read as clearly pink.
