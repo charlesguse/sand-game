@@ -995,6 +995,76 @@ git commit -m "feat: add pink flamingos"
 
 ---
 
+### Task 8: The sand button becomes a bucket
+
+**Files:**
+- Modify: `src/lib/Toolbar.svelte`
+- Test: `tests/unit/shell/toolbarGlyphs.test.ts` (create)
+
+Madison cannot read, so every toolbar control has to say what it is by picture
+alone. A pink heart says "pink", not "sand". A bucket is the thing she already
+associates with sand from the beach and the sandbox.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/unit/shell/toolbarGlyphs.test.ts`. It reads the Toolbar source as
+text — no DOM, no component rendering, so it stays inside the `node` vitest
+environment:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, it, expect } from 'vitest';
+
+const toolbar = readFileSync(
+  fileURLToPath(new URL('../../../src/lib/Toolbar.svelte', import.meta.url)),
+  'utf8',
+);
+
+describe('the sand tool is labelled as sand, not as a colour', () => {
+  it('uses the bucket glyph', () => {
+    expect(toolbar).toContain('🪣');
+  });
+
+  it('no longer uses a heart for sand', () => {
+    expect(toolbar).not.toContain('💗');
+  });
+
+  it('still labels it for assistive tech', () => {
+    expect(toolbar).toMatch(/aria-label="Pink sand"/);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run tests/unit/shell/toolbarGlyphs.test.ts`
+Expected: FAIL — the bucket is absent and the heart is present.
+
+- [ ] **Step 3: Swap the glyph**
+
+In `src/lib/Toolbar.svelte`, change the pink sand button's glyph from `💗` to
+`🪣`. Change **only** the glyph — the `aria-label` stays `"Pink sand"`, and the
+`class`, `class:selected` and `onclick` are untouched.
+
+Leave the `💖` in `src/lib/particles.ts` alone: that is a celebration sparkle,
+not a tool label, and hearts are right for it.
+
+- [ ] **Step 4: Verify**
+
+Run: `npm test && npm run build`
+Expected: all pass; build succeeds.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/Toolbar.svelte tests/unit/shell/toolbarGlyphs.test.ts
+git commit -m "feat: the sand tool is a bucket, not a heart"
+```
+
+
+---
+
 ## Verification
 
 ```bash
@@ -1014,3 +1084,4 @@ Expected: all tests pass; `dist/index.html` emitted as a single file with zero e
 7. Clear-all removes the poodles along with everything else.
 8. Three poodles at once still holds 60fps.
 9. Flamingos bob gently on the spot, out of phase with each other, and read as clearly pink.
+10. The sand button shows a bucket, not tofu. 🪣 is Emoji 13.0 — newer than most glyphs here, and this project has been bitten by a too-new emoji before (upstream 71c4b86). It is fine on iPadOS; check it on any other device you care about.
