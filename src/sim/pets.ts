@@ -11,6 +11,14 @@ export interface Poodle {
   state: PoodleState;
   timer: number;
   soggy: boolean;
+  /** x of the gumdrop currently being pursued, or -1 if not pursuing one. */
+  pursuitX: number;
+  /** Smallest horizontal distance to pursuitX reached so far this pursuit. */
+  pursuitBestDist: number;
+  /** Frames since pursuitBestDist last improved. */
+  pursuitStaleFrames: number;
+  /** Frames remaining during which gumdrop scent is ignored, after giving up on one that couldn't be reached. */
+  gumdropCooldown: number;
 }
 
 export interface PetsState {
@@ -37,6 +45,19 @@ const EAT_DURATION = 20;
 const EAT_REACH = 2;
 /** How far above/below the poodle's feet to search when clearing an eaten gumdrop. */
 const EAT_SEARCH_HEIGHT = 3;
+/**
+ * Frames a poodle will keep trying to close the distance on a pursued
+ * gumdrop without any improvement before giving up on it. Generous relative
+ * to STEP_INTERVAL so a legitimately-approaching poodle (whose distance only
+ * ticks down once per stride) never gives up mid-approach.
+ */
+const GUMDROP_PATIENCE = 40;
+/**
+ * Frames a poodle ignores all gumdrop scent after giving up on one it
+ * couldn't reach, so it stays with her finger instead of immediately
+ * re-committing to the same unreachable spot.
+ */
+const GUMDROP_COOLDOWN = 150;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -52,6 +73,10 @@ export function addPoodle(state: PetsState, x: number, y: number): void {
     state: 'idle',
     timer: 0,
     soggy: false,
+    pursuitX: -1,
+    pursuitBestDist: Infinity,
+    pursuitStaleFrames: 0,
+    gumdropCooldown: 0,
   });
 }
 
@@ -78,13 +103,14 @@ function groundBelow(grid: Grid, x: number, fromY: number): number {
  * canvas size.
  *
  * The vertical span of the scan is capped at EAT_SEARCH_HEIGHT — the same
- * window eatGumdropNear uses to actually eat — rather than the full scent
- * radius. A gumdrop perched somewhere the poodle cannot reach from its
- * current standing height is never selected as an override target, so it can
- * never capture movement away from her finger: without this, the poodle
- * could walk up to (or get climb-blocked beneath) a gumdrop it can never
- * eat, go idle there, and re-select the same unreachable gumdrop every
- * frame forever, permanently ignoring her finger.
+ * window eatGumdropNear uses to actually eat — instead of the full scent
+ * radius. This is a pruning optimization only: it keeps the scan cheaper and
+ * avoids proposing a gumdrop that's obviously too far above or below to eat
+ * from the poodle's *current* standing height. It says nothing about
+ * horizontal obstructions (walls, pits) between here and there, so it is not
+ * by itself a guarantee the returned gumdrop is reachable — that guarantee
+ * comes from the pursuit/give-up bookkeeping in stepPoodle, which abandons a
+ * target that stops getting closer regardless of why.
  */
 function nearestGumdropX(grid: Grid, poodle: Poodle): number {
   const cx = Math.round(poodle.x);
@@ -143,20 +169,59 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
 
   poodle.y = groundBelow(grid, poodle.x, poodle.y);
 
-  const gumdropX = nearestGumdropX(grid, poodle);
-  let targetX: number;
-  if (gumdropX !== -1) {
-    if (Math.abs(gumdropX - poodle.x) <= EAT_REACH && eatGumdropNear(grid, gumdropX, poodle)) {
-      poodle.state = 'eating';
-      poodle.timer = EAT_DURATION;
+  let targetX: number | null = null;
+
+  if (poodle.gumdropCooldown > 0) {
+    poodle.gumdropCooldown--;
+  } else {
+    const gumdropX = nearestGumdropX(grid, poodle);
+    if (gumdropX === -1) {
+      poodle.pursuitX = -1;
+      poodle.pursuitBestDist = Infinity;
+      poodle.pursuitStaleFrames = 0;
+    } else {
+      if (poodle.pursuitX !== gumdropX) {
+        poodle.pursuitX = gumdropX;
+        poodle.pursuitBestDist = Infinity;
+        poodle.pursuitStaleFrames = 0;
+      }
+
+      const dist = Math.abs(gumdropX - poodle.x);
+      if (dist < poodle.pursuitBestDist) {
+        poodle.pursuitBestDist = dist;
+        poodle.pursuitStaleFrames = 0;
+      } else {
+        poodle.pursuitStaleFrames++;
+      }
+
+      if (poodle.pursuitStaleFrames > GUMDROP_PATIENCE) {
+        // She hasn't gotten any closer to this one in a while — give up on
+        // it (whatever the reason: a wall, a pit, a ledge too high) and
+        // ignore gumdrop scent for a while so her finger gets control back
+        // instead of immediately re-committing to the same dead end.
+        poodle.pursuitX = -1;
+        poodle.pursuitBestDist = Infinity;
+        poodle.pursuitStaleFrames = 0;
+        poodle.gumdropCooldown = GUMDROP_COOLDOWN;
+      } else if (dist <= EAT_REACH && eatGumdropNear(grid, gumdropX, poodle)) {
+        poodle.state = 'eating';
+        poodle.timer = EAT_DURATION;
+        poodle.pursuitX = -1;
+        poodle.pursuitBestDist = Infinity;
+        poodle.pursuitStaleFrames = 0;
+        return;
+      } else {
+        targetX = gumdropX;
+      }
+    }
+  }
+
+  if (targetX === null) {
+    if (target === null) {
+      poodle.state = 'idle';
       return;
     }
-    targetX = gumdropX;
-  } else if (target !== null) {
     targetX = target.x;
-  } else {
-    poodle.state = 'idle';
-    return;
   }
 
   const dx = targetX - poodle.x;

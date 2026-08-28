@@ -210,4 +210,43 @@ describe('chasing gumdrops', () => {
     run(grid, pets, { x: 5, y: 31 }, 400);
     expect(pets.poodles[0].x).toBeLessThan(20);
   });
+
+  it('does not get stuck against a wall taller than it can climb, with a gumdrop at its own height beyond it', () => {
+    const grid = withFloor(80, 40, 8);
+    // A fence at the poodle's own standing height: solid from row 24 to the
+    // base floor, at columns 40-41 — far taller than MAX_CLIMB (2), and the
+    // ground stays level (row 31) on both sides.
+    for (let y = 24; y < 32; y++) {
+      for (let x = 40; x < 42; x++) setCell(grid, x, y, SAND, 0);
+    }
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    // Gumdrop past the fence, at the same height as the poodle.
+    setCell(grid, 50, 31, GUMDROP, 0);
+    // Finger target is on the poodle's own side, away from the fence.
+    run(grid, pets, { x: 5, y: 31 }, 600);
+    expect(pets.poodles[0].x).toBeLessThan(20);
+  });
+
+  it('does not get stuck in a pit exactly as deep as its vertical scent range', () => {
+    const grid = withFloor(80, 40, 8);
+    // A pit with a climbable shelf on the entry side (a 1-cell step down from
+    // the normal row-31 surface, then a further 2-cell drop to the pit floor
+    // — each step within MAX_CLIMB) but a sheer far wall (a 3-cell rise,
+    // unclimbable) toward the gumdrop. Falling in and climbing back out the
+    // way she came stays possible; reaching the far side does not.
+    setCell(grid, 40, 32, EMPTY, 0); // shelf: rest y=32, one step down from 31
+    for (let y = 32; y <= 34; y++) {
+      for (let x = 41; x < 45; x++) setCell(grid, x, y, EMPTY, 0); // pit floor: rest y=34
+    }
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    // Gumdrop on the original surface height, past the far (unclimbable) wall.
+    setCell(grid, 50, 31, GUMDROP, 0);
+    // Finger target is back on the poodle's own side.
+    run(grid, pets, { x: 5, y: 31 }, 800);
+    expect(pets.poodles[0].x).toBeLessThan(20);
+  });
 });
