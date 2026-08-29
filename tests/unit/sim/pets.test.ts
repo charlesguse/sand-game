@@ -10,6 +10,8 @@ import {
   POODLE_CAP,
   POKE_RADIUS,
   GUMDROP_SCENT_RADIUS,
+  WANDER_IDLE_DELAY,
+  WANDER_RANGE,
 } from '../../../src/sim/pets';
 import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
 
@@ -500,6 +502,69 @@ describe('poking the poodle', () => {
     expect(poodle.pursuitBestDist).toBe(bestDistBefore);
     expect(poodle.pursuitStaleFrames).toBe(staleBefore);
     expect(poodle.gumdropCooldown).toBe(cooldownBefore);
+  });
+});
+
+describe('wandering when bored', () => {
+  it('sniffs around after a long idle spell, staying near home, in bounds, and always idle', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    const poodle = pets.poodles[0];
+    let moved = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 300; i++) {
+      stepPets(grid, pets, null);
+      if (poodle.x !== 60) moved = true;
+      expect(poodle.state).toBe('idle');
+      expect(Math.abs(poodle.x - 60)).toBeLessThanOrEqual(WANDER_RANGE);
+      expect(poodle.x).toBeGreaterThanOrEqual(0);
+      expect(poodle.x).toBeLessThan(grid.width);
+    }
+    expect(moved).toBe(true);
+  });
+
+  it('does not start wandering before the idle delay', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    run(grid, pets, null, WANDER_IDLE_DELAY - 10);
+    expect(pets.poodles[0].x).toBeCloseTo(60, 0);
+  });
+
+  it('a fresh target well away interrupts wandering and is pursued', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, { x: 60, y: 31 }, 150); // walk there and arrive (target consumed)
+    run(grid, pets, { x: 60, y: 31 }, WANDER_IDLE_DELAY + 200); // get bored, wander a little
+    run(grid, pets, { x: 100, y: 31 }, 250); // a touch somewhere new
+    expect(pets.poodles[0].x).toBeGreaterThan(80);
+  });
+
+  it('a re-sent consumed target does not re-trigger pursuit', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, { x: 60, y: 31 }, 150); // arrive: 60 is now consumed
+    const poodle = pets.poodles[0];
+    let trotted = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 400; i++) {
+      stepPets(grid, pets, { x: 60, y: 31 });
+      if (poodle.state === 'trotting') trotted = true;
+    }
+    expect(trotted).toBe(false);
+  });
+
+  it('never converts sand while wandering (no grooming)', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    run(grid, pets, null, WANDER_IDLE_DELAY + 600);
+    let rainbow = 0;
+    for (let i = 0; i < grid.elements.length; i++) {
+      if (grid.elements[i] === RAINBOW_SAND) rainbow++;
+    }
+    expect(rainbow).toBe(0);
   });
 });
 

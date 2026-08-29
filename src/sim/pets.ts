@@ -20,6 +20,19 @@ export interface Poodle {
   pursuitStaleFrames: number;
   /** Frames remaining during which gumdrop scent is ignored, after giving up on one that couldn't be reached. */
   gumdropCooldown: number;
+  /** Consecutive frames spent with nothing to do; wandering starts once this passes WANDER_IDLE_DELAY. */
+  idleFrames: number;
+  /** Where "home" is for wandering: set on each arrival/settle, wandering stays within WANDER_RANGE of it. */
+  homeX: number;
+  /**
+   * x of the finger target she already reached, or null. poodleTarget is never cleared upstream,
+   * so an arrived-at target keeps arriving every frame forever; while the incoming target stays
+   * within CONSUMED_TARGET_SLACK cells of this, it is treated as absent (letting her get bored
+   * and wander) — a touch somewhere genuinely new reactivates pursuit.
+   */
+  consumedTargetX: number | null;
+  /** Which way the current wander is drifting. */
+  wanderDir: 1 | -1;
 }
 
 export interface PetsState {
@@ -67,6 +80,14 @@ const DIG_DURATION = 3;
 export const POKE_RADIUS = 14;
 /** Frames spent doing a trick after being poked. */
 export const TRICK_DURATION = 36;
+/** Consecutive idle frames before boredom sets in and she starts to wander. */
+export const WANDER_IDLE_DELAY = 150;
+/** Frames between wander steps — an unhurried sniff-about, much slower than a trot. */
+const WANDER_PAUSE = 45;
+/** How far from homeX a wander may roam, in cells. */
+export const WANDER_RANGE = 10;
+/** How close a new finger target must be to the consumed one to still count as "the same spot". */
+const CONSUMED_TARGET_SLACK = 2;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -91,6 +112,10 @@ export function addPoodle(state: PetsState, x: number, y: number): void {
     pursuitBestDist: Infinity,
     pursuitStaleFrames: 0,
     gumdropCooldown: 0,
+    idleFrames: 0,
+    homeX: x,
+    consumedTargetX: null,
+    wanderDir: 1,
   });
 }
 
@@ -232,10 +257,42 @@ export function pokePoodleAt(pets: PetsState, x: number, y: number): boolean {
   return true;
 }
 
+/**
+ * One unhurried wander step: a single cell in the drifting direction, turning around at the
+ * WANDER_RANGE leash around homeX, at the grid's edges, and (sometimes) on a whim. State is
+ * deliberately NOT touched — a wandering poodle stays 'idle' — and there is no grooming here:
+ * sniffing about is not a trot, so it never converts sand.
+ */
+function wanderStep(grid: Grid, poodle: Poodle): void {
+  if (Math.random() < 0.25) poodle.wanderDir = poodle.wanderDir === 1 ? -1 : 1;
+
+  const stepOk = (x: number): boolean =>
+    x >= 0 && x <= grid.width - 1 && Math.abs(x - poodle.homeX) <= WANDER_RANGE;
+
+  let nextX = poodle.x + poodle.wanderDir;
+  if (!stepOk(nextX)) {
+    poodle.wanderDir = poodle.wanderDir === 1 ? -1 : 1;
+    nextX = poodle.x + poodle.wanderDir;
+    if (!stepOk(nextX)) return; // cornered (home right at an edge); just stand there
+  }
+
+  const nextY = groundBelow(grid, nextX, Math.max(0, poodle.y - MAX_CLIMB));
+  if (poodle.y - nextY > MAX_CLIMB) {
+    // Too tall to bother climbing while just sniffing about — drift the other way next time.
+    poodle.wanderDir = poodle.wanderDir === 1 ? -1 : 1;
+    return;
+  }
+
+  poodle.facing = poodle.wanderDir;
+  poodle.x = nextX;
+  poodle.y = nextY;
+}
+
 /** Advances one poodle by one frame. Allocation-free. */
 function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number } | null, stride: number): void {
   if (poodle.timer > 0) {
     poodle.timer--;
+    poodle.idleFrames = 0;
     if (poodle.timer === 0) poodle.state = 'idle';
     return;
   }
@@ -345,22 +402,49 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
     }
   }
 
-  if (targetX === null) {
-    if (target === null) {
-      poodle.state = 'idle';
-      return;
+  let chasingFinger = false;
+  if (targetX === null && target !== null) {
+    if (poodle.consumedTargetX !== null && Math.abs(target.x - poodle.consumedTargetX) <= CONSUMED_TARGET_SLACK) {
+      // Still the touch she already answered — treat it as absent (see consumedTargetX).
+    } else {
+      poodle.consumedTargetX = null;
+      targetX = target.x;
+      chasingFinger = true;
     }
-    targetX = target.x;
+  }
+
+  if (targetX === null) {
+    // Nothing to chase at all. Boredom accrues, and once it passes the delay she takes one
+    // wander step every WANDER_PAUSE frames — but never while a gumdrop cooldown is pending
+    // pursuit (her finger, or the resumed chase, gets her first).
+    poodle.state = 'idle';
+    poodle.idleFrames++;
+    if (
+      poodle.gumdropCooldown === 0 &&
+      poodle.idleFrames >= WANDER_IDLE_DELAY &&
+      (poodle.idleFrames - WANDER_IDLE_DELAY) % WANDER_PAUSE === 0
+    ) {
+      wanderStep(grid, poodle);
+    }
+    return;
   }
 
   const dx = targetX - poodle.x;
   if (Math.abs(dx) <= ARRIVE_DISTANCE) {
     poodle.state = 'idle';
+    poodle.idleFrames++;
+    if (chasingFinger) {
+      // Arrived at her finger: consume this target so it stops re-arriving forever, and settle
+      // here — this is the new home wandering stays near.
+      poodle.consumedTargetX = targetX;
+      poodle.homeX = poodle.x;
+    }
     return;
   }
 
   poodle.facing = dx > 0 ? 1 : -1;
   poodle.state = 'trotting';
+  poodle.idleFrames = 0;
 
   if (poodle.id % STEP_INTERVAL !== stride % STEP_INTERVAL) return;
 
