@@ -3,17 +3,42 @@
   import PlayArea from './lib/PlayArea.svelte';
   import type { Tool, BrushSize, SceneId } from './sim/types';
   import { isFullscreenSupported, toggleFullscreen } from './lib/fullscreen';
+  import { isMuted, setMuted } from './lib/sound';
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
   let canUndo = $state(false);
   let canRedo = $state(false);
+  let muted = $state(isMuted());
   let playArea: PlayArea;
 
   const showFullscreen = isFullscreenSupported(document.documentElement);
 
+  // The 📺 pattern: computed once, and the 📷 button simply does not exist where the platform
+  // can't share a file (desktop browsers, older iOS) — absent, never broken. The probe File is
+  // constructed inside the try because the File constructor itself can throw on old engines.
+  function isPhotoShareSupported(): boolean {
+    try {
+      if (typeof navigator.canShare !== 'function') return false;
+      const probe = new File(['probe'], 'probe.png', { type: 'image/png' });
+      return navigator.canShare({ files: [probe] });
+    } catch {
+      return false;
+    }
+  }
+  const showPhoto = isPhotoShareSupported();
+
+  function sharePhoto(): void {
+    void playArea.sharePhoto();
+  }
+
   function handleToggleFullscreen(): void {
     void toggleFullscreen(document.documentElement, document);
+  }
+
+  function handleToggleMuted(): void {
+    setMuted(!muted);
+    muted = isMuted();
   }
 
   function selectTool(next: Tool): void {
@@ -54,6 +79,8 @@
     {canUndo}
     {canRedo}
     {showFullscreen}
+    {showPhoto}
+    {muted}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
     onSelectScene={selectScene}
@@ -61,6 +88,8 @@
     onUndo={undo}
     onRedo={redo}
     onToggleFullscreen={handleToggleFullscreen}
+    onToggleMuted={handleToggleMuted}
+    onSharePhoto={sharePhoto}
   />
 </main>
 

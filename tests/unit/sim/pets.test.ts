@@ -6,8 +6,12 @@ import {
   stepPets,
   clearPets,
   repositionPoodles,
+  pokePoodleAt,
   POODLE_CAP,
+  POKE_RADIUS,
   GUMDROP_SCENT_RADIUS,
+  WANDER_IDLE_DELAY,
+  WANDER_RANGE,
 } from '../../../src/sim/pets';
 import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
 
@@ -407,6 +411,179 @@ describe('a gumdrop at her own cell', () => {
     stepPets(grid, pets, null);
     expect(pets.poodles[0].state).toBe('eating');
     expect(grid.elements[y * grid.width + x]).toBe(EMPTY);
+  });
+});
+
+describe('poking the poodle', () => {
+  it('does a trick when poked within reach', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    expect(pokePoodleAt(pets, poodle.x + 3, poodle.y - 3)).toBe(true);
+    expect(poodle.state).toBe('tricking');
+    expect(poodle.timer).toBeGreaterThan(0);
+  });
+
+  it('ignores a poke outside POKE_RADIUS', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    const stateBefore = poodle.state;
+    expect(pokePoodleAt(pets, poodle.x + POKE_RADIUS + 5, poodle.y)).toBe(false);
+    expect(poodle.state).toBe(stateBefore);
+    expect(poodle.timer).toBe(0);
+  });
+
+  it('returns false with no poodles at all', () => {
+    const pets = createPetsState();
+    expect(pokePoodleAt(pets, 10, 10)).toBe(false);
+  });
+
+  it('picks the nearest poodle when several are in reach', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    addPoodle(pets, 45, 30);
+    run(grid, pets, null, 20);
+    expect(pokePoodleAt(pets, 44, 31)).toBe(true);
+    expect(pets.poodles[1].state).toBe('tricking');
+    expect(pets.poodles[0].state).not.toBe('tricking');
+  });
+
+  it('does not interrupt eating or shaking (busy timer wins)', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    const x = Math.round(poodle.x);
+    const y = Math.round(poodle.y);
+    setCell(grid, x, y, GUMDROP, 0);
+    stepPets(grid, pets, null);
+    expect(poodle.state).toBe('eating');
+    const timerBefore = poodle.timer;
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(false);
+    expect(poodle.state).toBe('eating');
+    expect(poodle.timer).toBe(timerBefore);
+  });
+
+  it('goes back to normal after the trick and still comes when called', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(true);
+    run(grid, pets, null, 100);
+    expect(poodle.state).toBe('idle');
+    const startX = poodle.x;
+    run(grid, pets, { x: 50, y: 31 }, 60);
+    expect(poodle.x).toBeGreaterThan(startX);
+  });
+
+  it('leaves pursuit bookkeeping untouched when poked mid-pursuit', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 20, 31, GUMDROP, 0);
+    run(grid, pets, null, 30);
+    const poodle = pets.poodles[0];
+    expect(poodle.pursuitX).toBe(20);
+    const bestDistBefore = poodle.pursuitBestDist;
+    const staleBefore = poodle.pursuitStaleFrames;
+    const cooldownBefore = poodle.gumdropCooldown;
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(true);
+    expect(poodle.pursuitX).toBe(20);
+    expect(poodle.pursuitBestDist).toBe(bestDistBefore);
+    expect(poodle.pursuitStaleFrames).toBe(staleBefore);
+    expect(poodle.gumdropCooldown).toBe(cooldownBefore);
+  });
+});
+
+describe('wandering when bored', () => {
+  it('sniffs around after a long idle spell, staying near home, in bounds, and always idle', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    const poodle = pets.poodles[0];
+    let moved = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 300; i++) {
+      stepPets(grid, pets, null);
+      if (poodle.x !== 60) moved = true;
+      expect(poodle.state).toBe('idle');
+      expect(Math.abs(poodle.x - 60)).toBeLessThanOrEqual(WANDER_RANGE);
+      expect(poodle.x).toBeGreaterThanOrEqual(0);
+      expect(poodle.x).toBeLessThan(grid.width);
+    }
+    expect(moved).toBe(true);
+  });
+
+  it('does not start wandering before the idle delay', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    run(grid, pets, null, WANDER_IDLE_DELAY - 10);
+    expect(pets.poodles[0].x).toBeCloseTo(60, 0);
+  });
+
+  it('a fresh target well away interrupts wandering and is pursued', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, { x: 60, y: 31 }, 150); // walk there and arrive (target consumed)
+    run(grid, pets, { x: 60, y: 31 }, WANDER_IDLE_DELAY + 200); // get bored, wander a little
+    run(grid, pets, { x: 100, y: 31 }, 250); // a touch somewhere new
+    expect(pets.poodles[0].x).toBeGreaterThan(80);
+  });
+
+  it('a re-sent consumed target does not re-trigger pursuit', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, { x: 60, y: 31 }, 150); // arrive: 60 is now consumed
+    const poodle = pets.poodles[0];
+    let trotted = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 400; i++) {
+      stepPets(grid, pets, { x: 60, y: 31 });
+      if (poodle.state === 'trotting') trotted = true;
+    }
+    expect(trotted).toBe(false);
+  });
+
+  it('still wanders after eating a gumdrop far from her old home (settle re-homes her)', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 50, 31, GUMDROP, 0); // well past WANDER_RANGE from home at 30
+    run(grid, pets, null, 160); // trot there, eat, settle — but not yet bored enough to wander
+    const poodle = pets.poodles[0];
+    expect(grid.elements[31 * grid.width + 50]).toBe(EMPTY);
+    const settledX = poodle.x;
+    let moved = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 300; i++) {
+      stepPets(grid, pets, null);
+      if (poodle.x !== settledX) moved = true;
+      expect(Math.abs(poodle.x - settledX)).toBeLessThanOrEqual(WANDER_RANGE);
+    }
+    expect(moved).toBe(true);
+  });
+
+  it('never converts sand while wandering (no grooming)', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 60, 30);
+    run(grid, pets, null, WANDER_IDLE_DELAY + 600);
+    let rainbow = 0;
+    for (let i = 0; i < grid.elements.length; i++) {
+      if (grid.elements[i] === RAINBOW_SAND) rainbow++;
+    }
+    expect(rainbow).toBe(0);
   });
 });
 

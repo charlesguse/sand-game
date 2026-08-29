@@ -1,8 +1,9 @@
-# Rainbow Sand Constitution
+# Madison's Sand Constitution
 
-Rainbow Sand is a falling-sand toy built for an almost-5-year-old girl who
-loves rainbows, unicorns, and the color pink. Every decision optimizes for
-her delight and for shipping something she can play **today**.
+Madison's Sand is a falling-sand toy built for Madison, an almost-5-year-old
+girl who loves rainbows, unicorns, poodles, and the color pink. It is a fork
+of Rainbow Sand that has grown into her own game. Every decision optimizes
+for her delight and for shipping something she can play **today**.
 
 ## Core Principles
 
@@ -53,16 +54,41 @@ state what to eyeball. Do not add browser-automation test infrastructure.
 
 ## Product Constraints
 
-- **Elements** (target set, keep it small): pink sand, water, purple "magic
-  dirt" (a second sand), rainbow 🌈 and unicorn 🦄 emoji objects with simple
-  fun interactions, an eraser, and a clear-all. New element types require a
-  spec.
+- **Elements** (keep the set small): pink sand, pink water, purple "magic
+  dirt", grass, star power, fog, gumdrops 🍬, and flowers 🌼 — plus an eraser,
+  a magic wand, and a clear-all. Flowers are the one sanctioned addition of
+  this generation: they cannot be drawn — mature watered grass grows them —
+  which is exactly why they exist without growing the toolbar. New element
+  types require a spec.
+- **Objects and pets**: rainbow 🌈, unicorn 🦄, palm 🌴, and flamingo 🦩
+  emoji objects, and up to three poodle 🐩 pets who trot to her finger, chase
+  gumdrops, shake off water, wander when bored, and do a trick when poked.
+  All render as real emoji glyphs drawn on/over the canvas — no custom
+  artwork assets.
+- **Sound** is synthesized in code only (WebAudio oscillators — no audio
+  files, per Principle I), always mutable via the 🔊/🔇 button, and never
+  load-bearing: the game is fully playable silent, and stays silently
+  playable where audio is unavailable.
+- **Persistence**: her world saves locally and only locally
+  (`localStorage`), restoring on the next launch. Nothing she makes ever
+  leaves the device except a photo she explicitly shares.
+- **Photo sharing** (📷) exists only where the platform offers a file share
+  sheet; anywhere else the button is absent, never broken — the same
+  hidden-when-unsupported pattern as the 📺 fullscreen button.
 - **Scenes**: an empty canvas plus two preloaded landscape scenes,
   selectable at any time from the toolbar.
-- **Emoji objects** render as real emoji glyphs (🌈 🦄) drawn on/over the
-  canvas — no custom artwork assets.
 - **Deployment**: GitHub Pages serves the latest `main` build; the page
   itself is the downloadable artifact.
+
+## Deliberate Divergence From Upstream
+
+Upstream's FR-022 discards the undo/redo history on every grid
+re-derivation, written when re-derivation only happened on a physical
+rotation. This fork's fullscreen button makes re-derivation a one-tap
+control right next to Undo, and Madison rotates the iPad constantly —
+wiping history there would make Undo useless. So this fork remaps stored
+history states to the new grid dimensions instead of discarding them,
+keeping only states that remap losslessly. Do not "fix" this back.
 
 ## Development Workflow
 
@@ -83,4 +109,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-25
+**Version**: 1.1.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-29

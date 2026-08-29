@@ -8,6 +8,22 @@ sprinkle magic purple dirt, and watch rainbows and unicorns do fun things.
 single page and double-click it; it runs straight from disk, no server
 needed.
 
+## What's in Madison's version
+
+- 🍬 Gumdrops to pour, and 🐩 poodles (up to three) who trot to her finger,
+  chase the gumdrops, shake off water, wander when they get bored, and do a
+  twirl when poked — every animal reacts to a poke.
+- 🌼 Flowers that can't be drawn: water the grass and they grow on their own.
+- Every finger paints its own stroke, and one scribble is one undo.
+- Her world saves on the iPad itself and is right there next time she opens
+  the game. Nothing leaves the device.
+- 🔊/🔇 gentle synthesized sounds, one tap to mute; the game is fully
+  playable silent.
+- 📷 shares a big crisp photo of her picture (the button only appears where
+  the device has a share sheet, like the iPad).
+- ✨ a magic wand, ⭐ star power, 🦩 flamingos, 🌴 palm trees, and undo that
+  survives rotating the iPad.
+
 ## How it's built
 
 This repository is an experiment: the whole game is being built through the

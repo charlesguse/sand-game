@@ -8,6 +8,7 @@ export const GRASS = 6;
 export const STAR_POWER = 7;
 export const FOG = 8;
 export const GUMDROP = 9;
+export const FLOWER = 10;
 
 export type Element =
   | typeof EMPTY
@@ -19,7 +20,8 @@ export type Element =
   | typeof GRASS
   | typeof STAR_POWER
   | typeof FOG
-  | typeof GUMDROP;
+  | typeof GUMDROP
+  | typeof FLOWER;
 
 export interface Grid {
   readonly width: number;

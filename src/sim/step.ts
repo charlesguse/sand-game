@@ -1,4 +1,4 @@
-import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, GUMDROP, type Grid } from './types';
+import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, GUMDROP, FLOWER, type Grid } from './types';
 import { isPowder, isLiquid, isSolid } from './element';
 import { setCell, setGlitter, igniteStarPower, createFog } from './grid';
 import { randomShade, randomHue, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
@@ -7,6 +7,10 @@ const HUE_STEP = 5;
 const GRASS_HEIGHT_CEILING = 12;
 const GRASS_FIELD_SHARE_CEILING = 0.25;
 const GRASS_ABSORB_COOLDOWN = 10;
+/** Chance that a drink makes mature grass bloom instead of grow. */
+const FLOWER_CHANCE = 1 / 6;
+/** How tall a grass cell must be (grassHeight) before it can bloom. */
+const FLOWER_MIN_GRASS_HEIGHT = 2;
 const STAR_POWER_IGNITE_DELAY = 10;
 const FOG_MAX_LIFE = 1800;
 const FOG_STUCK_LIMIT = 300;
@@ -375,6 +379,22 @@ function stepGrass(grid: Grid, x: number, y: number, i: number): void {
     waterIndex = y * width + rightX;
   }
   if (waterIndex === -1) return;
+
+  // Flower bloom (Task 7): mature grass drinking with open sky directly above sometimes blooms
+  // instead of growing. Flowers only ever grow — there is no flower tool; watering the garden is
+  // what makes the magic happen. The drink is consumed and the cooldown set exactly as a growth
+  // drink would, so blooming never makes grass drink faster.
+  if (upY >= 0 && grid.grassHeight[i] >= FLOWER_MIN_GRASS_HEIGHT) {
+    const aboveIndex = upY * width + x;
+    if (elements[aboveIndex] === EMPTY && Math.random() < FLOWER_CHANCE) {
+      setCell(grid, waterIndex % width, Math.floor(waterIndex / width), EMPTY, 0);
+      setCell(grid, x, upY, FLOWER, 0);
+      grid.hues[aboveIndex] = randomHue();
+      grid.moved[aboveIndex] = 1;
+      grid.grassCooldown[i] = GRASS_ABSORB_COOLDOWN;
+      return;
+    }
+  }
 
   const targetIndex = pickGrowthTargetIndex(grid, x, y);
   if (targetIndex === -1) return;

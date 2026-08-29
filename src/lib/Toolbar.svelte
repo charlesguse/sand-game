@@ -8,6 +8,8 @@
     canUndo: boolean;
     canRedo: boolean;
     showFullscreen: boolean;
+    showPhoto: boolean;
+    muted: boolean;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
     onSelectScene: (sceneId: SceneId) => void;
@@ -15,6 +17,8 @@
     onUndo: () => void;
     onRedo: () => void;
     onToggleFullscreen: () => void;
+    onToggleMuted: () => void;
+    onSharePhoto: () => void;
   }
 
   let {
@@ -23,6 +27,8 @@
     canUndo,
     canRedo,
     showFullscreen,
+    showPhoto,
+    muted,
     onSelectTool,
     onSelectBrushSize,
     onSelectScene,
@@ -30,6 +36,8 @@
     onUndo,
     onRedo,
     onToggleFullscreen,
+    onToggleMuted,
+    onSharePhoto,
   }: Props = $props();
 </script>
 
@@ -146,6 +154,9 @@
     >
       ✨
     </button>
+    <button class="control" aria-label="Sound" onclick={onToggleMuted}>
+      {muted ? '🔇' : '🔊'}
+    </button>
   </div>
 
   <div class="group history">
@@ -156,6 +167,12 @@
   {#if showFullscreen}
     <div class="group screen">
       <button class="control" aria-label="Full screen" onclick={onToggleFullscreen}>📺</button>
+    </div>
+  {/if}
+
+  {#if showPhoto}
+    <div class="group photo">
+      <button class="control" aria-label="Photo" onclick={onSharePhoto}>📷</button>
     </div>
   {/if}
 

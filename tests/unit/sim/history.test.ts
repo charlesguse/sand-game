@@ -21,6 +21,7 @@ import {
   STAR_POWER,
   FOG,
   GUMDROP,
+  FLOWER,
   type Grid,
   type SceneId,
 } from '../../../src/sim/types';
@@ -38,8 +39,12 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
   const size = grid.width * grid.height;
   const colorAux = new Array(size);
   for (let i = 0; i < size; i++) {
+    // Deliberately spelled out longhand (not shared with src's usesHueColor) so a regression in
+    // either the predicate or the capture path fails here instead of hiding behind shared code.
     colorAux[i] =
-      grid.elements[i] === RAINBOW_SAND || grid.elements[i] === GUMDROP ? grid.hues[i] : grid.shades[i];
+      grid.elements[i] === RAINBOW_SAND || grid.elements[i] === GUMDROP || grid.elements[i] === FLOWER
+        ? grid.hues[i]
+        : grid.shades[i];
   }
   return {
     elements: Array.from(grid.elements),
@@ -88,6 +93,24 @@ describe('history — capture/restore round trip per painting tool (US1, FR-005,
 
     expect(history.undo(grid, objects)).toBe(true);
     expect(visibleSnapshot(grid, objects)).toEqual(before);
+  });
+
+  it('a world containing a 🌼 flower, captured/erased/undone, keeps its hue (the third hue-coloured element)', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    setCell(grid, 12, 12, FLOWER, 0);
+    grid.hues[12 * grid.width + 12] = 77;
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    const before = visibleSnapshot(grid, objects);
+    applyBrush(grid, 'eraser', 12, 12, 3, 0);
+    history.commitAction(grid, objects);
+
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(visibleSnapshot(grid, objects)).toEqual(before);
+    expect(grid.elements[12 * grid.width + 12]).toBe(FLOWER);
+    expect(grid.hues[12 * grid.width + 12]).toBe(77);
   });
 });
 
