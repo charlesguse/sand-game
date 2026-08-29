@@ -782,7 +782,7 @@ describe('history — simulation never records (FR-006)', () => {
   });
 });
 
-describe('history — remapWorldState re-anchors a snapshot to new grid dimensions (fork divergence from upstream FR-022, see resize() in PlayArea.svelte)', () => {
+describe('history — remapWorldState re-anchors a snapshot to new grid dimensions (FR-022 as amended, see resize() in PlayArea.svelte)', () => {
   it('remaps a captured world to a larger grid, landing content at the given offset, cell for cell', () => {
     const grid = createGrid(10, 10);
     const objects = createObjectsState();

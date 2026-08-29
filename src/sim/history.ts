@@ -154,12 +154,13 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
  * *live* world, so a restored snapshot lines up the same way the live grid does after a
  * re-derivation.
  *
- * Fork divergence from upstream FR-022 (specs/010-undo-redo/spec.md): upstream discards the
- * entire undo/redo history on every re-derivation. That was written when re-derivation only ever
- * happened on a physical device rotation. This fork's fullscreen toggle turns re-derivation into
- * a one-tap control sitting right next to Undo, and the target user rotates/toggles constantly —
- * wiping history on every tap makes Undo effectively useless. So this fork remaps and keeps
- * history across re-derivation instead of discarding it. Do not "fix" this back to reset().
+ * FR-022 as amended (specs/010-undo-redo/spec.md): FR-022 originally discarded the entire
+ * undo/redo history on every re-derivation. That was written when re-derivation only ever
+ * happened on a physical device rotation. The fullscreen toggle turns re-derivation into a
+ * one-tap control sitting right next to Undo, and the target user rotates/toggles constantly —
+ * wiping history on every tap makes Undo effectively useless. So the amended FR-022 remaps and
+ * keeps history across re-derivation instead of discarding it. Do not "fix" this back to
+ * reset().
  *
  * OBJECT cells are skipped when copying elements (exactly as resizeGrid does) and re-stamped
  * below only for objects that survive the reposition. This ordering is required, not
@@ -398,9 +399,9 @@ export class HistoryManager {
 
   /**
    * Re-anchors every stored state — undo stack and redo stack, in place, order preserved — to
-   * new grid dimensions via remapWorldState. This is the fork's deliberate replacement for
-   * reset() at a re-derivation site (see remapWorldState's doc comment for why upstream's FR-022
-   * no longer fits this fork). Any pending (in-progress) capture is discarded rather than
+   * new grid dimensions via remapWorldState. This is the amended FR-022's replacement for
+   * reset() at a re-derivation site (see remapWorldState's doc comment for why the original
+   * FR-022 no longer fits). Any pending (in-progress) capture is discarded rather than
    * remapped, matching how reset() treats it: resize() already aborts an in-progress stroke
    * before calling this, so a pending capture is stale and would restore to a state the child
    * never asked for.
@@ -408,7 +409,7 @@ export class HistoryManager {
    * Only states that remap losslessly (wouldRemapLosslessly) are kept — remapWorldState itself
    * silently drops any cell/object that falls outside the new bounds, so keeping a lossy remap
    * would restore a picture quietly missing pieces (and the loss compounds across repeated
-   * rotations). Discarding those states instead restores upstream's "undo is always correct"
+   * rotations). Discarding those states instead preserves the original "undo is always correct"
    * guarantee: fewer undo steps survive a shrink, but every one that does restores exactly the
    * picture it captured. Filtering (not just mapping) still preserves the relative order of the
    * states that do survive.
