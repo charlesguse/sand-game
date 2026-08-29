@@ -499,6 +499,11 @@
       return;
     }
     if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo') {
+      // Another finger may still be mid-paint (tool switched under it). Its action is pending in
+      // history; beginAction below would silently overwrite that capture and swallow the paint
+      // stroke's undo step. Settle all strokes first — placement ends the scribble, as it always
+      // did in the single-pointer code.
+      endAllStrokes();
       history.beginAction(grid, objectsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
       history.commitAction(grid, objectsState);
