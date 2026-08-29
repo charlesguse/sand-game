@@ -122,7 +122,7 @@
   // (spawnBurst below is deliberately per-frame for the sparkle visuals; sound is not).
   const poodlePrevState = new Map<number, PoodleState>();
 
-  const SAVE_KEY = 'madisons-sand-world-v1';
+  const SAVE_KEY = 'rainbow-sand-world-v1';
   const SAVE_DEBOUNCE_MS = 2000;
 
   let container: HTMLDivElement;
@@ -270,12 +270,12 @@
       strokes.clear();
     }
 
-    // Upstream's FR-022 discards the undo/redo history on every re-derivation — a call made when
-    // re-derivation only ever happened on a physical device rotation. This fork's fullscreen
-    // button turns re-derivation into a one-tap control right next to Undo, and Madison rotates
-    // the iPad (or taps fullscreen) constantly, so wiping history there makes Undo useless. We
-    // deliberately diverge from FR-022: remap every stored WorldState to the new grid dimensions
-    // instead of discarding them. Do not "fix" this back to history.reset().
+    // FR-022's original form discarded the undo/redo history on every re-derivation — a call
+    // made when re-derivation only ever happened on a physical device rotation. The fullscreen
+    // button turns re-derivation into a one-tap control right next to Undo, and she rotates the
+    // tablet (or taps fullscreen) constantly, so wiping history there makes Undo useless.
+    // FR-022 as amended (specs/010-undo-redo/spec.md): remap every stored WorldState to the new
+    // grid dimensions instead of discarding them. Do not "fix" this back to history.reset().
     history.remap(oldWidth, oldHeight, grid.width, grid.height, offsetX, offsetY);
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
@@ -691,7 +691,7 @@
       photoCtx.drawImage(canvas, 0, 0, photo.width, photo.height);
       const blob = await new Promise<Blob | null>((resolve) => photo.toBlob(resolve, 'image/png'));
       if (blob === null) return;
-      const file = new File([blob], 'madisons-sand.png', { type: 'image/png' });
+      const file = new File([blob], 'rainbow-sand.png', { type: 'image/png' });
       await navigator.share({ files: [file] });
     } catch {
       // Cancelled or declined — silent, always.

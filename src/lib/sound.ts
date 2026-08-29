@@ -10,7 +10,7 @@
  * permanently suspended, so PlayArea calls `initSoundOnGesture()` from `pointerdown`.
  */
 
-const MUTE_KEY = 'madisons-sand-muted';
+const MUTE_KEY = 'rainbow-sand-muted';
 const MASTER_GAIN = 0.12;
 
 export type PourKind = 'sand' | 'water' | 'dirt' | 'gumdrop' | 'grass' | 'star';

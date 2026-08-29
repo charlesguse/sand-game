@@ -1,9 +1,8 @@
-# Madison's Sand Constitution
+# Rainbow Sand Constitution
 
-Madison's Sand is a falling-sand toy built for Madison, an almost-5-year-old
-girl who loves rainbows, unicorns, poodles, and the color pink. It is a fork
-of Rainbow Sand that has grown into her own game. Every decision optimizes
-for her delight and for shipping something she can play **today**.
+Rainbow Sand is a falling-sand toy built for an almost-5-year-old girl who
+loves rainbows, unicorns, and the color pink. Every decision optimizes for
+her delight and for shipping something she can play **today**.
 
 ## Core Principles
 
@@ -80,15 +79,14 @@ state what to eyeball. Do not add browser-automation test infrastructure.
 - **Deployment**: GitHub Pages serves the latest `main` build; the page
   itself is the downloadable artifact.
 
-## Deliberate Divergence From Upstream
-
-Upstream's FR-022 discards the undo/redo history on every grid
-re-derivation, written when re-derivation only happened on a physical
-rotation. This fork's fullscreen button makes re-derivation a one-tap
-control right next to Undo, and Madison rotates the iPad constantly —
-wiping history there would make Undo useless. So this fork remaps stored
-history states to the new grid dimensions instead of discarding them,
-keeping only states that remap losslessly. Do not "fix" this back.
+- **History survives re-derivation**: spec 010's original FR-022 discarded
+  the undo/redo history on every grid re-derivation, written when
+  re-derivation only happened on a physical rotation. The fullscreen button
+  makes re-derivation a one-tap control right next to Undo, and she rotates
+  the tablet constantly — wiping history there would make Undo useless. So
+  stored history states are remapped to the new grid dimensions instead of
+  discarded, keeping only states that remap losslessly. FR-022 is amended
+  accordingly; do not "fix" this back to a wipe.
 
 ## Development Workflow
 
@@ -109,4 +107,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-29
+**Version**: 1.1.1 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-29

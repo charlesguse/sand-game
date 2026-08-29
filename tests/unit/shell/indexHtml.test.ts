@@ -30,9 +30,9 @@ describe('index.html iOS standalone shell', () => {
   });
 });
 
-describe('the game is named for Madison', () => {
-  it('names her in the page title', () => {
-    expect(html).toMatch(/<title>[^<]*Madison[^<]*<\/title>/);
+describe('the game is named Rainbow Sand', () => {
+  it('names it in the page title', () => {
+    expect(html).toMatch(/<title>[^<]*Rainbow Sand[^<]*<\/title>/);
   });
 
   it('uses the same name for the Home Screen icon as for the page', () => {
