@@ -2,9 +2,7 @@ import {
   EMPTY,
   FOG,
   GRASS,
-  GUMDROP,
   OBJECT,
-  RAINBOW_SAND,
   STAR_POWER,
   type Grid,
   type ObjectKind,
@@ -12,6 +10,7 @@ import {
   type PlacedObject,
 } from './types';
 import { OBJECT_KINDS } from './objects';
+import { usesHueColor } from './element';
 import { randomBurnLife, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
 
 /** Undo/redo stack depth cap, each direction (FR-019, FR-020). */
@@ -44,8 +43,7 @@ export function captureWorldState(grid: Grid, objects: ObjectsState): WorldState
   const elements = new Uint8Array(grid.elements);
   const colorAux = new Uint8Array(size);
   for (let i = 0; i < size; i++) {
-    colorAux[i] =
-      elements[i] === RAINBOW_SAND || elements[i] === GUMDROP ? grid.hues[i] : grid.shades[i];
+    colorAux[i] = usesHueColor(elements[i]) ? grid.hues[i] : grid.shades[i];
   }
   return {
     elements,
@@ -100,7 +98,7 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
     grid.grassHeight[i] = state.grassHeight[i];
     grid.cloud[i] = state.cloud[i];
 
-    if (element === RAINBOW_SAND || element === GUMDROP) {
+    if (usesHueColor(element)) {
       grid.hues[i] = state.colorAux[i];
       grid.shades[i] = 0;
     } else {
@@ -305,7 +303,7 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState): b
   for (let i = 0; i < size; i++) {
     const element = grid.elements[i];
     if (element !== pending.elements[i]) return false;
-    const colorAux = element === RAINBOW_SAND || element === GUMDROP ? grid.hues[i] : grid.shades[i];
+    const colorAux = usesHueColor(element) ? grid.hues[i] : grid.shades[i];
     if (colorAux !== pending.colorAux[i]) return false;
     if (grid.cloud[i] !== pending.cloud[i]) return false;
     if (grid.glitter[i] !== pending.glitter[i]) return false;

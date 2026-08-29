@@ -1,4 +1,4 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP } from '../sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP, FLOWER } from '../sim/types';
 
 export type Rgb = [number, number, number];
 
@@ -95,6 +95,17 @@ const GUMDROP_COLORS: Rgb[] = [
   [176, 122, 240],
 ];
 
+// Flower pastels: petals in pinks, lilac, white and soft yellow, indexed by hue so a bed of
+// flowers reads as a mixed bunch — distinct from grass greens and from gumdrop candy brights.
+const FLOWER_COLORS: Rgb[] = [
+  [255, 183, 206],
+  [255, 209, 220],
+  [225, 190, 250],
+  [200, 170, 240],
+  [255, 250, 245],
+  [255, 240, 170],
+];
+
 // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -122,5 +133,6 @@ export function colorFor(element: number, shade: number, hue: number, isCloud: b
   if (element === STAR_POWER) return GOLD_RAMP[shade % GOLD_RAMP.length];
   if (element === FOG) return isCloud ? CLOUD_RAMP[shade % CLOUD_RAMP.length] : FOG_RAMP[shade % FOG_RAMP.length];
   if (element === GUMDROP) return GUMDROP_COLORS[hue % GUMDROP_COLORS.length];
+  if (element === FLOWER) return FLOWER_COLORS[hue % FLOWER_COLORS.length];
   return [255, 255, 255];
 }
