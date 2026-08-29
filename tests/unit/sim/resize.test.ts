@@ -124,7 +124,7 @@ describe('resizeGrid — object footprints, verified at the data level (FR-026, 
     const state = createObjectsState();
     // Placed near the bottom-centre so a modest resize keeps its whole footprint in-bounds.
     placeObject(oldGrid, state, 'unicorn', 50, 85);
-    const obj = state.unicorns[0];
+    const obj = state.byKind.unicorn[0];
 
     const { offsetX, offsetY } = resizeGrid(oldGrid, 90, 120);
     const newX = obj.x + offsetX;
@@ -152,7 +152,7 @@ describe('resizeGrid — object footprints, verified at the data level (FR-026, 
     const state = createObjectsState();
     // Placed near the left edge; a big horizontal shrink pushes part of its footprint out of bounds.
     placeObject(oldGrid, state, 'rainbow', 5, 85);
-    const obj = state.rainbows[0];
+    const obj = state.byKind.rainbow[0];
 
     const { grid, offsetX, offsetY } = resizeGrid(oldGrid, 20, 120);
     const newX = obj.x + offsetX;

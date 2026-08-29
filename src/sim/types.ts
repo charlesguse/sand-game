@@ -7,6 +7,8 @@ export const OBJECT = 5;
 export const GRASS = 6;
 export const STAR_POWER = 7;
 export const FOG = 8;
+export const GUMDROP = 9;
+export const FLOWER = 10;
 
 export type Element =
   | typeof EMPTY
@@ -17,7 +19,9 @@ export type Element =
   | typeof OBJECT
   | typeof GRASS
   | typeof STAR_POWER
-  | typeof FOG;
+  | typeof FOG
+  | typeof GUMDROP
+  | typeof FLOWER;
 
 export interface Grid {
   readonly width: number;
@@ -49,12 +53,16 @@ export type Tool =
   | 'star'
   | 'rainbow'
   | 'unicorn'
+  | 'palm'
+  | 'poodle'
+  | 'flamingo'
   | 'eraser'
-  | 'wand';
+  | 'wand'
+  | 'gumdrop';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
-export type ObjectKind = 'rainbow' | 'unicorn';
+export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo';
 
 export interface PlacedObject {
   readonly id: number;
@@ -65,7 +73,6 @@ export interface PlacedObject {
 }
 
 export interface ObjectsState {
-  rainbows: PlacedObject[];
-  unicorns: PlacedObject[];
+  byKind: Record<ObjectKind, PlacedObject[]>;
   nextId: number;
 }

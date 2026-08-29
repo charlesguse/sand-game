@@ -78,7 +78,7 @@ export function applyWandLine(
   }
 }
 
-/** Bresenham-walks the segment and returns every distinct unicorn whose footprint intersects any point on the path. Never reads or writes objects.rainbows or Grid. */
+/** Bresenham-walks the segment and returns every distinct unicorn whose footprint intersects any point on the path. Never reads or writes objects.byKind.rainbow or Grid. */
 export function unicornsTouchedByWandLine(
   objects: ObjectsState,
   from: { x: number; y: number },
@@ -100,7 +100,7 @@ export function unicornsTouchedByWandLine(
   let err = dx + dy;
 
   for (;;) {
-    for (const unicorn of objects.unicorns) {
+    for (const unicorn of objects.byKind.unicorn) {
       if (touchedIds.has(unicorn.id)) continue;
       if (footprintIntersectsCircle(unicorn, x0, y0, radius)) {
         touchedIds.add(unicorn.id);

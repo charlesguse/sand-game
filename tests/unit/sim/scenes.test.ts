@@ -124,15 +124,15 @@ describe('scenes — generateLandscape1', () => {
     generateLandscape1(grid, objects);
     const regions = sceneRegions(270, 160);
 
-    expect(objects.rainbows.length).toBe(1);
-    const [rainbow] = objects.rainbows;
+    expect(objects.byKind.rainbow.length).toBe(1);
+    const [rainbow] = objects.byKind.rainbow;
     expect(rainbow.x).toBeGreaterThanOrEqual(regions.sky.x0);
     expect(rainbow.x + rainbow.size).toBeLessThanOrEqual(regions.sky.x1);
     expect(rainbow.y).toBeGreaterThanOrEqual(regions.sky.y0);
     expect(rainbow.y + rainbow.size).toBeLessThanOrEqual(regions.sky.y1);
 
     const before = Array.from(grid.elements);
-    applyRainbowConversions(grid, objects.rainbows);
+    applyRainbowConversions(grid, objects.byKind.rainbow);
     const after = Array.from(grid.elements);
     expect(after).toEqual(before);
   });
@@ -145,8 +145,8 @@ describe('scenes — generateLandscape1', () => {
     const { x0, x1, y0, y1 } = regions.lowerPortion;
     const heights = heightProfile(grid, x0, x1, y0, y1);
 
-    expect(objects.unicorns.length).toBe(1);
-    const [unicorn] = objects.unicorns;
+    expect(objects.byKind.unicorn.length).toBe(1);
+    const [unicorn] = objects.byKind.unicorn;
     const unicornColumnIndex = unicorn.x + Math.floor(unicorn.size / 2) - x0;
     const surface = heights[Math.max(0, Math.min(heights.length - 1, unicornColumnIndex))];
     expect(unicorn.y + unicorn.size).toBe(surface);
@@ -176,8 +176,8 @@ describe('scenes — generateLandscape1 determinism and at-rest stability', () =
 
     const strip = (list: { kind: string; x: number; y: number; size: number }[]) =>
       list.map(({ kind, x, y, size }) => ({ kind, x, y, size }));
-    expect(strip(objectsA.rainbows)).toEqual(strip(objectsB.rainbows));
-    expect(strip(objectsA.unicorns)).toEqual(strip(objectsB.unicorns));
+    expect(strip(objectsA.byKind.rainbow)).toEqual(strip(objectsB.byKind.rainbow));
+    expect(strip(objectsA.byKind.unicorn)).toEqual(strip(objectsB.byKind.unicorn));
   });
 
   it('holds its hill shape with no drawing input, while its shoreline grass drinks a bounded amount at the water\'s edge and then halts (FR-020, FR-028a, SC-006, SC-022 — supersedes spec 004\'s exact water conservation for landscape-1 only)', () => {
@@ -211,8 +211,8 @@ describe('scenes — loadScene(\'landscape1\')', () => {
     const objects = createObjectsState();
     loadScene('landscape1', grid, objects);
 
-    expect(objects.rainbows.length).toBe(1);
-    expect(objects.unicorns.length).toBe(1);
+    expect(objects.byKind.rainbow.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
   });
 });
@@ -268,18 +268,18 @@ describe('scenes — generateLandscape2', () => {
     generateLandscape2(grid, objects);
     const regions = sceneRegions(270, 160);
 
-    expect(objects.rainbows.length).toBe(2);
-    for (const rainbow of objects.rainbows) {
+    expect(objects.byKind.rainbow.length).toBe(2);
+    for (const rainbow of objects.byKind.rainbow) {
       expect(rainbow.x).toBeGreaterThanOrEqual(regions.sky.x0);
       expect(rainbow.x + rainbow.size).toBeLessThanOrEqual(regions.sky.x1);
       expect(rainbow.y).toBeGreaterThanOrEqual(regions.sky.y0);
       expect(rainbow.y + rainbow.size).toBeLessThanOrEqual(regions.sky.y1);
     }
-    const [a, b] = objects.rainbows;
+    const [a, b] = objects.byKind.rainbow;
     expect(Math.abs(a.x - b.x)).toBeGreaterThan(a.size);
 
     const before = Array.from(grid.elements);
-    applyRainbowConversions(grid, objects.rainbows);
+    applyRainbowConversions(grid, objects.byKind.rainbow);
     const after = Array.from(grid.elements);
     expect(after).toEqual(before);
   });
@@ -292,8 +292,8 @@ describe('scenes — generateLandscape2', () => {
     const { x0, x1, y0, y1 } = regions.lowerPortion;
     const heights = heightProfile(grid, x0, x1, y0, y1, SAND);
 
-    expect(objects.unicorns.length).toBe(1);
-    const [unicorn] = objects.unicorns;
+    expect(objects.byKind.unicorn.length).toBe(1);
+    const [unicorn] = objects.byKind.unicorn;
     const columnIndex = unicorn.x + Math.floor(unicorn.size / 2) - x0;
     const surface = heights[Math.max(0, Math.min(heights.length - 1, columnIndex))];
     expect(unicorn.y + unicorn.size).toBe(surface);
@@ -317,8 +317,8 @@ describe('scenes — generateLandscape2 determinism (FR-023)', () => {
 
     const strip = (list: { kind: string; x: number; y: number; size: number }[]) =>
       list.map(({ kind, x, y, size }) => ({ kind, x, y, size }));
-    expect(strip(objectsA.rainbows)).toEqual(strip(objectsB.rainbows));
-    expect(strip(objectsA.unicorns)).toEqual(strip(objectsB.unicorns));
+    expect(strip(objectsA.byKind.rainbow)).toEqual(strip(objectsB.byKind.rainbow));
+    expect(strip(objectsA.byKind.unicorn)).toEqual(strip(objectsB.byKind.unicorn));
   });
 });
 
@@ -353,8 +353,8 @@ describe('scenes — loadScene', () => {
     loadScene('empty', grid, objects);
 
     for (let i = 0; i < grid.elements.length; i++) expect(grid.elements[i]).toBe(EMPTY);
-    expect(objects.rainbows.length).toBe(0);
-    expect(objects.unicorns.length).toBe(0);
+    expect(objects.byKind.rainbow.length).toBe(0);
+    expect(objects.byKind.unicorn.length).toBe(0);
   });
 
   it('clears every existing grass cell along with everything else, with grassCount reset accordingly, before placing new contents (FR-028, Scenario 7)', () => {
@@ -428,11 +428,11 @@ describe('scenes — size robustness (FR-022)', () => {
       }
     }
 
-    expect(objects.rainbows.length).toBe(1);
-    const [rainbow] = objects.rainbows;
+    expect(objects.byKind.rainbow.length).toBe(1);
+    const [rainbow] = objects.byKind.rainbow;
     expect(rainbow.y).toBeGreaterThanOrEqual(regions.sky.y0);
     expect(rainbow.y + rainbow.size).toBeLessThanOrEqual(regions.sky.y1);
-    expect(objects.unicorns.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
 
     // FR-028a: grass is present on the hills, laid out within the same lowerPortion region.
@@ -466,12 +466,12 @@ describe('scenes — size robustness (FR-022)', () => {
       }
     }
 
-    expect(objects.rainbows.length).toBe(2);
-    for (const rainbow of objects.rainbows) {
+    expect(objects.byKind.rainbow.length).toBe(2);
+    for (const rainbow of objects.byKind.rainbow) {
       expect(rainbow.y).toBeGreaterThanOrEqual(regions.sky.y0);
       expect(rainbow.y + rainbow.size).toBeLessThanOrEqual(regions.sky.y1);
     }
-    expect(objects.unicorns.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(1);
     expect(countWater(grid)).toBeGreaterThan(0);
 
     // FR-028a: landscape-2 remains exactly as it was — not a blade of grass.
@@ -503,7 +503,7 @@ describe('scenes — interaction after load (US3)', () => {
     const objects = createObjectsState();
     loadScene('landscape1', grid, objects);
 
-    const [sceneUnicorn] = objects.unicorns;
+    const [sceneUnicorn] = objects.byKind.unicorn;
     eraseObjectsInBrush(
       grid,
       objects,
@@ -511,14 +511,14 @@ describe('scenes — interaction after load (US3)', () => {
       sceneUnicorn.y + sceneUnicorn.size / 2,
       2,
     );
-    expect(objects.unicorns.length).toBe(0);
+    expect(objects.byKind.unicorn.length).toBe(0);
     for (let py = sceneUnicorn.y; py < sceneUnicorn.y + sceneUnicorn.size; py++) {
       for (let px = sceneUnicorn.x; px < sceneUnicorn.x + sceneUnicorn.size; px++) {
         expect(getElement(grid, px, py)).toBe(EMPTY);
       }
     }
 
-    const [sceneRainbow] = objects.rainbows;
+    const [sceneRainbow] = objects.byKind.rainbow;
     eraseObjectsInBrush(
       grid,
       objects,
@@ -526,21 +526,21 @@ describe('scenes — interaction after load (US3)', () => {
       sceneRainbow.y + sceneRainbow.size / 2,
       2,
     );
-    expect(objects.rainbows.length).toBe(0);
+    expect(objects.byKind.rainbow.length).toBe(0);
   });
 
   it('reaching the per-type cap of 3 evicts the scene’s own object first, since it was placed oldest (FR-014)', () => {
     const grid = createGrid(270, 160);
     const objects = createObjectsState();
     loadScene('landscape1', grid, objects);
-    const sceneRainbowId = objects.rainbows[0].id;
+    const sceneRainbowId = objects.byKind.rainbow[0].id;
 
     placeObject(grid, objects, 'rainbow', 50, 50);
     placeObject(grid, objects, 'rainbow', 100, 50);
     placeObject(grid, objects, 'rainbow', 150, 50);
 
-    expect(objects.rainbows.length).toBe(3);
-    expect(objects.rainbows.some((o) => o.id === sceneRainbowId)).toBe(false);
+    expect(objects.byKind.rainbow.length).toBe(3);
+    expect(objects.byKind.rainbow.some((o) => o.id === sceneRainbowId)).toBe(false);
   });
 });
 

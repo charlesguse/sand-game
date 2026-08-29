@@ -80,7 +80,7 @@ describe('wand — conversion rule', () => {
     const grid = createGrid(60, 60);
     const objects = createObjectsState();
     placeObject(grid, objects, 'rainbow', 30, 30);
-    const [rainbow] = objects.rainbows;
+    const [rainbow] = objects.byKind.rainbow;
     // Just outside the rainbow's footprint, inside its conversion zone border.
     const zoneX = rainbow.x - 1;
     const zoneY = rainbow.y + 1;
@@ -283,8 +283,8 @@ describe('wand — objects are left untouched', () => {
     const objects = createObjectsState();
     placeObject(grid, objects, 'rainbow', 20, 20);
     placeObject(grid, objects, 'unicorn', 80, 20);
-    const rainbowBefore = { ...objects.rainbows[0] };
-    const unicornBefore = { ...objects.unicorns[0] };
+    const rainbowBefore = { ...objects.byKind.rainbow[0] };
+    const unicornBefore = { ...objects.byKind.unicorn[0] };
 
     applyWandLine(grid, { x: 0, y: 20 }, { x: 119, y: 20 }, 5);
 
@@ -301,10 +301,10 @@ describe('wand — objects are left untouched', () => {
       }
     }
 
-    expect(objects.rainbows.length).toBe(1);
-    expect(objects.unicorns.length).toBe(1);
-    expect(objects.rainbows[0]).toEqual(rainbowBefore);
-    expect(objects.unicorns[0]).toEqual(unicornBefore);
+    expect(objects.byKind.rainbow.length).toBe(1);
+    expect(objects.byKind.unicorn.length).toBe(1);
+    expect(objects.byKind.rainbow[0]).toEqual(rainbowBefore);
+    expect(objects.byKind.unicorn[0]).toEqual(unicornBefore);
   });
 });
 

@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.local
 .DS_Store
+
+# Superpowers scratch workspaces (plans/ledgers/reports are not project files)
+.superpowers/

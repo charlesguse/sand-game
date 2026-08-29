@@ -129,11 +129,11 @@ describe('objects — placeObject/removeObject', () => {
     placeObject(grid, state, 'rainbow', 20, 20);
     placeObject(grid, state, 'rainbow', 60, 20);
     placeObject(grid, state, 'rainbow', 100, 20);
-    const firstId = state.rainbows[0].id;
+    const firstId = state.byKind.rainbow[0].id;
     placeObject(grid, state, 'rainbow', 140, 20);
 
-    expect(state.rainbows.length).toBe(3);
-    expect(state.rainbows.some((o) => o.id === firstId)).toBe(false);
+    expect(state.byKind.rainbow.length).toBe(3);
+    expect(state.byKind.rainbow.some((o) => o.id === firstId)).toBe(false);
   });
 
   it('reaching one type cap does not affect the other type count', () => {
@@ -146,8 +146,8 @@ describe('objects — placeObject/removeObject', () => {
     placeObject(grid, state, 'rainbow', 140, 20);
     placeObject(grid, state, 'unicorn', 20, 100);
 
-    expect(state.rainbows.length).toBe(3);
-    expect(state.unicorns.length).toBe(1);
+    expect(state.byKind.rainbow.length).toBe(3);
+    expect(state.byKind.unicorn.length).toBe(1);
   });
 
   it('removing an object whose footprint overlaps a surviving object leaves the shared cells as OBJECT, but releases cells only the removed object covered', () => {
@@ -157,8 +157,8 @@ describe('objects — placeObject/removeObject', () => {
     // Two overlapping placements, offset so their footprints partially intersect.
     placeObject(grid, state, 'rainbow', 15, 15);
     placeObject(grid, state, 'unicorn', 15 + Math.floor(OBJECT_FOOTPRINT_SIZE / 2), 15);
-    const [rainbow] = state.rainbows;
-    const [unicorn] = state.unicorns;
+    const [rainbow] = state.byKind.rainbow;
+    const [unicorn] = state.byKind.unicorn;
 
     removeObject(grid, state, rainbow);
 
@@ -178,12 +178,12 @@ describe('objects — placeObject/removeObject', () => {
     const state = createObjectsState();
 
     placeObject(grid, state, 'unicorn', 30, 30);
-    const [unicorn] = state.unicorns;
+    const [unicorn] = state.byKind.unicorn;
     const { x, y } = unicorn;
 
     for (let i = 0; i < 20; i++) step(grid);
-    expect(state.unicorns[0].x).toBe(x);
-    expect(state.unicorns[0].y).toBe(y);
+    expect(state.byKind.unicorn[0].x).toBe(x);
+    expect(state.byKind.unicorn[0].y).toBe(y);
 
     removeObject(grid, state, unicorn);
     for (let i = 0; i < 20; i++) step(grid);
@@ -248,12 +248,12 @@ describe('objects — eraseObjectsInBrush', () => {
     const grid = createGrid(60, 60);
     const state = createObjectsState();
     placeObject(grid, state, 'rainbow', 20, 20);
-    const [rainbow] = state.rainbows;
+    const [rainbow] = state.byKind.rainbow;
 
     // Brush centered just outside the footprint's top-left corner, radius reaching in.
     eraseObjectsInBrush(grid, state, rainbow.x, rainbow.y, 2);
 
-    expect(state.rainbows.length).toBe(0);
+    expect(state.byKind.rainbow.length).toBe(0);
     for (let py = rainbow.y; py < rainbow.y + rainbow.size; py++) {
       for (let px = rainbow.x; px < rainbow.x + rainbow.size; px++) {
         expect(getElement(grid, px, py)).toBe(EMPTY);
@@ -269,8 +269,8 @@ describe('objects — eraseObjectsInBrush', () => {
 
     eraseObjectsInBrush(grid, state, 20, 20, 2);
 
-    expect(state.rainbows.length).toBe(0);
-    expect(state.unicorns.length).toBe(1);
+    expect(state.byKind.rainbow.length).toBe(0);
+    expect(state.byKind.unicorn.length).toBe(1);
   });
 });
 
@@ -279,7 +279,7 @@ describe('objects — eraseObjectsInBrushLine', () => {
     const grid = createGrid(200, 60);
     const state = createObjectsState();
     placeObject(grid, state, 'rainbow', 100, 20);
-    const [rainbow] = state.rainbows;
+    const [rainbow] = state.byKind.rainbow;
     const midY = rainbow.y + rainbow.size / 2;
 
     // Sanity check: the endpoints alone are far enough from the footprint to miss it.
@@ -288,7 +288,7 @@ describe('objects — eraseObjectsInBrushLine', () => {
 
     eraseObjectsInBrushLine(grid, state, { x: 0, y: midY }, { x: 199, y: midY }, 1);
 
-    expect(state.rainbows.length).toBe(0);
+    expect(state.byKind.rainbow.length).toBe(0);
   });
 
   it('leaves an object untouched when the whole line passes nowhere near its footprint', () => {
@@ -298,7 +298,7 @@ describe('objects — eraseObjectsInBrushLine', () => {
 
     eraseObjectsInBrushLine(grid, state, { x: 150, y: 150 }, { x: 190, y: 190 }, 1);
 
-    expect(state.rainbows.length).toBe(1);
+    expect(state.byKind.rainbow.length).toBe(1);
   });
 });
 
@@ -356,12 +356,12 @@ describe('objects — clearObjects', () => {
     const state = createObjectsState();
     placeObject(grid, state, 'rainbow', 20, 20);
     placeObject(grid, state, 'unicorn', 40, 20);
-    const rainbowCell = { x: state.rainbows[0].x, y: state.rainbows[0].y };
+    const rainbowCell = { x: state.byKind.rainbow[0].x, y: state.byKind.rainbow[0].y };
 
     clearObjects(state);
 
-    expect(state.rainbows).toEqual([]);
-    expect(state.unicorns).toEqual([]);
+    expect(state.byKind.rainbow).toEqual([]);
+    expect(state.byKind.unicorn).toEqual([]);
     // grid is untouched by clearObjects — the OBJECT cell byte is still there.
     expect(getElement(grid, rainbowCell.x, rainbowCell.y)).toBe(OBJECT);
   });

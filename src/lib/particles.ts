@@ -22,16 +22,17 @@ function spawn(particles: Particle[], glyph: '✨' | '💖' | '🎉', atX: numbe
 
 const BURST_GLYPHS: Array<'✨' | '💖' | '🎉'> = ['✨', '💖', '🎉'];
 
-/** Spawns a small celebration burst of sparkle/heart/party glyphs. */
+/** Spawns a small celebration burst, drawn evenly at random from `glyphs` (a weighted pool — repeat a glyph to favour it). */
 export function spawnBurst(
   particles: Particle[],
   atX: number,
   atY: number,
   now: number,
   count: number = BURST_COUNT,
+  glyphs: ReadonlyArray<'✨' | '💖' | '🎉'> = BURST_GLYPHS,
 ): void {
   for (let i = 0; i < count; i++) {
-    spawn(particles, BURST_GLYPHS[Math.floor(Math.random() * BURST_GLYPHS.length)], atX, atY, now);
+    spawn(particles, glyphs[Math.floor(Math.random() * glyphs.length)], atX, atY, now);
   }
 }
 

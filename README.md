@@ -1,12 +1,28 @@
 # 🌈 Rainbow Sand 🦄
 
 A falling-sand toy for an almost-5-year-old who loves rainbows, unicorns,
-and pink. Draw with pink sand, pour water, sprinkle magic purple dirt, and
-watch rainbows and unicorns do fun things.
+and pink. Draw with pink sand, pour pink water, sprinkle magic purple dirt,
+and watch rainbows and unicorns do fun things.
 
 **Play it:** https://charlesguse.github.io/sand-game/ — or download that
 single page and double-click it; it runs straight from disk, no server
 needed.
+
+## What's in the game
+
+- 🍬 Gumdrops to pour, and 🐩 poodles (up to three) who trot to her finger,
+  chase the gumdrops, shake off water, wander when they get bored, and do a
+  twirl when poked — every animal reacts to a poke.
+- 🌼 Flowers that can't be drawn: water the grass and they grow on their own.
+- Every finger paints its own stroke, and one scribble is one undo.
+- Her world saves on the device itself and is right there next time she opens
+  the game. Nothing leaves the device.
+- 🔊/🔇 gentle synthesized sounds, one tap to mute; the game is fully
+  playable silent.
+- 📷 shares a big crisp photo of her picture (the button only appears where
+  the device has a share sheet, like the iPad).
+- ✨ a magic wand, ⭐ star power, 🦩 flamingos, 🌴 palm trees, and undo that
+  survives rotating the tablet.
 
 ## How it's built
 
@@ -19,6 +35,17 @@ at each gate. See the issues and `specs/` for the full paper trail.
 - Stack: Svelte 5 + Vite, built to a **single self-contained `index.html`**
   via `vite-plugin-singlefile`.
 - Ground rules: [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
+
+## Credits
+
+The gumdrops, poodles, palm trees, flamingos, flowers, pink water,
+multi-touch strokes, sounds, on-device saving, photo sharing, and the iPad
+standalone/fullscreen work were all built by
+[Max Krol](https://github.com/m8j8k) in his fork,
+[Madison's Sand](https://github.com/m8j8k/madisons-sand-game), and merged
+back here with his commits intact. His original design and plan documents
+for those features are preserved verbatim in
+[`docs/superpowers/`](docs/superpowers/).
 
 ## Local development
 

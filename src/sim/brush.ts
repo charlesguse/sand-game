@@ -1,5 +1,6 @@
-import { EMPTY, SAND, WATER, DIRT, GRASS, FOG, type Grid, type Tool } from './types';
+import { EMPTY, SAND, WATER, DIRT, GRASS, FOG, GUMDROP, type Grid, type Tool } from './types';
 import { setCell, inBounds, igniteStarPower, createFog } from './grid';
+import { randomHue } from './shade';
 
 export function forEachFootprintCell(
   cx: number,
@@ -38,6 +39,9 @@ function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number):
     setCell(grid, x, y, DIRT, shade);
   } else if (tool === 'grass' && (paintable || current === WATER)) {
     setCell(grid, x, y, GRASS, shade);
+  } else if (tool === 'gumdrop' && (paintable || current === WATER)) {
+    setCell(grid, x, y, GUMDROP, shade);
+    grid.hues[y * grid.width + x] = randomHue();
   } else if (tool === 'water' && paintable) {
     setCell(grid, x, y, WATER, shade);
   } else if (tool === 'star' && paintable) {

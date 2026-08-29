@@ -53,16 +53,40 @@ state what to eyeball. Do not add browser-automation test infrastructure.
 
 ## Product Constraints
 
-- **Elements** (target set, keep it small): pink sand, water, purple "magic
-  dirt" (a second sand), rainbow 🌈 and unicorn 🦄 emoji objects with simple
-  fun interactions, an eraser, and a clear-all. New element types require a
-  spec.
+- **Elements** (keep the set small): pink sand, pink water, purple "magic
+  dirt", grass, star power, fog, gumdrops 🍬, and flowers 🌼 — plus an eraser,
+  a magic wand, and a clear-all. Flowers are the one sanctioned addition of
+  this generation: they cannot be drawn — mature watered grass grows them —
+  which is exactly why they exist without growing the toolbar. New element
+  types require a spec.
+- **Objects and pets**: rainbow 🌈, unicorn 🦄, palm 🌴, and flamingo 🦩
+  emoji objects, and up to three poodle 🐩 pets who trot to her finger, chase
+  gumdrops, shake off water, wander when bored, and do a trick when poked.
+  All render as real emoji glyphs drawn on/over the canvas — no custom
+  artwork assets.
+- **Sound** is synthesized in code only (WebAudio oscillators — no audio
+  files, per Principle I), always mutable via the 🔊/🔇 button, and never
+  load-bearing: the game is fully playable silent, and stays silently
+  playable where audio is unavailable.
+- **Persistence**: her world saves locally and only locally
+  (`localStorage`), restoring on the next launch. Nothing she makes ever
+  leaves the device except a photo she explicitly shares.
+- **Photo sharing** (📷) exists only where the platform offers a file share
+  sheet; anywhere else the button is absent, never broken — the same
+  hidden-when-unsupported pattern as the 📺 fullscreen button.
 - **Scenes**: an empty canvas plus two preloaded landscape scenes,
   selectable at any time from the toolbar.
-- **Emoji objects** render as real emoji glyphs (🌈 🦄) drawn on/over the
-  canvas — no custom artwork assets.
 - **Deployment**: GitHub Pages serves the latest `main` build; the page
   itself is the downloadable artifact.
+
+- **History survives re-derivation**: spec 010's original FR-022 discarded
+  the undo/redo history on every grid re-derivation, written when
+  re-derivation only happened on a physical rotation. The fullscreen button
+  makes re-derivation a one-tap control right next to Undo, and she rotates
+  the tablet constantly — wiping history there would make Undo useless. So
+  stored history states are remapped to the new grid dimensions instead of
+  discarded, keeping only states that remap losslessly. FR-022 is amended
+  accordingly; do not "fix" this back to a wipe.
 
 ## Development Workflow
 
@@ -83,4 +107,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-25
+**Version**: 1.1.1 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-29

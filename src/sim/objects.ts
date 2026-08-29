@@ -14,8 +14,10 @@ import {
 } from './types';
 import { randomHue } from './shade';
 
+export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm', 'flamingo'];
+
 export function createObjectsState(): ObjectsState {
-  return { rainbows: [], unicorns: [], nextId: 0 };
+  return { byKind: { rainbow: [], unicorn: [], palm: [], flamingo: [] }, nextId: 0 };
 }
 
 /** For each rainbow, converts any SAND/DIRT/WATER cell in its zone to RAINBOW_SAND with a fresh hue. Allocates nothing. */
@@ -43,15 +45,14 @@ export function applyRainbowConversions(grid: Grid, rainbows: PlacedObject[]): v
 }
 
 function listFor(state: ObjectsState, kind: ObjectKind): PlacedObject[] {
-  return kind === 'rainbow' ? state.rainbows : state.unicorns;
+  return state.byKind[kind];
 }
 
 function isCoveredByAnyObject(state: ObjectsState, px: number, py: number): boolean {
-  for (const o of state.rainbows) {
-    if (px >= o.x && px < o.x + o.size && py >= o.y && py < o.y + o.size) return true;
-  }
-  for (const o of state.unicorns) {
-    if (px >= o.x && px < o.x + o.size && py >= o.y && py < o.y + o.size) return true;
+  for (const kind of OBJECT_KINDS) {
+    for (const o of state.byKind[kind]) {
+      if (px >= o.x && px < o.x + o.size && py >= o.y && py < o.y + o.size) return true;
+    }
   }
   return false;
 }
@@ -134,13 +135,12 @@ export function eraseObjectsInBrush(
   cy: number,
   radius: number,
 ): void {
-  for (let i = state.rainbows.length - 1; i >= 0; i--) {
-    const obj = state.rainbows[i];
-    if (footprintIntersectsCircle(obj, cx, cy, radius)) removeObject(grid, state, obj);
-  }
-  for (let i = state.unicorns.length - 1; i >= 0; i--) {
-    const obj = state.unicorns[i];
-    if (footprintIntersectsCircle(obj, cx, cy, radius)) removeObject(grid, state, obj);
+  for (const kind of OBJECT_KINDS) {
+    const list = state.byKind[kind];
+    for (let i = list.length - 1; i >= 0; i--) {
+      const obj = list[i];
+      if (footprintIntersectsCircle(obj, cx, cy, radius)) removeObject(grid, state, obj);
+    }
   }
 }
 
@@ -178,8 +178,9 @@ export function eraseObjectsInBrushLine(
   }
 }
 
-/** Resets both object lists to empty without touching grid. */
+/** Resets every object list (one per kind in OBJECT_KINDS) to empty without touching grid. */
 export function clearObjects(state: ObjectsState): void {
-  state.rainbows = [];
-  state.unicorns = [];
+  for (const kind of OBJECT_KINDS) {
+    state.byKind[kind] = [];
+  }
 }
