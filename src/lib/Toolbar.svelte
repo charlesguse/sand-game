@@ -8,6 +8,7 @@
     canUndo: boolean;
     canRedo: boolean;
     showFullscreen: boolean;
+    showPhoto: boolean;
     muted: boolean;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
@@ -17,6 +18,7 @@
     onRedo: () => void;
     onToggleFullscreen: () => void;
     onToggleMuted: () => void;
+    onSharePhoto: () => void;
   }
 
   let {
@@ -25,6 +27,7 @@
     canUndo,
     canRedo,
     showFullscreen,
+    showPhoto,
     muted,
     onSelectTool,
     onSelectBrushSize,
@@ -34,6 +37,7 @@
     onRedo,
     onToggleFullscreen,
     onToggleMuted,
+    onSharePhoto,
   }: Props = $props();
 </script>
 
@@ -163,6 +167,12 @@
   {#if showFullscreen}
     <div class="group screen">
       <button class="control" aria-label="Full screen" onclick={onToggleFullscreen}>📺</button>
+    </div>
+  {/if}
+
+  {#if showPhoto}
+    <div class="group photo">
+      <button class="control" aria-label="Photo" onclick={onSharePhoto}>📷</button>
     </div>
   {/if}
 

@@ -657,6 +657,33 @@
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
+  /**
+   * Renders the picture to a big crisp PNG and hands it to the platform share sheet. Only ever
+   * called when App's canShare probe succeeded (the 📷 button is absent otherwise). Nothing in
+   * here may surface an error: a rejected share (she cancelled the sheet, or iOS declined) is
+   * not an error, and every other failure is silently dropped the same way.
+   */
+  export async function sharePhoto(): Promise<void> {
+    try {
+      const scale = 4;
+      const photo = document.createElement('canvas');
+      photo.width = grid.width * scale;
+      photo.height = grid.height * scale;
+      const photoCtx = photo.getContext('2d');
+      if (photoCtx === null) return;
+      photoCtx.imageSmoothingEnabled = false;
+      photoCtx.fillStyle = '#ffffff';
+      photoCtx.fillRect(0, 0, photo.width, photo.height);
+      photoCtx.drawImage(canvas, 0, 0, photo.width, photo.height);
+      const blob = await new Promise<Blob | null>((resolve) => photo.toBlob(resolve, 'image/png'));
+      if (blob === null) return;
+      const file = new File([blob], 'madisons-sand.png', { type: 'image/png' });
+      await navigator.share({ files: [file] });
+    } catch {
+      // Cancelled or declined — silent, always.
+    }
+  }
+
   onMount(() => {
     ctx = canvas.getContext('2d')!;
     const field = measureField();

@@ -14,6 +14,24 @@
 
   const showFullscreen = isFullscreenSupported(document.documentElement);
 
+  // The 📺 pattern: computed once, and the 📷 button simply does not exist where the platform
+  // can't share a file (desktop browsers, older iOS) — absent, never broken. The probe File is
+  // constructed inside the try because the File constructor itself can throw on old engines.
+  function isPhotoShareSupported(): boolean {
+    try {
+      if (typeof navigator.canShare !== 'function') return false;
+      const probe = new File(['probe'], 'probe.png', { type: 'image/png' });
+      return navigator.canShare({ files: [probe] });
+    } catch {
+      return false;
+    }
+  }
+  const showPhoto = isPhotoShareSupported();
+
+  function sharePhoto(): void {
+    void playArea.sharePhoto();
+  }
+
   function handleToggleFullscreen(): void {
     void toggleFullscreen(document.documentElement, document);
   }
@@ -61,6 +79,7 @@
     {canUndo}
     {canRedo}
     {showFullscreen}
+    {showPhoto}
     {muted}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
@@ -70,6 +89,7 @@
     onRedo={redo}
     onToggleFullscreen={handleToggleFullscreen}
     onToggleMuted={handleToggleMuted}
+    onSharePhoto={sharePhoto}
   />
 </main>
 
