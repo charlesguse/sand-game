@@ -138,6 +138,9 @@ export function repositionPoodles(
   for (const poodle of poodles) {
     poodle.x = Math.min(Math.max(poodle.x + offsetX, 0), newGrid.width - 1);
     poodle.y = Math.min(Math.max(poodle.y + offsetY, 0), newGrid.height - 1);
+    // Home moves with her: a stale homeX further than WANDER_RANGE from the shifted position
+    // would fail wanderStep's leash check in both directions, permanently disabling wandering.
+    poodle.homeX = poodle.x;
   }
 }
 
@@ -418,6 +421,11 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
     // wander step every WANDER_PAUSE frames — but never while a gumdrop cooldown is pending
     // pursuit (her finger, or the resumed chase, gets her first).
     poodle.state = 'idle';
+    // The first idle frame after doing anything (a trot, a meal, a trick, a dig) is a settle:
+    // wherever she is now is the home her wandering stays near. Without this, eating a gumdrop
+    // more than WANDER_RANGE from the old home would strand her outside her own leash and
+    // silently disable wandering forever.
+    if (poodle.idleFrames === 0) poodle.homeX = poodle.x;
     poodle.idleFrames++;
     if (
       poodle.gumdropCooldown === 0 &&
@@ -432,12 +440,11 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
   const dx = targetX - poodle.x;
   if (Math.abs(dx) <= ARRIVE_DISTANCE) {
     poodle.state = 'idle';
+    if (poodle.idleFrames === 0) poodle.homeX = poodle.x; // settle: see the branch above
     poodle.idleFrames++;
     if (chasingFinger) {
-      // Arrived at her finger: consume this target so it stops re-arriving forever, and settle
-      // here — this is the new home wandering stays near.
+      // Arrived at her finger: consume this target so it stops re-arriving forever.
       poodle.consumedTargetX = targetX;
-      poodle.homeX = poodle.x;
     }
     return;
   }

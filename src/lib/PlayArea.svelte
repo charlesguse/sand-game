@@ -180,11 +180,11 @@
       if (saved === null) return;
 
       let state = saved.state;
+      // Same anchor resizeGrid uses, so a restored world lines up the same way live
+      // re-derivation does. Best-effort carry — loss acceptable here (unlike undo).
+      const offsetX = Math.round((grid.width - saved.width) / 2);
+      const offsetY = grid.height - saved.height;
       if (saved.width !== grid.width || saved.height !== grid.height) {
-        // Same anchor resizeGrid uses, so a restored world lines up the same way live
-        // re-derivation does. Best-effort carry — loss acceptable here (unlike undo).
-        const offsetX = Math.round((grid.width - saved.width) / 2);
-        const offsetY = grid.height - saved.height;
         state = remapWorldState(state, saved.width, saved.height, grid.width, grid.height, offsetX, offsetY);
       }
 
@@ -198,6 +198,11 @@
 
       clearPets(petsState);
       for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
+      // Saved coordinates belong to the saved dimensions: shift them by the same offset the
+      // terrain just got, and clamp back in bounds (deserializeWorld accepts any finite coords)
+      // — otherwise a landscape-save opened in portrait strands poodles outside the grid where
+      // they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
+      repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
 
       // History starts empty after a restore — the restored world is the new baseline.
       history.reset();
@@ -647,6 +652,9 @@
     endAllStrokes();
     history.undo(grid, objectsState);
     playWhoosh();
+    // Undo changes the world like any stroke does: without this, the persisted save can keep
+    // the pre-undo picture until some later commit happens to schedule one.
+    scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
@@ -654,6 +662,7 @@
     endAllStrokes();
     history.redo(grid, objectsState);
     playWhoosh();
+    scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
@@ -662,6 +671,11 @@
    * called when App's canShare probe succeeded (the 📷 button is absent otherwise). Nothing in
    * here may surface an error: a rejected share (she cancelled the sheet, or iOS declined) is
    * not an error, and every other failure is silently dropped the same way.
+   *
+   * Known platform caveat: navigator.share runs after the async toBlob, and WebKit's transient
+   * user-activation window can lapse if toBlob is slow, rejecting with NotAllowedError — which
+   * this catch then swallows, making the tap a silent no-op on such devices. Eyeball-check the
+   * share sheet actually appearing on the target iPad; there is no in-scope way to pre-render.
    */
   export async function sharePhoto(): Promise<void> {
     try {

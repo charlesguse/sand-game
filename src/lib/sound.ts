@@ -237,7 +237,16 @@ export function playSweep(): void {
 }
 
 /** A soft two-tone chime for the magic wand. */
+let lastChimeAt = -Infinity;
+
 export function playChime(): void {
+  if (muted || ctx === null || master === null) return;
+  // The wand calls this from paintAt on every pointermove, the same call pattern that earned
+  // pours their throttle: unthrottled, a drag stacks dozens of overlapping chime voices into
+  // clipped noise. Same gate, same window (canPlayPour is the shared pure throttle decision).
+  const now = Date.now();
+  if (!canPlayPour(now, lastChimeAt)) return;
+  lastChimeAt = now;
   safe(() => {
     scheduleTone(880, 0.24, { type: 'sine', peak: 0.45, attack: 0.006 });
     scheduleTone(1320, 0.2, { type: 'sine', peak: 0.22, attack: 0.006, delay: 0.015 });

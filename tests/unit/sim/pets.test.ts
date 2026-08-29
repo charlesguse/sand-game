@@ -555,6 +555,25 @@ describe('wandering when bored', () => {
     expect(trotted).toBe(false);
   });
 
+  it('still wanders after eating a gumdrop far from her old home (settle re-homes her)', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 50, 31, GUMDROP, 0); // well past WANDER_RANGE from home at 30
+    run(grid, pets, null, 160); // trot there, eat, settle — but not yet bored enough to wander
+    const poodle = pets.poodles[0];
+    expect(grid.elements[31 * grid.width + 50]).toBe(EMPTY);
+    const settledX = poodle.x;
+    let moved = false;
+    for (let i = 0; i < WANDER_IDLE_DELAY + 300; i++) {
+      stepPets(grid, pets, null);
+      if (poodle.x !== settledX) moved = true;
+      expect(Math.abs(poodle.x - settledX)).toBeLessThanOrEqual(WANDER_RANGE);
+    }
+    expect(moved).toBe(true);
+  });
+
   it('never converts sand while wandering (no grooming)', () => {
     const grid = withFloor(120, 40, 8);
     const pets = createPetsState();
