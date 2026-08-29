@@ -30,6 +30,38 @@ describe('index.html iOS standalone shell', () => {
   });
 });
 
+describe('home screen icons', () => {
+  it('embeds a self-contained PNG favicon so the icon survives file:// play', () => {
+    expect(html).toMatch(
+      /rel="icon" type="image\/png" sizes="192x192" href="data:image\/png;base64,/,
+    );
+  });
+
+  it('links the hosted apple-touch-icon and manifest by relative path', () => {
+    expect(html).toMatch(/rel="apple-touch-icon" href="apple-touch-icon\.png"/);
+    expect(html).toMatch(/rel="manifest" href="manifest\.webmanifest"/);
+  });
+
+  it('ships the hosted icon files the links point at', () => {
+    const publicDir = new URL('../../../public/', import.meta.url);
+    for (const name of ['apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) {
+      expect(readFileSync(fileURLToPath(new URL(name, publicDir))).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('declares 192 and 512 PNG icons in the manifest', () => {
+    const manifest = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL('../../../public/manifest.webmanifest', import.meta.url)),
+        'utf8',
+      ),
+    ) as { name: string; icons: { src: string; sizes: string; type: string }[] };
+    expect(manifest.name).toBe('Rainbow Sand');
+    expect(manifest.icons.map((i) => i.sizes).sort()).toEqual(['192x192', '512x512']);
+    for (const icon of manifest.icons) expect(icon.type).toBe('image/png');
+  });
+});
+
 describe('the game is named Rainbow Sand', () => {
   it('names it in the page title', () => {
     expect(html).toMatch(/<title>[^<]*Rainbow Sand[^<]*<\/title>/);
