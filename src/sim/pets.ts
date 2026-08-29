@@ -2,7 +2,7 @@ import { isSolid } from './element';
 import { EMPTY, GUMDROP, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
 import { randomHue } from './shade';
 
-export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging';
+export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging' | 'tricking';
 
 export interface Poodle {
   readonly id: number;
@@ -63,6 +63,10 @@ const GUMDROP_COOLDOWN = 150;
 const SHAKE_DURATION = 30;
 /** Frames spent per scoop when digging out. */
 const DIG_DURATION = 3;
+/** How close a tap must land to a poodle to count as poking it, in cells. */
+export const POKE_RADIUS = 14;
+/** Frames spent doing a trick after being poked. */
+export const TRICK_DURATION = 36;
 
 export function createPetsState(): PetsState {
   return { poodles: [], nextId: 0, stride: 0 };
@@ -202,6 +206,29 @@ function eatGumdropNear(grid: Grid, gx: number, poodle: Poodle): boolean {
   }
   if (bestY === -1) return false;
   grid.elements[bestY * grid.width + gx] = EMPTY;
+  return true;
+}
+
+/**
+ * Pokes the nearest poodle within POKE_RADIUS of (x, y): if there is one and
+ * its timer is free (not eating/shaking/digging/mid-trick), it does a trick —
+ * state 'tricking', held via the existing timer gate exactly like eating and
+ * shaking, so it must not (and does not) touch any pursuit field. Returns
+ * true iff a trick started. Never throws.
+ */
+export function pokePoodleAt(pets: PetsState, x: number, y: number): boolean {
+  let nearest: Poodle | null = null;
+  let bestDist = Infinity;
+  for (const poodle of pets.poodles) {
+    const dist = Math.hypot(poodle.x - x, poodle.y - y);
+    if (dist <= POKE_RADIUS && dist < bestDist) {
+      bestDist = dist;
+      nearest = poodle;
+    }
+  }
+  if (nearest === null || nearest.timer > 0) return false;
+  nearest.state = 'tricking';
+  nearest.timer = TRICK_DURATION;
   return true;
 }
 

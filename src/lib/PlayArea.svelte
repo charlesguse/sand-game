@@ -33,6 +33,7 @@
     stepPets,
     clearPets,
     repositionPoodles,
+    pokePoodleAt,
     type PoodleState,
   } from '../sim/pets';
   import {
@@ -62,6 +63,7 @@
     playWhoosh,
     playSweep,
     playChime,
+    playTrill,
     type PourKind,
   } from './sound';
 
@@ -98,6 +100,15 @@
     number,
     { lastBurstAt: number; lastIdleAt: number; lastWandBurstAt: number }
   >();
+
+  // Poke reactions (Task 4): how long a poked flamingo hops / palm shivers, and when each
+  // object's reaction started — keyed by object id, swept of expired entries every frame
+  // (an entry for an erased object simply expires; drawObjectGlyph never sees dead ids).
+  const POKE_REACTION_MS = 600;
+  const flamingoHopAt = new Map<number, number>();
+  const palmShiverAt = new Map<number, number>();
+  // 💖-heavy pool for the tricking poodle's per-frame burst.
+  const TRICK_GLYPHS: ReadonlyArray<'✨' | '💖' | '🎉'> = ['💖', '💖', '💖', '✨'];
 
   // Which brush strokes count as "pouring" a material (as opposed to the eraser, which also
   // runs through applyBrush/applyBrushLine but isn't a pour) — see playPour's call sites below.
@@ -278,7 +289,14 @@
 
     if (obj.kind === 'flamingo') {
       const bob = Math.sin(lastFrameNow * FLAMINGO_BOB_SPEED + obj.id) * FLAMINGO_BOB_PIXELS;
-      ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy + bob);
+      // A poked flamingo hops: an extra bounce whose phase is anchored to the poke time, so it
+      // starts from zero (no visual jump) and completes a couple of hops over the reaction.
+      const hopStart = flamingoHopAt.get(obj.id);
+      const hop =
+        hopStart !== undefined && lastFrameNow - hopStart < POKE_REACTION_MS
+          ? -Math.abs(Math.sin((lastFrameNow - hopStart) * 0.012)) * 6
+          : 0;
+      ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy + bob + hop);
       return;
     }
 
@@ -288,7 +306,14 @@
     }
 
     const baseY = obj.y + obj.size;
-    const angle = Math.sin(lastFrameNow * PALM_SWAY_SPEED + obj.id) * PALM_SWAY_RADIANS;
+    // A poked palm shivers: a fast extra wiggle on top of the slow ambient sway, phase-anchored
+    // to the poke so it fades in from zero rather than snapping.
+    const shiverStart = palmShiverAt.get(obj.id);
+    const shiver =
+      shiverStart !== undefined && lastFrameNow - shiverStart < POKE_REACTION_MS
+        ? Math.sin((lastFrameNow - shiverStart) * 0.05) * 0.12
+        : 0;
+    const angle = Math.sin(lastFrameNow * PALM_SWAY_SPEED + obj.id) * PALM_SWAY_RADIANS + shiver;
     ctx.save();
     ctx.translate(cx, baseY);
     ctx.rotate(angle);
@@ -347,6 +372,8 @@
       } else if (poodle.state === 'shaking') {
         spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 2);
         if (wasState !== 'shaking') playWobble();
+      } else if (poodle.state === 'tricking') {
+        spawnBurst(particles, poodle.x, poodle.y, lastFrameNow, 2, TRICK_GLYPHS);
       } else if (poodle.state === 'trotting' && Math.random() < 0.08) {
         spawnIdleSparkle(particles, poodle.x, poodle.y, lastFrameNow);
       }
@@ -354,7 +381,10 @@
 
       ctx.save();
       ctx.translate(poodle.x, poodle.y);
-      if (poodle.facing === -1) ctx.scale(-1, 1);
+      // A tricking poodle spins: her timer counts the trick down frame by frame, so flipping on
+      // its 6-frame parity reads as a few full twirls over the trick's duration.
+      const trickFlip = poodle.state === 'tricking' && Math.floor(poodle.timer / 6) % 2 === 1 ? -1 : 1;
+      if (poodle.facing * trickFlip === -1) ctx.scale(-1, 1);
       ctx.fillText('🐩', 0, 0);
       ctx.restore();
     }
@@ -397,12 +427,24 @@
 
   let lastFrameNow = 0;
 
+  // Drops finished poke reactions. An entry whose object was meanwhile erased simply expires
+  // here too — drawObjectGlyph only ever reads entries for objects that still exist.
+  function sweepPokeReactions(now: number): void {
+    for (const [id, at] of flamingoHopAt) {
+      if (now - at >= POKE_REACTION_MS) flamingoHopAt.delete(id);
+    }
+    for (const [id, at] of palmShiverAt) {
+      if (now - at >= POKE_REACTION_MS) palmShiverAt.delete(id);
+    }
+  }
+
   function frame(now: number): void {
     lastFrameNow = now;
     step(grid);
     stepPets(grid, petsState, poodleTarget);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
     updateUnicorns(now);
+    sweepPokeReactions(now);
     tickParticles(particles, now);
     updateFlashMask(grid, flashMask);
     render();
@@ -417,6 +459,21 @@
       x: Math.floor((clientX - rect.left) * scaleX),
       y: Math.floor((clientY - rect.top) * scaleY),
     };
+  }
+
+  // The unicorn's big celebration burst, cooldown-gated per unicorn — shared by the wand's
+  // touch path and a direct poke (Task 4 reuses this exact path by design).
+  function fireWandBurst(unicorn: PlacedObject, now: number): void {
+    const timers = unicornTimers.get(unicorn.id) ?? {
+      lastBurstAt: -Infinity,
+      lastIdleAt: now,
+      lastWandBurstAt: -Infinity,
+    };
+    if (now - timers.lastWandBurstAt >= WAND_BURST_COOLDOWN_MS) {
+      spawnBurst(particles, unicorn.x + unicorn.size / 2, unicorn.y + unicorn.size / 2, now, WAND_BURST_COUNT);
+      timers.lastWandBurstAt = now;
+    }
+    unicornTimers.set(unicorn.id, timers);
   }
 
   // `from` is this pointer's own last painted position (or null on its first paint) — passed in
@@ -442,18 +499,7 @@
       playChime();
       const now = performance.now();
       for (const unicorn of unicornsTouchedByWandLine(objectsState, wandFrom, pos, radius)) {
-        const timers = unicornTimers.get(unicorn.id) ?? {
-          lastBurstAt: -Infinity,
-          lastIdleAt: now,
-          lastWandBurstAt: -Infinity,
-        };
-        if (now - timers.lastWandBurstAt >= WAND_BURST_COOLDOWN_MS) {
-          const atX = unicorn.x + unicorn.size / 2;
-          const atY = unicorn.y + unicorn.size / 2;
-          spawnBurst(particles, atX, atY, now, WAND_BURST_COUNT);
-          timers.lastWandBurstAt = now;
-        }
-        unicornTimers.set(unicorn.id, timers);
+        fireWandBurst(unicorn, now);
       }
     } else if (from) {
       applyBrushLine(grid, tool, from, pos, radius, shade);
@@ -486,6 +532,19 @@
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
+  // The placed object whose footprint contains the point, or null. First match wins; footprints
+  // rarely overlap and any of the overlapping objects is a fine poke target.
+  function objectAtPoint(pos: { x: number; y: number }): PlacedObject | null {
+    for (const kind of OBJECT_KINDS) {
+      for (const obj of objectsState.byKind[kind]) {
+        if (pos.x >= obj.x && pos.x < obj.x + obj.size && pos.y >= obj.y && pos.y < obj.y + obj.size) {
+          return obj;
+        }
+      }
+    }
+    return null;
+  }
+
   function handlePointerDown(event: PointerEvent): void {
     initSoundOnGesture();
     // Defensive: a stray second pointerdown for the same id with no pointerup in between
@@ -493,6 +552,32 @@
     endStroke(event.pointerId);
     const pos = clientToGrid(event.clientX, event.clientY);
     poodleTarget = pos;
+    // Poke check (Task 4), before any painting or placing: a tap that lands on an animal is a
+    // poke with every tool except the eraser — the eraser must keep erasing objects, so it
+    // passes straight through. A poked pointer never enters the stroke map and places nothing.
+    if (tool !== 'eraser') {
+      if (pokePoodleAt(petsState, pos.x, pos.y)) {
+        // The trick's 💖 burst is spawned per-frame off the 'tricking' state in render(),
+        // the same way eating and shaking spawn theirs.
+        playTrill();
+        return;
+      }
+      const poked = objectAtPoint(pos);
+      if (poked !== null) {
+        const now = performance.now();
+        if (poked.kind === 'unicorn') {
+          fireWandBurst(poked, now);
+        } else if (poked.kind === 'flamingo') {
+          flamingoHopAt.set(poked.id, now);
+        } else if (poked.kind === 'palm') {
+          palmShiverAt.set(poked.id, now);
+        } else {
+          spawnBurst(particles, poked.x + poked.size / 2, poked.y + poked.size / 2, now);
+        }
+        playTrill();
+        return;
+      }
+    }
     if (tool === 'poodle') {
       addPoodle(petsState, pos.x, pos.y);
       canvas.setPointerCapture(event.pointerId);

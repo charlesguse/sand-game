@@ -6,7 +6,9 @@ import {
   stepPets,
   clearPets,
   repositionPoodles,
+  pokePoodleAt,
   POODLE_CAP,
+  POKE_RADIUS,
   GUMDROP_SCENT_RADIUS,
 } from '../../../src/sim/pets';
 import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
@@ -407,6 +409,97 @@ describe('a gumdrop at her own cell', () => {
     stepPets(grid, pets, null);
     expect(pets.poodles[0].state).toBe('eating');
     expect(grid.elements[y * grid.width + x]).toBe(EMPTY);
+  });
+});
+
+describe('poking the poodle', () => {
+  it('does a trick when poked within reach', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    expect(pokePoodleAt(pets, poodle.x + 3, poodle.y - 3)).toBe(true);
+    expect(poodle.state).toBe('tricking');
+    expect(poodle.timer).toBeGreaterThan(0);
+  });
+
+  it('ignores a poke outside POKE_RADIUS', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    const stateBefore = poodle.state;
+    expect(pokePoodleAt(pets, poodle.x + POKE_RADIUS + 5, poodle.y)).toBe(false);
+    expect(poodle.state).toBe(stateBefore);
+    expect(poodle.timer).toBe(0);
+  });
+
+  it('returns false with no poodles at all', () => {
+    const pets = createPetsState();
+    expect(pokePoodleAt(pets, 10, 10)).toBe(false);
+  });
+
+  it('picks the nearest poodle when several are in reach', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    addPoodle(pets, 45, 30);
+    run(grid, pets, null, 20);
+    expect(pokePoodleAt(pets, 44, 31)).toBe(true);
+    expect(pets.poodles[1].state).toBe('tricking');
+    expect(pets.poodles[0].state).not.toBe('tricking');
+  });
+
+  it('does not interrupt eating or shaking (busy timer wins)', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    const x = Math.round(poodle.x);
+    const y = Math.round(poodle.y);
+    setCell(grid, x, y, GUMDROP, 0);
+    stepPets(grid, pets, null);
+    expect(poodle.state).toBe('eating');
+    const timerBefore = poodle.timer;
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(false);
+    expect(poodle.state).toBe('eating');
+    expect(poodle.timer).toBe(timerBefore);
+  });
+
+  it('goes back to normal after the trick and still comes when called', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 30, 30);
+    run(grid, pets, null, 20);
+    const poodle = pets.poodles[0];
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(true);
+    run(grid, pets, null, 100);
+    expect(poodle.state).toBe('idle');
+    const startX = poodle.x;
+    run(grid, pets, { x: 50, y: 31 }, 60);
+    expect(poodle.x).toBeGreaterThan(startX);
+  });
+
+  it('leaves pursuit bookkeeping untouched when poked mid-pursuit', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 40, 30);
+    run(grid, pets, null, 20);
+    setCell(grid, 20, 31, GUMDROP, 0);
+    run(grid, pets, null, 30);
+    const poodle = pets.poodles[0];
+    expect(poodle.pursuitX).toBe(20);
+    const bestDistBefore = poodle.pursuitBestDist;
+    const staleBefore = poodle.pursuitStaleFrames;
+    const cooldownBefore = poodle.gumdropCooldown;
+    expect(pokePoodleAt(pets, poodle.x, poodle.y)).toBe(true);
+    expect(poodle.pursuitX).toBe(20);
+    expect(poodle.pursuitBestDist).toBe(bestDistBefore);
+    expect(poodle.pursuitStaleFrames).toBe(staleBefore);
+    expect(poodle.gumdropCooldown).toBe(cooldownBefore);
   });
 });
 
