@@ -29,7 +29,7 @@ Single client-only project (no `backend/`/`frontend/` split) — `src/`, `tests/
 
 **Purpose**: Confirm the pre-feature baseline before any change
 
-- [ ] T001 Run `npm install`, `npm test`, and `npm run build` from a clean checkout of the current branch to confirm the pre-feature baseline is green — specs 001–012 all pass, `dist/index.html` is the only build output, and the three historical causes are already fixed on `main` per the spec's Assumptions (border-box sizing, rail flows down height, selected emphasis is a border not a scale) — no files modified in this task
+- [X] T001 Run `npm install`, `npm test`, and `npm run build` from a clean checkout of the current branch to confirm the pre-feature baseline is green — specs 001–012 all pass, `dist/index.html` is the only build output, and the three historical causes are already fixed on `main` per the spec's Assumptions (border-box sizing, rail flows down height, selected emphasis is a border not a scale) — no files modified in this task
 
 **Checkpoint**: Baseline confirmed green — safe to start Foundational work.
 
