@@ -2,7 +2,8 @@
   "issue": 41,
   "spec_dir": "specs/013-rendered-geometry-gate",
   "feature_num": "013",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 2,
-  "spec_branch": "spec/013-rendered-geometry-gate"
+  "spec_branch": "spec/013-rendered-geometry-gate",
+  "pending_re_review_from": []
 }
