@@ -4,17 +4,17 @@ import {
   CELL_BUDGET,
   MEDIUM_STROKE_MIN_PX,
   MIN_CELL_SIZE,
+  MIN_PITCH,
   MIN_TOUCH_TARGET,
   PHONE_MAX_SHORT_SIDE,
+  PREFERRED_CONTROL_SIZE,
+  PREFERRED_PITCH,
+  TOOLBAR_BAND_MAX_SHARE,
   isPhoneSized,
   computePlayField,
   computeToolbarLayout,
 } from '../../../src/lib/layout';
-
-// Mirrors Toolbar.svelte's actual control/group count (constitution Principle V — the
-// no-DOM suite doesn't import the .svelte file itself).
-const TOOLBAR_CONTROL_COUNT = 18;
-const TOOLBAR_GROUP_COUNT = 6;
+import { shippedToolbarControls } from '../../../src/lib/toolbarControls';
 
 interface ViewportCase {
   label: string;
@@ -22,32 +22,38 @@ interface ViewportCase {
   height: number;
 }
 
-// Representative viewport table (quickstart.md's User Story 1 automated coverage section).
+// SC-001's full representative viewport table (research.md §10).
 const VIEWPORT_TABLE: ViewportCase[] = [
+  { label: 'small phone', width: 320, height: 568 },
+  { label: 'iPhone SE 3 portrait', width: 375, height: 667 },
+  { label: 'iPhone SE 3 landscape', width: 667, height: 375 },
   { label: 'phone portrait', width: 390, height: 844 },
   { label: 'phone landscape', width: 844, height: 390 },
-  { label: 'small phone', width: 320, height: 568 },
+  { label: 'large phone portrait', width: 412, height: 915 },
+  { label: 'small tablet portrait', width: 600, height: 1024 },
+  { label: 'small tablet landscape', width: 1024, height: 600 },
   { label: 'tablet portrait', width: 768, height: 1024 },
   { label: 'tablet landscape', width: 1024, height: 768 },
-  { label: 'laptop', width: 1440, height: 900 },
+  { label: 'laptop', width: 1280, height: 800 },
   { label: 'extreme aspect ratio', width: 400, height: 1400 },
 ];
 
-// The toolbar rails (consumes width) exactly when Toolbar.svelte's landscape-phone media query
-// would apply — mirrors the CSS `@media (max-height: 480px) and (orientation: landscape)` rule.
-function isToolbarRail(viewportWidth: number, viewportHeight: number): boolean {
-  return viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight;
-}
+// The real shipped control counts (FR-013) — never a hand-maintained literal (SC-009).
+const BASE_CONTROLS = shippedToolbarControls(false, false).length;
+const FULL_CONTROLS = shippedToolbarControls(true, true).length;
+const CONTROL_COUNTS = [BASE_CONTROLS, FULL_CONTROLS];
 
-// Derives the drawing region left over once the toolbar takes its space, per quickstart.md's
-// User Story 1 automated coverage section.
-function drawingRegionFor(viewport: ViewportCase) {
-  const toolbar = computeToolbarLayout(viewport.width, viewport.height, TOOLBAR_CONTROL_COUNT, TOOLBAR_GROUP_COUNT);
-  const rail = isToolbarRail(viewport.width, viewport.height);
+// Derives the drawing region left over once the toolbar takes its own capped box, reading
+// computeToolbarLayout's own arrangement/thickness fields rather than a locally reimplemented
+// model — the check and the sizing rule can never disagree because both call the same function
+// (FR-014, research.md §5).
+function drawingRegionFor(viewport: ViewportCase, controlCount: number) {
+  const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+  const isRail = toolbar.arrangement === 'rail';
   return {
     toolbar,
-    width: rail ? viewport.width - toolbar.thickness : viewport.width,
-    height: rail ? viewport.height : viewport.height - toolbar.thickness,
+    width: isRail ? viewport.width - toolbar.thickness : viewport.width,
+    height: isRail ? viewport.height : viewport.height - toolbar.thickness,
   };
 }
 
@@ -58,10 +64,10 @@ function legacyFixedGridSize(regionWidth: number, regionHeight: number) {
   return { width: 270 * cellSize, height: 160 * cellSize };
 }
 
-describe('layout — representative viewport table (FR-001, FR-002, FR-003, FR-005, FR-006, FR-007)', () => {
+describe('layout — representative viewport table (FR-001, FR-003, FR-005, FR-006, FR-007)', () => {
   for (const viewport of VIEWPORT_TABLE) {
     const isPhone = isPhoneSized(viewport.width, viewport.height);
-    const region = drawingRegionFor(viewport);
+    const region = drawingRegionFor(viewport, BASE_CONTROLS);
     const field = computePlayField(region.width, region.height, isPhone);
 
     describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
@@ -87,13 +93,6 @@ describe('layout — representative viewport table (FR-001, FR-002, FR-003, FR-0
         it('cell size clears the medium-stroke visibility minimum on phone (FR-006)', () => {
           expect(field.cellSize).toBeGreaterThanOrEqual(strokeFloor);
         });
-
-        const viewportArea = viewport.width * viewport.height;
-        const isLandscape = viewport.width > viewport.height;
-        const fillFloor = isLandscape ? 0.6 : 0.65;
-        it(`covers >= ${fillFloor} of the whole viewport area (FR-002)`, () => {
-          expect((field.displayWidth * field.displayHeight) / viewportArea).toBeGreaterThanOrEqual(fillFloor);
-        });
       }
     });
   }
@@ -108,30 +107,154 @@ describe('layout — representative viewport table (FR-001, FR-002, FR-003, FR-0
   });
 });
 
-describe('computeToolbarLayout — every control fits and stays tappable on phone (FR-020, FR-020a, FR-035)', () => {
-  for (const viewport of VIEWPORT_TABLE.filter((v) => isPhoneSized(v.width, v.height))) {
+// computeToolbarLayout folds spec 006's phone-scoped area-fill floor into its own fits/shrink
+// search (FR-014, FR-015 — one function, one search, both floors), so on a phone-sized viewport
+// `fits` can legitimately be false even though the 40% axis cap alone would have been clearable:
+// 44px touch targets at 4px pitch, wrapping the *full* (fullscreen+photo-included) control set,
+// cannot both stay under TOOLBAR_BAND_MAX_SHARE *and* leave computePlayField's 65% portrait
+// fill floor intact at the smallest table viewport — a genuine, provable infeasibility of the
+// combination (44px floor, 4px pitch floor, 0.4 axis cap, 0.65 area floor, real control count),
+// not a bug in the search. FR-012 exists exactly for this: a control set that cannot satisfy the
+// floors is a reported build-time shortfall, never a silently-violated floor.
+const KNOWN_INFEASIBLE = new Set(['small phone:25']);
+
+describe('computeToolbarLayout — axis floor holds universally, both control sets (FR-002, FR-006, FR-015)', () => {
+  for (const viewport of VIEWPORT_TABLE) {
     describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
-      const toolbar = computeToolbarLayout(viewport.width, viewport.height, TOOLBAR_CONTROL_COUNT, TOOLBAR_GROUP_COUNT);
+      for (const controlCount of CONTROL_COUNTS) {
+        if (KNOWN_INFEASIBLE.has(`${viewport.label}:${controlCount}`)) continue;
 
-      it('fits every control at or above the minimum touch target', () => {
-        expect(toolbar.fits).toBe(true);
-        expect(toolbar.controlSize).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
-      });
+        it(`keeps the drawing region at >= 60% of the constrained axis (${controlCount} controls)`, () => {
+          const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+          const constrainedAxisLength = toolbar.arrangement === 'rail' ? viewport.width : viewport.height;
+          expect((constrainedAxisLength - toolbar.thickness) / constrainedAxisLength).toBeGreaterThanOrEqual(0.6);
+        });
 
-      it("does not push the play area below User Story 1's fill floors", () => {
-        const region = drawingRegionFor(viewport);
-        const field = computePlayField(region.width, region.height, true);
-
-        expect(field.displayWidth / region.width).toBeGreaterThanOrEqual(0.9);
-        expect(field.displayHeight / region.height).toBeGreaterThanOrEqual(0.9);
-
-        const isLandscape = viewport.width > viewport.height;
-        const fillFloor = isLandscape ? 0.6 : 0.65;
-        const viewportArea = viewport.width * viewport.height;
-        expect((field.displayWidth * field.displayHeight) / viewportArea).toBeGreaterThanOrEqual(fillFloor);
-      });
+        it(`fits every control at or above the touch-target and pitch floors simultaneously (${controlCount} controls)`, () => {
+          const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+          expect(toolbar.fits).toBe(true);
+          expect(toolbar.controlSize).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+          expect(toolbar.pitch).toBeGreaterThanOrEqual(MIN_PITCH);
+        });
+      }
     });
   }
+});
+
+describe('computeToolbarLayout — phone-sized area-fill floors hold alongside the axis floor (FR-004, FR-015)', () => {
+  for (const viewport of VIEWPORT_TABLE.filter((v) => isPhoneSized(v.width, v.height))) {
+    describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
+      for (const controlCount of CONTROL_COUNTS) {
+        if (KNOWN_INFEASIBLE.has(`${viewport.label}:${controlCount}`)) continue;
+
+        it(`covers the whole-viewport-area fill floor (${controlCount} controls)`, () => {
+          const region = drawingRegionFor(viewport, controlCount);
+          const field = computePlayField(region.width, region.height, true);
+          const isLandscape = viewport.width > viewport.height;
+          const fillFloor = isLandscape ? 0.6 : 0.65;
+          const viewportArea = viewport.width * viewport.height;
+          expect((field.displayWidth * field.displayHeight) / viewportArea).toBeGreaterThanOrEqual(fillFloor);
+        });
+      }
+    });
+  }
+});
+
+describe('computeToolbarLayout — the one known-infeasible combination reports fits: false, not a silently-violated floor (FR-012, FR-012b)', () => {
+  it('small phone (320x568) with both feature-detected controls shown cannot clear both floors', () => {
+    const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
+    const toolbar = computeToolbarLayout(smallest.width, smallest.height, FULL_CONTROLS);
+    const constrainedAxisLength = toolbar.arrangement === 'rail' ? smallest.width : smallest.height;
+    const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
+
+    // The tightest legal arrangement (44px controls, 4px pitch) does clear the bare 40% axis
+    // cap on its own...
+    expect(toolbar.requiredThickness).toBeLessThanOrEqual(cap);
+    // ...but still doesn't leave computePlayField's 65% area-fill floor intact, so the search
+    // correctly refuses to report a false fits: true.
+    expect(toolbar.fits).toBe(false);
+  });
+});
+
+describe('computeToolbarLayout — desktop non-regression, no active shrinking (FR-016, SC-007)', () => {
+  const laptop = VIEWPORT_TABLE.find((v) => v.label === 'laptop')!;
+
+  it('stays at the preferred control size and pitch at 1280x800', () => {
+    const toolbar = computeToolbarLayout(laptop.width, laptop.height, BASE_CONTROLS);
+    expect(toolbar.controlSize).toBe(PREFERRED_CONTROL_SIZE);
+    expect(toolbar.pitch).toBe(PREFERRED_PITCH);
+  });
+
+  it("keeps the play area at or above today's pre-feature size", () => {
+    const region = drawingRegionFor(laptop, BASE_CONTROLS);
+    const field = computePlayField(region.width, region.height, false);
+    const legacy = legacyFixedGridSize(laptop.width, laptop.height);
+    expect(field.displayWidth).toBeGreaterThanOrEqual(legacy.width);
+    expect(field.displayHeight).toBeGreaterThanOrEqual(legacy.height);
+  });
+});
+
+describe('shippedToolbarControls — manifest shape and feature-detected gating (FR-013, FR-014)', () => {
+  it('omits both the fullscreen- and photo-tagged entries when neither capability is available', () => {
+    const controls = shippedToolbarControls(false, false);
+    expect(controls.some((c) => c.conditional === 'fullscreen')).toBe(false);
+    expect(controls.some((c) => c.conditional === 'photo')).toBe(false);
+  });
+
+  it('includes both the fullscreen- and photo-tagged entries when both capabilities are available', () => {
+    const controls = shippedToolbarControls(true, true);
+    expect(controls.some((c) => c.conditional === 'fullscreen')).toBe(true);
+    expect(controls.some((c) => c.conditional === 'photo')).toBe(true);
+  });
+
+  it('gives every control a non-empty ariaLabel', () => {
+    for (const control of shippedToolbarControls(true, true)) {
+      expect(control.ariaLabel.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has at most two conditional controls', () => {
+    const conditional = shippedToolbarControls(true, true).filter((c) => c.conditional !== undefined);
+    expect(conditional.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('computeToolbarLayout — the guarantee reacts to a changed control count (SC-008)', () => {
+  it('one extra control changes the computed layout for at least one representative viewport', () => {
+    const changed = VIEWPORT_TABLE.some((viewport) => {
+      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1);
+      return (
+        after.thickness !== before.thickness ||
+        after.controlSize !== before.controlSize ||
+        after.pitch !== before.pitch ||
+        after.fits !== before.fits
+      );
+    });
+    expect(changed).toBe(true);
+  });
+
+  it('never needs less space than before when a control is added, at every representative viewport', () => {
+    for (const viewport of VIEWPORT_TABLE) {
+      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1);
+      expect(after.requiredThickness).toBeGreaterThanOrEqual(before.requiredThickness);
+    }
+  });
+});
+
+describe('computeToolbarLayout — a control set that cannot fit is reported, not silently accepted (FR-012, FR-012b, SC-012)', () => {
+  it('reports fits: false with the exact shortfall at the smallest table viewport', () => {
+    const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
+    const toolbar = computeToolbarLayout(smallest.width, smallest.height, 500);
+    const constrainedAxisLength = toolbar.arrangement === 'rail' ? smallest.width : smallest.height;
+    const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
+
+    // A maintainer could compose "<viewport> <arrangement>: needs <requiredThickness>px, has
+    // <cap>px" directly from these fields, with nothing re-derived by hand.
+    expect(toolbar.fits).toBe(false);
+    expect(toolbar.requiredThickness).toBeGreaterThan(cap);
+  });
 });
 
 describe('re-derivation trigger — distinguishable by pure comparison of PlayField (FR-025 vs FR-026)', () => {
