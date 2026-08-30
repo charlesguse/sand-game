@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { Tool, BrushSize, SceneId } from '../sim/types';
   import { MIN_TOUCH_TARGET, RESIZE_SETTLE_MS, computeToolbarLayout } from './layout';
-  import { shippedToolbarControls, type ToolbarControlSpec, type ToolbarGroupId } from './toolbarControls';
+  import { shippedToolbarControls } from './toolbarControls';
   import BucketIcon from './BucketIcon.svelte';
 
   interface Props {
@@ -43,24 +43,12 @@
     onSharePhoto,
   }: Props = $props();
 
-  // Render order for the toolbar's coloured-pill groups — unchanged visual clustering from
-  // before this feature (FR-008: purely a visual cue, never a forced line break).
-  const GROUP_ORDER: readonly ToolbarGroupId[] = [
-    'elements',
-    'objects',
-    'actions',
-    'history',
-    'screen',
-    'photo',
-    'scenes',
-    'sizes',
-  ];
-
+  // Controls render as one flat sequence in manifest order (FR-008: grouping is a purely
+  // visual cue via each control's own data-group tint, never a forced line break at a group
+  // boundary — a nested per-group flex box would make the *real* CSS wrap at group granularity
+  // while computeToolbarLayout's own model assumes individual controls flow freely, which is
+  // exactly the FR-014 drift this feature exists to close).
   const controls = $derived(shippedToolbarControls(showFullscreen, showPhoto));
-
-  function controlsIn(groupId: ToolbarGroupId): ToolbarControlSpec[] {
-    return controls.filter((control) => control.group === groupId);
-  }
 
   function isSelected(id: string): boolean {
     switch (id) {
@@ -280,34 +268,29 @@
 </script>
 
 <div class="toolbar" style={boxStyle}>
-  {#each GROUP_ORDER as groupId (groupId)}
-    {@const groupControls = controlsIn(groupId)}
-    {#if groupControls.length > 0}
-      <div class="group {groupId}">
-        {#each groupControls as control (control.id)}
-          {#if control.id === 'tool-sand'}
-            <button
-              class="control"
-              class:selected={tool === 'sand'}
-              aria-label="Pink sand"
-              onclick={() => onSelectTool('sand')}
-            >
-              <BucketIcon />
-            </button>
-          {:else}
-            <button
-              class="control"
-              class:size={control.group === 'sizes'}
-              class:selected={isSelected(control.id)}
-              aria-label={control.ariaLabel}
-              disabled={isDisabled(control.id)}
-              onclick={() => handleClick(control.id)}
-            >
-              {glyphFor(control.id)}
-            </button>
-          {/if}
-        {/each}
-      </div>
+  {#each controls as control (control.id)}
+    {#if control.id === 'tool-sand'}
+      <button
+        class="control"
+        data-group={control.group}
+        class:selected={tool === 'sand'}
+        aria-label="Pink sand"
+        onclick={() => onSelectTool('sand')}
+      >
+        <BucketIcon />
+      </button>
+    {:else}
+      <button
+        class="control"
+        data-group={control.group}
+        class:size={control.group === 'sizes'}
+        class:selected={isSelected(control.id)}
+        aria-label={control.ariaLabel}
+        disabled={isDisabled(control.id)}
+        onclick={() => handleClick(control.id)}
+      >
+        {glyphFor(control.id)}
+      </button>
     {/if}
   {/each}
 </div>
@@ -333,17 +316,6 @@
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     background: linear-gradient(180deg, #ffe1f0, #e8e3fb);
-  }
-
-  .group {
-    display: flex;
-    row-gap: 0;
-    column-gap: var(--pitch);
-    border-radius: 1.25rem;
-    background: rgba(255, 255, 255, 0.55);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 1px 4px rgba(90, 61, 102, 0.08);
   }
 
   .control {
@@ -372,6 +344,44 @@
     transition:
       transform 120ms ease,
       box-shadow 120ms ease;
+  }
+
+  /* A soft per-group ring tint — grouping stays a visual cue (FR-008) without a shared
+     parent box, so the toolbar's real wrap (flex-wrap on .toolbar, one control per flex
+     item) matches computeToolbarLayout's flat-sequence model exactly (FR-014). */
+  .control[data-group='elements'] {
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06),
+      0 0 0 2px rgba(255, 92, 168, 0.25);
+  }
+
+  .control[data-group='objects'] {
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06),
+      0 0 0 2px rgba(178, 139, 255, 0.25);
+  }
+
+  .control[data-group='actions'] {
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06),
+      0 0 0 2px rgba(92, 200, 255, 0.25);
+  }
+
+  .control[data-group='history'] {
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06),
+      0 0 0 2px rgba(126, 217, 87, 0.25);
+  }
+
+  .control[data-group='scenes'] {
+    box-shadow:
+      0 2px 6px rgba(90, 61, 102, 0.16),
+      inset 0 -2px 0 rgba(90, 61, 102, 0.06),
+      0 0 0 2px rgba(255, 201, 60, 0.25);
   }
 
   .control:active:not(:disabled) {
