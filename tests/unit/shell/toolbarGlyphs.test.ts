@@ -7,17 +7,25 @@ const toolbar = readFileSync(
   'utf8',
 );
 
-describe('the sand tool is labelled as sand, not as a colour', () => {
-  it('prefers the bucket glyph', () => {
-    expect(toolbar).toContain('SAND_GLYPHS');
-  });
-
-  it('renders the sand glyph the platform can actually draw, never a hard-coded one', () => {
-    expect(toolbar).toMatch(/\{sandGlyph\}/);
-    expect(toolbar).toMatch(/pickGlyph\(\s*SAND_GLYPHS/);
+describe('the sand tool renders as a bucket on every platform', () => {
+  it('renders the inline SVG bucket icon', () => {
+    expect(toolbar).toContain('<BucketIcon');
   });
 
   it('still labels it for assistive tech', () => {
     expect(toolbar).toMatch(/aria-label="Pink sand"/);
+  });
+
+  it('has no literal bucket or heart emoji left over from the old glyph fallback', () => {
+    expect(toolbar).not.toContain('🪣');
+    expect(toolbar).not.toContain('💗');
+  });
+
+  it('avoids Emoji 13.0+ glyphs, which are missing from Windows 10 / Fire emoji fonts', () => {
+    // Use an inline SVG (src/lib/BucketIcon.svelte) instead of a glyph from this era.
+    const laterEmoji = ['🪣', '🪄', '🪅', '🪩'];
+    for (const glyph of laterEmoji) {
+      expect(toolbar).not.toContain(glyph);
+    }
   });
 });
