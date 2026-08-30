@@ -3,6 +3,6 @@
   "spec_dir": "specs/013-rendered-geometry-gate",
   "feature_num": "013",
   "stage": "implement",
-  "iteration": 1,
+  "iteration": 2,
   "spec_branch": "spec/013-rendered-geometry-gate"
 }
