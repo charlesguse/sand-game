@@ -2,7 +2,7 @@
   "issue": 41,
   "spec_dir": "specs/013-rendered-geometry-gate",
   "feature_num": "013",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/013-rendered-geometry-gate"
 }
