@@ -267,7 +267,7 @@
   );
 </script>
 
-<div class="toolbar" style={boxStyle}>
+<div class="toolbar" class:rail={layout.arrangement === 'rail'} style={boxStyle}>
   {#each controls as control (control.id)}
     {#if control.id === 'tool-sand'}
       <button
@@ -311,6 +311,17 @@
     justify-content: center;
     row-gap: 0;
     column-gap: var(--pitch);
+  }
+
+  /* In the rail arrangement the band's thickness is its WIDTH, so controls must flow down the
+     viewport's height and wrap into columns — exactly the axis computeToolbarLayout budgets
+     against (mainAxisLength = viewport height). Left in row flow they wrap inside the narrow
+     band instead and run off the bottom of the screen (FR-010, FR-014). Gaps mirror the rows
+     case: pitch along the flow, zero between lines, since thickness counts lines only. */
+  .toolbar.rail {
+    flex-direction: column;
+    row-gap: var(--pitch);
+    column-gap: 0;
     padding-top: env(safe-area-inset-top);
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
@@ -319,6 +330,11 @@
   }
 
   .control {
+    /* The border and the button UA padding MUST live inside --control-size: computeToolbarLayout
+       budgets the band from that number, so a content-box control would render wider than the
+       model believes and push the last line outside the viewport (FR-014). */
+    box-sizing: border-box;
+    padding: 0;
     font-size: calc(var(--control-size) * 0.5714);
     line-height: 1;
     width: var(--control-size);
@@ -407,13 +423,12 @@
           #ff5ca8
         )
         border-box;
-    transform: scale(1.15);
+    /* Emphasis has to stay INSIDE the control's box: the band now hugs the viewport edge, so a
+       scale() on the selected control shaved its ring off against the screen edge on the outer
+       line. A thicker rainbow border reads just as loudly and costs no layout (FR-010). */
+    border-width: 5px;
     box-shadow: 0 4px 12px rgba(255, 92, 168, 0.35);
     animation: ring-turn 6s linear infinite;
-  }
-
-  .control.selected:active {
-    transform: scale(1.05);
   }
 
   @keyframes ring-turn {
