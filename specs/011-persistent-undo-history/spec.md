@@ -26,9 +26,12 @@
 - **Q: Can she undo past the reopen boundary, into the world as it was before she left?** → **Yes, and that is the whole point.** The persisted steps simply *are* the tail of last session's undo stack; there is no boundary, no marker, and nothing that feels different at the seam. (FR-003)
 - **Q: How are version drift and corruption handled?** → **The same contract as the world save:** versioned wire format, reject anything invalid, silent fallback to an empty history. A history payload that fails MUST NOT prevent the world restore from succeeding. (FR-018, FR-019)
 
-### Open questions (not resolved in this draft)
+### Session 2026-08-30 (the two open questions, answered by the maintainer on issue #35)
 
-Two decisions are left marked in the requirements below because both readings are reasonable and they lead to materially different work. The spec states a working assumption for each so it is implementable as written; see **Assumptions**.
+- **Q: Is leftover budget spent on persisting redo states, or is redo never persisted?** → **Redo is never persisted.** Every stored byte buys a rescue step, and ↪️ starts dimmed on reopen exactly as it is today; redo-after-reopen is a niche of a niche for a five-year-old. (FR-007)
+- **Q: Does the history ride every auto-save, or only the app-is-going-away flush?** → **Only the going-away flush.** Writing to storage is synchronous on the main thread, and serializing megabytes every couple of seconds of active play is exactly the recurring jank the Fire 7 smoothness floor (FR-015) forbids. The flush covers every ordinary close on both platforms; a hard crash that loses the history but not the world degrades to today's behaviour — a dimmed button, in silence. (FR-013, and FR-017's pairing rule, which is what keeps a between-flush world save from being restored against a stale history.)
+
+No `[NEEDS CLARIFICATION]` markers remain.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,6 +51,7 @@ She draws a smear across her garden, then the tablet is taken away, the app is c
 4. **Given** the surviving steps have all been used, **When** she looks at ↩️, **Then** it is dimmed exactly as it is when the in-session history empties, and tapping it does nothing at all.
 5. **Given** a reopened app with restored history, **When** she draws something new, **Then** that action is recorded on top of the restored history as an ordinary action, and one ↩️ takes it back.
 6. **Given** a reopened app, **When** she undoes past the point where she left off, **Then** nothing marks the seam — no pause, no message, no flicker, no change in how ↩️ behaves.
+7. **Given** a reopened app with restored history, **When** she looks at ↪️, **Then** it is dimmed exactly as it is today, and it lights only after she has undone something in this session.
 
 ---
 
@@ -95,7 +99,8 @@ She played in portrait, the tablet gets closed, and the next morning it is opene
 - **Reopening and immediately drawing**: the new action pushes onto the restored history under the existing depth cap of 10, evicting the oldest restored step when the cap is reached — exactly as an eleventh action does today.
 - **Closing and reopening repeatedly without drawing**: the persisted history is stable across a save-with-no-changes; reopening five times in a row leaves the same steps available, and does not accumulate, duplicate, or grow storage.
 - **Closing mid-stroke** (the app is backgrounded with her finger down): the in-progress capture is not a completed action and is not persisted; what survives is the completed actions before it, matching how an interrupted stroke is already treated.
-- **The app is killed without a chance to save** (a hard crash, a battery cut): whatever was last written is what comes back. This is already true of the world save and stays true of the history; nothing new is promised.
+- **The app is killed without a chance to save** (a hard crash, a battery cut): the world comes back from its last ordinary save, as it does today, and the history is empty — the ordinary saves since the last flush discarded it (FR-013a) rather than leave a stale history to be undone against a newer picture. She gets exactly today's behaviour: her picture, a dimmed ↩️, in silence. Nothing new is promised for a crash.
+- **A world save lands between flushes** (ordinary play, no close): the stored history is discarded at that moment and re-written at the next flush. There is no window in which storage holds a history older than the world beside it.
 - **All edge cases from specs 001–010** continue to apply unchanged, and now apply with a restored history present as well.
 
 ## Requirements *(mandatory)*
@@ -112,7 +117,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 - **FR-004**: Once the surviving persisted steps have been used up, ↩️ MUST dim exactly as it does when an in-session history empties. She MUST NOT be able to tell "there were no more steps" from "the rest did not fit".
 - **FR-005**: A new action recorded after a reopen MUST push onto the restored undo history under the existing cap of 10 (spec 010's FR-019), silently evicting the oldest restored step when the cap is reached.
 - **FR-006**: A new action recorded after a reopen MUST clear the redo history exactly as it does today (spec 010's FR-017).
-- **FR-007**: The redo history MUST be handled as follows on reopen: [NEEDS CLARIFICATION: should any budget left over after the undo steps be spent on persisting redo states (newest-first, so ↪️ can also survive a close), or is redo never persisted — ↪️ always dimmed on reopen — so that every byte of the budget buys an undo step? The issue's own suggestion is "if a choice is forced, persist undo only"; the budget does force a trade, since each persisted redo state costs an undo state.] Whichever is chosen, ↪️ MUST be lit if and only if at least one redo step was restored, and MUST behave in every other respect exactly as spec 010 specifies.
+- **FR-007**: The redo history MUST NOT be persisted. The whole budget is spent on undo steps, so on reopen the redo history MUST be empty and ↪️ MUST be dimmed — indistinguishable from today. ↪️ MUST light only once she undoes something in the new session, and MUST behave in every other respect exactly as spec 010 specifies.
 
 **How much survives — the size constraint**
 
@@ -124,25 +129,26 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 
 **When it is written**
 
-- **FR-013**: The history MUST be written only at moments the world is already being saved, adding no new save triggers of its own. [NEEDS CLARIFICATION: does the history ride *every* auto-save (matching the world save exactly, so a crash loses nothing more than the world save does), or only the app-is-going-away flush moments (so the write cost — serializing several megabytes on a low-end tablet — is paid once per session rather than every couple of seconds during play)? The first is simpler and matches the world save; the second costs far less on the binding device and still covers every ordinary close.]
+- **FR-013**: The history MUST be written only at the **app-is-going-away flush moments** the world save already uses — the moments at which the app may be about to disappear — and MUST NOT be written at the ordinary during-play saves. It MUST add no save trigger of its own, and the world save's own cadence MUST be unchanged. Every ordinary close therefore carries the history.
+- **FR-013a**: Because the world is saved more often than the history is, a world save that writes no history MUST invalidate any stored history, so that a stale history can never be restored against a newer world (this is the write-side half of FR-017's pairing rule). Invalidation MUST be cheap enough to add no measurable cost to an ordinary save — it discards, it never serializes. A hard crash between flushes therefore leaves the last ordinary world save and no history at all: today's behaviour, a dimmed ↩️, in silence.
 - **FR-014**: Persisting the history MUST do no per-frame work: nothing may be serialized, compared, copied, or measured except at a save moment.
 - **FR-015**: Persisting the history MUST NOT cause a hitch she can see. The toy MUST stay smooth — target 60 frames per second, acceptable at or above 30 — on a mid-range laptop, an iPad, and a low-end tablet of the Amazon Fire 7 Kids class, while drawing stroke after stroke with a full history and a full play field, weather running and a lawn burning.
 
 **Reopening into a different-shaped field**
 
 - **FR-016**: When the field on reopen differs in cell dimensions from the one the history was captured at, each persisted step MUST be re-anchored to the new field exactly as spec 010's amended FR-022 re-anchors live history on a re-derivation: same anchoring, keep only the steps that survive losslessly, drop the rest in silence, preserve the relative order of the survivors. A step MUST NEVER be restored at the wrong shape or with cells or objects quietly missing.
-- **FR-017**: The history MUST be restored only when the world restore itself succeeded **and** the history payload agrees with the world save it accompanies (same format version, same recorded field dimensions, same session lineage). Otherwise the history MUST be silently empty and the world restore MUST proceed unaffected.
+- **FR-017**: The history MUST be restored only when the world restore itself succeeded **and** the history payload agrees with the world save it accompanies (same format version, same recorded field dimensions, same session lineage) **and** the two were written by the same save moment. A history written before a later world save MUST be treated as stale and discarded — one ↩️ must never leap back over actions that the stored world contains but the stored history never saw. Otherwise the history MUST be silently empty and the world restore MUST proceed unaffected.
 
 **Silence, safety, and non-regression**
 
 - **FR-018**: The persisted history MUST use a versioned wire format that rejects anything invalid — wrong version, truncated data, corrupt encoding, mismatched lengths, hand-edited garbage — returning an empty history rather than throwing, and never surfacing an error.
 - **FR-019**: A history payload that fails for any reason MUST NOT prevent the world restore from succeeding: the two are stored and parsed independently, each guarded on its own, so no history failure can cost her the picture.
-- **FR-020**: This feature MUST add no control, no message, no confirmation, no dialog, no sound, no setting, and no text of any kind. The only thing she can observe is whether ↩️ (and ↪️, per FR-007) is lit or dimmed on reopen.
+- **FR-020**: This feature MUST add no control, no message, no confirmation, no dialog, no sound, no setting, and no text of any kind. The only thing she can observe is whether ↩️ is lit or dimmed on reopen; ↪️ is dimmed on reopen exactly as it is today (FR-007).
 - **FR-021**: Nothing she makes MUST leave the device. The persisted history is stored only on the device, exactly as the saved world is, and is never transmitted anywhere.
 - **FR-022**: This feature MUST NOT add, remove, or change any element, simulation rule, scene, object behaviour, brush behaviour, toolbar control, or timing. A session in which the app is never closed MUST behave exactly as the current release.
 - **FR-023**: Existing behaviour MUST NOT regress: every element, object, tool, scene, and control MUST behave exactly as the earlier specs require, the world save and restore MUST behave exactly as they do today, and all existing automated tests MUST pass — updated only where the superseded requirements below make an assertion obsolete, never weakened to hide a regression.
 - **FR-024**: The production build MUST still emit exactly one self-contained page, fully playable when opened directly from disk with no network requests, and the page MUST NOT grow by more than 3 KB over the current release.
-- **FR-025**: The behaviour MUST be verifiable without a browser. Serialization, deserialization, budget filling, version and consistency rejection, re-anchoring on a size change, and the restored history's effect on what ↩️ does MUST all be covered by automated tests that need no DOM and no browser harness.
+- **FR-025**: The behaviour MUST be verifiable without a browser. Serialization, deserialization, budget filling, version and consistency rejection, staleness rejection and the invalidation of a stored history by a world-only save (FR-013a), re-anchoring on a size change, and the restored history's effect on what ↩️ and ↪️ do MUST all be covered by automated tests that need no DOM and no browser harness.
 - **FR-026**: The feature MUST behave identically on both maintained platforms — iPadOS Safari (standalone home-screen app) and Android/Fire Silk plus desktop Chrome — using the same storage mechanism as the world save, with no platform-specific control, code path, or capability probe. Where a platform's storage refuses or wipes the data, the fallback of FR-012 and FR-019 is the whole of the difference: the world restores if it can and the button is dim.
 
 ### Key Entities
@@ -157,7 +163,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 
 - **SC-001**: After closing the app with at least 3 recorded actions and reopening it at the same field size, ↩️ is lit and each of at least 3 consecutive taps takes back exactly one more of the previous session's actions.
 - **SC-002**: For each restored step, 0 cells differ in any visible property and 0 placed objects differ from what the same step restored in the session that recorded it.
-- **SC-003**: A close-and-reopen introduces 0 messages, 0 dialogs, 0 confirmations, 0 new controls, and 0 sounds; the only observable difference from today is that ↩️ is lit rather than dimmed.
+- **SC-003**: A close-and-reopen introduces 0 messages, 0 dialogs, 0 confirmations, 0 new controls, and 0 sounds; the only observable difference from today is that ↩️ is lit rather than dimmed, and ↪️ is dimmed on reopen in 100% of cases.
 - **SC-004**: The persisted history never exceeds approximately 2 MB serialized, at every play-field size spec 006 allows, across at least 20 varied saved sessions.
 - **SC-005**: When the budget forces steps to be dropped, the steps kept are the newest ones in order in 100% of cases, and 0 dropped steps produce a visible difference from an empty history.
 - **SC-006**: With storage that refuses every write, the world save still succeeds in 100% of attempts, 0 history bytes are stored, 0 stale history payloads remain, and the toy behaves identically to today.
@@ -169,10 +175,12 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 - **SC-012**: The production build still produces exactly 1 output file, opening it directly from disk yields a fully playable toy with 0 network requests, and the page has grown by at most 3 KB.
 - **SC-013**: The automated test suite runs to completion without a browser and covers every rule listed in FR-025.
 - **SC-014**: Closing and reopening 5 times in a row without drawing leaves the same steps available every time, with 0 growth in stored size and 0 duplicated steps.
+- **SC-015**: Over a stretch of ordinary play with no close, the history is serialized 0 times; every history write happens at a going-away flush, and the world save's own cadence is unchanged from today.
+- **SC-016**: A world save that lands between flushes leaves 0 stored history payloads behind, so a reopen after a crash mid-play restores the world in 100% of cases where it is valid and an empty history in 100% of cases.
 
 ### Visual checks for the maintainer *(no automated coverage)*
 
-- **On the Fire 7 Kids tablet (Charlie)**: close the app with a busy picture and several strokes behind it, reopen, and confirm ↩️ is bright, that a tap lifts the last stroke without a stall, and that ordinary play afterwards is as smooth as before. Confirm too that a save while playing does not produce a periodic hiccup — this is the device where the write cost bites.
+- **On the Fire 7 Kids tablet (Charlie)**: close the app with a busy picture and several strokes behind it, reopen, and confirm ↩️ is bright, that a tap lifts the last stroke without a stall, and that ordinary play afterwards is as smooth as before. Confirm too that ordinary play shows no new periodic hiccup — with flush-only writing (FR-013) there should be none, and this is the device where a regression here would bite. Check as well that the close itself is not slow enough to be noticed: the whole write happens at that one moment.
 - **On the iPad standalone home-screen app (Max)**: the same close-and-reopen, plus reopening after a rotation and after toggling fullscreen, and confirm the button state matches what came back and nothing flickers at the restore.
 - **Both platforms**: after several days of ordinary use, confirm the world save has not started failing — the history must not have crowded it out of storage.
 - The seam is invisible: an adult watching a child undo past the reopen cannot tell where the previous session ended.
@@ -180,8 +188,8 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 
 ## Assumptions
 
-- **Working assumption for FR-007 (redo)**: unless the maintainer says otherwise, **redo is not persisted** — the budget is spent entirely on undo steps and ↪️ starts dimmed on reopen. This follows the issue's own tiebreak ("undo steps are worth more than redo steps") and keeps the most rescue value per stored byte. The spec is implementable as written under this assumption.
-- **Working assumption for FR-013 (write cadence)**: unless the maintainer says otherwise, the history rides **every** save moment the world save already uses, matching the world save exactly. This is the issue's stated suggestion; the open question exists only because the write cost grows several-fold on the binding device, and the flush-only alternative would cover every ordinary close at a fraction of that cost.
+- **A hard crash between flushes is an accepted loss** (FR-013, FR-013a). Flush-only writing is the maintainer's decision, taken to keep the synchronous multi-megabyte write off the Fire 7's main thread during play. The cost is that a crash — as opposed to any ordinary close — comes back with a dimmed ↩️. That outcome is today's behaviour, so nothing regresses; it is simply not improved for the crash case.
+- **"Going-away flush" means the world save's existing flush moments**, whatever the platform delivers them as. This spec does not add, rename, or re-time them; it only says the history rides them and rides nothing else. Whether both maintained platforms reliably deliver a flush before the app disappears is an existing property of the world save, unchanged here.
 - **Auto-save is the base being extended.** The world save merged in PR #33 — its storage key, its debounced-plus-flush save moments, its versioned format, its silent-failure contract — is taken as given and unchanged. This feature adds a sibling payload; it does not redesign the world save.
 - **The persisted history has exactly the fidelity of the in-memory history**, no more. What spec 010's FR-028 excludes from a capture (in-flight countdowns, transient sparkle decoration) is equally absent here, and pets are not part of a history step today and do not become part of one here.
 - **Storage-size arithmetic is approximate and platform-dependent.** The ~286 KB world save and ~2 MB budget come from the maintainer's measurement on the real device. Some browsers account for stored strings at two bytes per character, so the same payload can consume roughly twice its character count of the ~5 MB quota; the budget should therefore be sized conservatively and, per FR-012, correctness must never depend on the arithmetic being right — a refused write degrades silently.
@@ -199,7 +207,7 @@ This feature extends the existing toy specified in `001-falling-pink-sand` throu
 
 ## Superseded requirements
 
-- Spec 010's **FR-021** ("History MUST NOT be persisted. On page load both histories are empty and both buttons are dimmed") is **superseded** by FR-001 and FR-007 of this spec. It was written when nothing in the toy persisted at all — the issue behind spec 010 said "no persistence needed" at a time when a reload lost the picture too. Now that the world itself survives a close, an empty history is an inconsistency rather than a simplification.
+- Spec 010's **FR-021** ("History MUST NOT be persisted. On page load both histories are empty and both buttons are dimmed") is **superseded for the undo history only**, by FR-001 of this spec; its redo clause stands, restated as FR-007 — the redo history is still never persisted and ↪️ is still dimmed on page load. It was written when nothing in the toy persisted at all — the issue behind spec 010 said "no persistence needed" at a time when a reload lost the picture too. Now that the world itself survives a close, an empty history is an inconsistency rather than a simplification.
 - The persistence clause of spec 010's **FR-025** ("MUST NOT introduce any … persistence …") is **superseded** to the extent that this feature persists history; every other clause of FR-025 — no failure state, no message, no confirmation, no score, no way for the child to be wrong, no sound, no control beyond the two buttons — remains in force and is restated here as FR-020.
 - Spec 010's **"Reload: nothing is persisted; the field opens empty and both buttons are dim"** edge case is superseded by this spec's User Story 1 and its edge cases.
 - The phase-6 "History starts empty after a restore — the restored world is the new baseline" behaviour introduced with auto-save is **superseded** by FR-001: the restored world is no longer a baseline, it is a continuation.

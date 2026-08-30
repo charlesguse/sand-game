@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,7 @@
 
 ## Notes
 
-- **The one failing item is deliberate.** Two [NEEDS CLARIFICATION] markers remain, on FR-007 (is redo persisted at all, or is the whole budget spent on undo?) and FR-013 (does the history ride every auto-save, or only the app-is-going-away flush?). Both were kept rather than guessed because the two readings lead to materially different work — a different storage layout in the first case, a different write cost on the binding device in the second. This run is non-interactive: the questions are posted to issue #35 rather than asked in-session, and the spec states a working assumption for each so it is implementable as written in the meantime.
+- **All items now pass.** The two [NEEDS CLARIFICATION] markers — FR-007 (is redo persisted at all?) and FR-013 (every auto-save, or only the going-away flush?) — were answered by the maintainer on issue #35 and folded into the requirements: **redo is never persisted**, and the history **rides only the going-away flush**. Both answers are recorded in **Clarifications**, and the working assumptions they replaced have been removed from **Assumptions**.
+- **The flush-only answer forced one addition.** Because the world is saved more often than the history, a between-flush world save would otherwise leave a stale history to be undone against a newer picture. FR-013a (invalidate on a world-only save) and the pairing clause added to FR-017 close that window, with SC-016 and two edge cases covering it. This is a consequence of the answer, not a new decision.
 - **The size budget is stated in bytes on purpose.** The issue named resolving the persistence budget as the hard constraint this spec exists to settle, so FR-008's ~2 MB and the ~286 KB world-save measurement appear in the requirements rather than being deferred to planning. They are stated as constraints on stored size, not as a storage mechanism or format.
 - Everything else the issue supplied a suggested answer for — budget filling order, re-anchoring on a size change, undoing past the reopen, version and corruption handling — is recorded as an adopted decision in **Clarifications**, not as an open question.
