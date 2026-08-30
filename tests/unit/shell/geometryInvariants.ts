@@ -222,8 +222,9 @@ export const GEOMETRY_INVARIANTS: readonly GeometryInvariant[] = [
     component: 'play-area-canvas',
     category: 'sizing',
     mechanism: 'derived',
+    checkId: 'checkCanvasSizeDerivation',
     assumption:
-      "the canvas's on-screen box comes straight from computePlayField's own displayWidth/displayHeight output through one inline-style channel (style=\"width: {displayWidth}px; height: {displayHeight}px;\") — nothing to assert separately.",
+      "the canvas's on-screen box comes straight from computePlayField's own displayWidth/displayHeight output through one inline-style channel (style=\"width: {displayWidth}px; height: {displayHeight}px;\") — checkCanvasSizeDerivation confirms the channel itself is real (by source inspection) rather than leaving the derivation as an unenforced claim; there is no separate pinned value to assert on top of it.",
   },
   {
     id: 'play-area-canvas-box-sizing',
@@ -285,9 +286,10 @@ export const GEOMETRY_INVARIANTS: readonly GeometryInvariant[] = [
     id: 'play-area-container-sizing',
     component: 'play-area-container',
     category: 'sizing',
-    mechanism: 'inert',
+    mechanism: 'pinned',
+    checkId: 'checkPlayAreaGuardedDeclarations',
     assumption:
-      "the container fills its flex slot (width/height: 100%) and is measured back via clientWidth/clientHeight at resize time — it does not itself budget a geometry-critical size the way the toolbar band does.",
+      "the container fills its flex slot (width: 100%; height: 100%) and is measured back via clientWidth/clientHeight at resize time — it does not itself budget a geometry-critical size the way the toolbar band does, but the closed-allowlist scan still guards the declaration against an unnoticed drift.",
   },
   {
     id: 'play-area-container-box-sizing',
@@ -372,7 +374,14 @@ export const CONTROL_SELECTED_ALLOWED_DECLARATIONS: Record<string, string | RegE
   'border-width': '5px',
 };
 
-// Empty today (research.md §5, Story 4): any future guarded declaration on either play-area
-// element fails immediately rather than being silently permitted.
-export const PLAY_AREA_CONTAINER_ALLOWED_DECLARATIONS: Record<string, string | RegExp> = {};
+// The container fills its flex slot at a fixed 100%/100% — the only guarded declarations it
+// carries today; any other future guarded declaration on it fails immediately rather than being
+// silently permitted (research.md §5, Story 4).
+export const PLAY_AREA_CONTAINER_ALLOWED_DECLARATIONS: Record<string, string | RegExp> = {
+  width: '100%',
+  height: '100%',
+};
+
+// Empty today — .play-area (the canvas) carries no guarded declaration at all, so any future one
+// fails immediately (research.md §5, Story 4).
 export const PLAY_AREA_CANVAS_ALLOWED_DECLARATIONS: Record<string, string | RegExp> = {};

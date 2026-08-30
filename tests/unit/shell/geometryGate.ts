@@ -1,4 +1,10 @@
-import { GEOMETRY_INVARIANTS, CONTROL_ALLOWED_DECLARATIONS, CONTROL_SELECTED_ALLOWED_DECLARATIONS } from './geometryInvariants';
+import {
+  GEOMETRY_INVARIANTS,
+  CONTROL_ALLOWED_DECLARATIONS,
+  CONTROL_SELECTED_ALLOWED_DECLARATIONS,
+  PLAY_AREA_CONTAINER_ALLOWED_DECLARATIONS,
+  PLAY_AREA_CANVAS_ALLOWED_DECLARATIONS,
+} from './geometryInvariants';
 import type { GeometryComponent, GeometryCategory } from './geometryInvariants';
 
 /**
@@ -94,6 +100,7 @@ export function checkControlBoxSizing(toolbarSource: string): GeometryCheckResul
 }
 
 function categorizeGuardedProperty(property: string): GeometryCategory | undefined {
+  if (property === 'box-sizing') return 'box-sizing';
   if (/^border(-\w+)?$/.test(property)) return 'borders';
   if (/^padding(-\w+)?$/.test(property)) return 'padding';
   if (/^margin(-\w+)?$/.test(property)) return 'margins';
@@ -137,10 +144,14 @@ function scanGuardedDeclarations(
   component: GeometryComponent,
   checkId: string,
   allowedDeclarations: Record<string, string | RegExp>,
+  // toolbar-control has a dedicated box-sizing check (checkControlBoxSizing) so this generic scan
+  // skips that property there to avoid reporting it twice; the play area has no such dedicated
+  // check, so its scan must evaluate box-sizing like any other guarded property.
+  skipBoxSizing = true,
 ): GeometryCheckResult[] {
   const results: GeometryCheckResult[] = [];
   for (const { property, value } of parseDeclarations(ruleBlockSource)) {
-    if (property === 'box-sizing') continue;
+    if (skipBoxSizing && property === 'box-sizing') continue;
 
     const guardedMatch = /^(box-sizing|border(-\w+)?|padding(-\w+)?|margin(-\w+)?|width|height|min-width|min-height|max-width|max-height|transform)$/.test(
       property,
@@ -440,5 +451,44 @@ export function checkGapAxes(toolbarSource: string): GeometryCheckResult[] {
       assumption,
       found: `rail: row-gap ${railRowGap?.value ?? 'absent'}, column-gap ${railColumnGap?.value ?? 'absent'}`,
     },
+  ];
+}
+
+// --- play-area-container / play-area-canvas (Story 4) -----------------------
+
+const PLAY_AREA_CONTAINER_RULE_SELECTOR = '.play-area-container {';
+const PLAY_AREA_CANVAS_RULE_SELECTOR = '.play-area {';
+
+/** Confirms the canvas's inline style attribute binds width/height to computePlayField's own displayWidth/displayHeight output (research.md §5, FR-001a) — by source inspection, no DOM. */
+export function checkCanvasSizeDerivation(playAreaSource: string): GeometryCheckResult {
+  const invariant = 'play-area-canvas-sizing';
+  const ok = /style="width:\s*\{displayWidth\}px;\s*height:\s*\{displayHeight\}px;"/.test(playAreaSource);
+  const match = playAreaSource.match(/style="[^"]*"/);
+  return {
+    ok,
+    component: 'play-area-canvas',
+    invariant,
+    assumption: assumptionFor(invariant),
+    found: match ? match[0] : 'no inline style attribute found on the canvas',
+  };
+}
+
+/** The closed-allowlist scan (§3) over .play-area-container's and .play-area's rule blocks — any future guarded declaration on either element fails immediately unless the invariant list is updated to allow it (research.md §5, Story 4 Acceptance Scenario 1). */
+export function checkPlayAreaGuardedDeclarations(playAreaSource: string): GeometryCheckResult[] {
+  return [
+    ...scanGuardedDeclarations(
+      extractRuleBlock(playAreaSource, PLAY_AREA_CONTAINER_RULE_SELECTOR),
+      'play-area-container',
+      'checkPlayAreaGuardedDeclarations',
+      PLAY_AREA_CONTAINER_ALLOWED_DECLARATIONS,
+      false,
+    ),
+    ...scanGuardedDeclarations(
+      extractRuleBlock(playAreaSource, PLAY_AREA_CANVAS_RULE_SELECTOR),
+      'play-area-canvas',
+      'checkPlayAreaGuardedDeclarations',
+      PLAY_AREA_CANVAS_ALLOWED_DECLARATIONS,
+      false,
+    ),
   ];
 }
