@@ -32,10 +32,26 @@ export interface PlayField {
   displayHeight: number;
 }
 
-export interface ToolbarLayoutCheck {
+/** FR-002's cap: the toolbar band's thickness must never exceed this fraction of the constrained axis. */
+export const TOOLBAR_BAND_MAX_SHARE = 0.4;
+/** Today's fixed 3.5rem control diameter, px — the ceiling continuous sizing shrinks from. */
+export const PREFERRED_CONTROL_SIZE = 56;
+/** Today's 1rem inter-group gap, px — the ceiling the pitch-shrink phase starts from. */
+export const PREFERRED_PITCH = 16;
+/** Floor below which pitch never shrinks, px — keeps neighbouring targets from crowding close enough to co-activate (FR-009). */
+export const MIN_PITCH = 4;
+
+export interface ToolbarLayoutResult {
   fits: boolean;
+  /** px, always >= MIN_TOUCH_TARGET */
   controlSize: number;
+  /** px, always >= MIN_PITCH */
+  pitch: number;
+  /** px consumed on the constrained axis; <= TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength whenever fits is true */
   thickness: number;
+  /** px needed at the tightest legal arrangement (controlSize=MIN_TOUCH_TARGET, pitch=MIN_PITCH) — always populated, for FR-012b */
+  requiredThickness: number;
+  arrangement: 'rows' | 'rail';
 }
 
 /** True iff the visible viewport's shorter side is at or under PHONE_MAX_SHORT_SIDE. */
@@ -70,36 +86,141 @@ export function computePlayField(
   };
 }
 
-// 0.4rem (~6.4px), matching Toolbar.svelte's real .group gap between controls.
-const TOOLBAR_GAP = 6;
-const TOOLBAR_PADDING = 12;
+/**
+ * Thickness (px, on the constrained axis) needed to wrap controlCount controls of the given
+ * size and pitch across mainAxisLength (research.md §3 — groups are a visual cue only, never a
+ * forced line break). Pitch spaces neighbours within a line (matching CSS column-gap, which is
+ * what governs FR-009's same-row separation and what perLine below is sized against); lines
+ * stack with no additional cross-axis gap (CSS row-gap: 0) — each line's own controlSize already
+ * separates one line's targets from the next, and reserving further budget for a between-line
+ * gap on top of that is what makes the tightest real viewport/control-count combination
+ * infeasible under the 44px/4px floors.
+ */
+function toolbarThickness(
+  controlSize: number,
+  pitch: number,
+  mainAxisLength: number,
+  controlCount: number,
+): number {
+  const perControl = controlSize + pitch;
+  const perLine = Math.max(1, Math.floor((mainAxisLength + pitch) / perControl));
+  const lines = Math.ceil(controlCount / perLine);
+  return lines * controlSize;
+}
 
 /**
- * Models (for the automated test suite only — the real toolbar is plain CSS flexbox,
- * research.md §6) whether every control fits at or above MIN_TOUCH_TARGET, wrapping along
- * the viewport's relevant axis: row/wrap in portrait (main axis = width, thickness = height
- * consumed), column/rail in landscape-phone (main axis = height, thickness = width consumed) —
- * matching Toolbar.svelte's landscape-phone media query.
+ * Largest x in [lo, hi] for which predicate(x) holds, assuming predicate(lo) is true and
+ * predicate(hi) is false (predicate monotonic non-increasing in x) — binary search to
+ * sub-pixel precision, floored to a whole px at the end.
+ */
+function largestFitting(lo: number, hi: number, predicate: (x: number) => boolean): number {
+  let low = lo;
+  let high = hi;
+  for (let i = 0; i < 32; i++) {
+    const mid = (low + high) / 2;
+    if (predicate(mid)) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  return Math.floor(low);
+}
+
+/**
+ * True iff a toolbar of the given thickness, on a phone-sized viewport, still leaves
+ * computePlayField's own phone-scoped area-fill floor intact (spec 006's FR-004, restated —
+ * not weakened — by this feature's FR-015). Universally true off-phone, where FR-004 never
+ * applied. Folding this into computeToolbarLayout's own search (rather than leaving it to a
+ * separate, uncoordinated check) is what makes FR-014's "the check MUST NOT be able to pass
+ * while the shipped layout violates the floors" true of *both* floors, not just the axis one.
+ */
+function clearsAreaFillFloor(
+  thickness: number,
+  arrangement: 'rows' | 'rail',
+  viewportWidth: number,
+  viewportHeight: number,
+): boolean {
+  if (!isPhoneSized(viewportWidth, viewportHeight)) return true;
+  const regionWidth = arrangement === 'rail' ? viewportWidth - thickness : viewportWidth;
+  const regionHeight = arrangement === 'rail' ? viewportHeight : viewportHeight - thickness;
+  const field = computePlayField(regionWidth, regionHeight, true);
+  const fillFloor = viewportWidth > viewportHeight ? 0.6 : 0.65;
+  return (field.displayWidth * field.displayHeight) / (viewportWidth * viewportHeight) >= fillFloor;
+}
+
+/**
+ * The toolbar's own sizing rule, run both by Toolbar.svelte at render time and by the test
+ * suite (research.md §5) — the two can never disagree because both call this exact function.
+ * Shrinks pitch first (down to MIN_PITCH), then control size (down to MIN_TOUCH_TARGET), via a
+ * two-phase monotonic binary search (research.md §2), stopping as soon as the band both clears
+ * TOOLBAR_BAND_MAX_SHARE of the constrained axis and (on phone) still leaves computePlayField's
+ * area-fill floor intact; reports fits: false with the tightest-legal-arrangement
+ * requiredThickness if even that combination can't be met (FR-012, FR-012a-c).
  */
 export function computeToolbarLayout(
   viewportWidth: number,
   viewportHeight: number,
   controlCount: number,
-  _groupCount: number,
-): ToolbarLayoutCheck {
-  const isRail = viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight;
-  const mainAxis = isRail ? viewportHeight : viewportWidth;
-  const controlSize = MIN_TOUCH_TARGET;
-  const availableMain = mainAxis - 2 * TOOLBAR_PADDING;
+): ToolbarLayoutResult {
+  const arrangement: 'rows' | 'rail' =
+    viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight ? 'rail' : 'rows';
+  const constrainedAxisLength = arrangement === 'rail' ? viewportWidth : viewportHeight;
+  const mainAxisLength = arrangement === 'rail' ? viewportHeight : viewportWidth;
+  const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
 
-  if (availableMain < controlSize) {
-    return { fits: false, controlSize, thickness: mainAxis };
+  const requiredThickness = toolbarThickness(MIN_TOUCH_TARGET, MIN_PITCH, mainAxisLength, controlCount);
+
+  function clears(controlSize: number, pitch: number): boolean {
+    const thickness = toolbarThickness(controlSize, pitch, mainAxisLength, controlCount);
+    return thickness <= cap && clearsAreaFillFloor(thickness, arrangement, viewportWidth, viewportHeight);
   }
 
-  const perControl = controlSize + TOOLBAR_GAP;
-  const perLine = Math.max(1, Math.floor((availableMain + TOOLBAR_GAP) / perControl));
-  const lines = Math.ceil(controlCount / perLine);
-  const thickness = lines * controlSize + (lines - 1) * TOOLBAR_GAP + 2 * TOOLBAR_PADDING;
+  // Phase 1: preferred control size and pitch — the common case (FR-016's non-regression).
+  if (clears(PREFERRED_CONTROL_SIZE, PREFERRED_PITCH)) {
+    return {
+      fits: true,
+      controlSize: PREFERRED_CONTROL_SIZE,
+      pitch: PREFERRED_PITCH,
+      thickness: toolbarThickness(PREFERRED_CONTROL_SIZE, PREFERRED_PITCH, mainAxisLength, controlCount),
+      requiredThickness,
+      arrangement,
+    };
+  }
 
-  return { fits: true, controlSize, thickness };
+  // Phase 2: hold preferred control size, shrink pitch toward MIN_PITCH.
+  if (clears(PREFERRED_CONTROL_SIZE, MIN_PITCH)) {
+    const pitch = largestFitting(MIN_PITCH, PREFERRED_PITCH, (p) => clears(PREFERRED_CONTROL_SIZE, p));
+    return {
+      fits: true,
+      controlSize: PREFERRED_CONTROL_SIZE,
+      pitch,
+      thickness: toolbarThickness(PREFERRED_CONTROL_SIZE, pitch, mainAxisLength, controlCount),
+      requiredThickness,
+      arrangement,
+    };
+  }
+
+  // Phase 3: hold pitch at its floor, shrink control size toward MIN_TOUCH_TARGET.
+  if (clears(MIN_TOUCH_TARGET, MIN_PITCH)) {
+    const controlSize = largestFitting(MIN_TOUCH_TARGET, PREFERRED_CONTROL_SIZE, (size) => clears(size, MIN_PITCH));
+    return {
+      fits: true,
+      controlSize,
+      pitch: MIN_PITCH,
+      thickness: toolbarThickness(controlSize, MIN_PITCH, mainAxisLength, controlCount),
+      requiredThickness,
+      arrangement,
+    };
+  }
+
+  // Even the tightest legal arrangement doesn't clear both floors — no runtime fallback (FR-012).
+  return {
+    fits: false,
+    controlSize: MIN_TOUCH_TARGET,
+    pitch: MIN_PITCH,
+    thickness: requiredThickness,
+    requiredThickness,
+    arrangement,
+  };
 }
