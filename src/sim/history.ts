@@ -316,6 +316,31 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState): b
   return true;
 }
 
+/**
+ * Re-anchors each of states to new dimensions via remapWorldState, keeping only those that remap
+ * losslessly (wouldRemapLosslessly), preserving relative order — factored out of
+ * HistoryManager.remap's own body (research.md §6, spec 011) so the live-re-derivation path and
+ * the reopen-restore path (PlayArea.svelte's tryRestore) share one implementation and can never
+ * drift apart.
+ */
+export function remapWorldStates(
+  states: readonly WorldState[],
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+  offsetX: number,
+  offsetY: number,
+): WorldState[] {
+  const remapLosslessly = (state: WorldState): WorldState | null =>
+    wouldRemapLosslessly(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
+      ? remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
+      : null;
+  const isWorldState = (state: WorldState | null): state is WorldState => state !== null;
+
+  return states.map(remapLosslessly).filter(isWorldState);
+}
+
 /** Owns the bounded undo/redo stacks and the begin/commit/undo/redo/reset operations (research.md §3, §5). */
 export class HistoryManager {
   private undoStack: WorldState[] = [];
@@ -422,14 +447,25 @@ export class HistoryManager {
     offsetX: number,
     offsetY: number,
   ): void {
-    const remapLosslessly = (state: WorldState): WorldState | null =>
-      wouldRemapLosslessly(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
-        ? remapWorldState(state, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY)
-        : null;
-    const isWorldState = (state: WorldState | null): state is WorldState => state !== null;
+    this.undoStack = remapWorldStates(this.undoStack, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY);
+    this.redoStack = remapWorldStates(this.redoStack, oldWidth, oldHeight, newWidth, newHeight, offsetX, offsetY);
+    this.pending = null;
+  }
 
-    this.undoStack = this.undoStack.map(remapLosslessly).filter(isWorldState);
-    this.redoStack = this.redoStack.map(remapLosslessly).filter(isWorldState);
+  /** Live undo stack (oldest-first, newest-last), not cloned — read-only by convention, the one field spec 011's persistence code reads (research.md §8). */
+  getPersistableUndoStack(): readonly WorldState[] {
+    return this.undoStack;
+  }
+
+  /**
+   * Replaces the undo stack with states (already validated, already re-anchored if needed by the
+   * caller); clears the redo stack (FR-007: redo is never persisted) and any pending capture. The
+   * reopen-restore counterpart to reset(), called by PlayArea.svelte's tryRestore in place of
+   * today's unconditional reset() call.
+   */
+  restoreFromPersisted(states: WorldState[]): void {
+    this.undoStack = states;
+    this.redoStack = [];
     this.pending = null;
   }
 }

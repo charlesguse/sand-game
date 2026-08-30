@@ -30,6 +30,7 @@ import {
   captureWorldState,
   restoreWorldState,
   remapWorldState,
+  remapWorldStates,
   worldStateFits,
   HistoryManager,
   HISTORY_DEPTH,
@@ -1162,5 +1163,225 @@ describe('history — HistoryManager.remap keeps only losslessly-remappable stat
 
     // The discarded "before C" state must not appear anywhere in the sequence.
     expect(history.canUndo()).toBe(false);
+  });
+});
+
+describe('history — remapWorldStates matches HistoryManager.remap byte-for-byte (US1 spec 011, FR-016, SC-008)', () => {
+  it('remapWorldStates applied to undoStack/redoStack directly produces the same restorable content as HistoryManager.remap', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 2, 2, SAND, 5);
+    placeObject(grid, objects, 'palm', 10, 10);
+    history.commitAction(grid, objects);
+
+    history.beginAction(grid, objects);
+    setCell(grid, 15, 15, WATER, 6);
+    history.commitAction(grid, objects);
+    history.undo(grid, objects);
+
+    const undoStackBefore = history.getPersistableUndoStack();
+    const offsetX = 5;
+    const offsetY = 5;
+    const remappedUndo = remapWorldStates(undoStackBefore, 20, 20, 30, 30, offsetX, offsetY);
+
+    // Drive HistoryManager.remap (the pre-refactor body's live successor) over an identical
+    // history and assert its resulting undo stack matches remapWorldStates' direct output
+    // byte-for-byte, restore-for-restore.
+    const grid2 = createGrid(20, 20);
+    const objects2 = createObjectsState();
+    const history2 = new HistoryManager();
+
+    history2.beginAction(grid2, objects2);
+    setCell(grid2, 2, 2, SAND, 5);
+    placeObject(grid2, objects2, 'palm', 10, 10);
+    history2.commitAction(grid2, objects2);
+
+    history2.beginAction(grid2, objects2);
+    setCell(grid2, 15, 15, WATER, 6);
+    history2.commitAction(grid2, objects2);
+    history2.undo(grid2, objects2);
+
+    history2.remap(20, 20, 30, 30, offsetX, offsetY);
+
+    expect(remappedUndo.length).toBe(history2.getPersistableUndoStack().length);
+    for (let i = 0; i < remappedUndo.length; i++) {
+      const newGridA = createGrid(30, 30);
+      const newObjectsA = createObjectsState();
+      restoreWorldState(newGridA, newObjectsA, remappedUndo[i]);
+
+      const newGridB = createGrid(30, 30);
+      const newObjectsB = createObjectsState();
+      restoreWorldState(newGridB, newObjectsB, history2.getPersistableUndoStack()[i]);
+
+      expect(Array.from(newGridA.elements)).toEqual(Array.from(newGridB.elements));
+      expect(newObjectsA.byKind.palm).toEqual(newObjectsB.byKind.palm);
+    }
+  });
+
+  it('drops states that fail losslessness identically to HistoryManager.remap', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    history.beginAction(grid, objects);
+    setCell(grid, 18, 18, WATER, 7);
+    history.commitAction(grid, objects);
+
+    const remapped = remapWorldStates(history.getPersistableUndoStack(), 20, 20, 5, 5, -15, -15);
+    // Same expectation as the equivalent HistoryManager.remap hardening test above: only the
+    // empty "before A" state survives a shrink this severe.
+    expect(remapped.length).toBe(1);
+  });
+});
+
+describe('history — getPersistableUndoStack (US1 spec 011, FR-006)', () => {
+  it('returns the live undo stack in its existing oldest-first/newest-last order', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    expect(history.getPersistableUndoStack()).toEqual([]);
+
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+    const firstBefore = history.getPersistableUndoStack()[0];
+
+    history.beginAction(grid, objects);
+    setCell(grid, 2, 2, WATER, 4);
+    history.commitAction(grid, objects);
+
+    const stack = history.getPersistableUndoStack();
+    expect(stack.length).toBe(2);
+    expect(stack[0]).toBe(firstBefore);
+  });
+});
+
+describe('history — restoreFromPersisted (US1 spec 011, FR-001, FR-004, FR-005, FR-007)', () => {
+  it('replaces the undo stack, clears redo, and clears any pending capture', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+    history.undo(grid, objects);
+    expect(history.canRedo()).toBe(true);
+
+    const restoredState = captureWorldState(grid, objects);
+    history.beginAction(grid, objects); // simulate a mid-stroke pending capture at reopen time
+
+    history.restoreFromPersisted([restoredState]);
+
+    expect(history.canUndo()).toBe(true);
+    expect(history.canRedo()).toBe(false);
+
+    // No pending capture survived: a subsequent commitAction with no matching beginAction is a
+    // no-op (pending is null), so canUndo's count does not change.
+    history.commitAction(grid, objects);
+    expect(history.getPersistableUndoStack().length).toBe(1);
+  });
+
+  it('always leaves canRedo() false regardless of the source HistoryManager having redo entries, lighting up only after an undo() in the new session (Scenario 7, FR-007)', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const source = new HistoryManager();
+
+    source.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    source.commitAction(grid, objects);
+    source.beginAction(grid, objects);
+    setCell(grid, 2, 2, WATER, 4);
+    source.commitAction(grid, objects);
+    source.undo(grid, objects);
+    // Non-empty undo stack AND a non-empty redo stack on the source, so the persisted (undo-only)
+    // slice this feature reads is non-empty while canRedo() on the source is still true.
+    expect(source.canRedo()).toBe(true);
+    const persistedSlice = [...source.getPersistableUndoStack()];
+    expect(persistedSlice.length).toBeGreaterThan(0);
+
+    const history = new HistoryManager();
+    history.restoreFromPersisted(persistedSlice);
+    expect(history.canRedo()).toBe(false);
+
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(history.canRedo()).toBe(true);
+  });
+
+  it('canUndo()/canRedo() reflect the restored state exactly, including the empty case', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.restoreFromPersisted([]);
+    expect(history.canUndo()).toBe(false);
+    expect(history.canRedo()).toBe(false);
+
+    const state = captureWorldState(grid, objects);
+    history.restoreFromPersisted([state]);
+    expect(history.canUndo()).toBe(true);
+    expect(history.canRedo()).toBe(false);
+  });
+
+  it('a restored stack undoes in the expected order and respects HISTORY_DEPTH on new actions', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    const snapshots: ReturnType<typeof visibleSnapshot>[] = [];
+
+    snapshots.push(visibleSnapshot(grid, objects));
+    for (let n = 0; n < 3; n++) {
+      history.beginAction(grid, objects);
+      setCell(grid, n, 0, SAND, n + 1);
+      history.commitAction(grid, objects);
+      snapshots.push(visibleSnapshot(grid, objects));
+    }
+
+    const restoredStack = [...history.getPersistableUndoStack()];
+    const history2 = new HistoryManager();
+    history2.restoreFromPersisted(restoredStack);
+
+    for (let n = 3; n >= 1; n--) {
+      expect(history2.undo(grid, objects)).toBe(true);
+      expect(visibleSnapshot(grid, objects)).toEqual(snapshots[n - 1]);
+    }
+    expect(history2.canUndo()).toBe(false);
+    expect(history2.undo(grid, objects)).toBe(false);
+  });
+
+  it('a new action recorded after restoreFromPersisted is undoable and evicts the oldest entry once HISTORY_DEPTH is reached', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    const fullStack: ReturnType<typeof captureWorldState>[] = [];
+    for (let n = 0; n < HISTORY_DEPTH; n++) {
+      fullStack.push(captureWorldState(grid, objects));
+      setCell(grid, n % 10, 0, SAND, (n % 250) + 1);
+    }
+
+    const history2 = new HistoryManager();
+    history2.restoreFromPersisted(fullStack);
+    expect(history2.getPersistableUndoStack().length).toBe(HISTORY_DEPTH);
+
+    history2.beginAction(grid, objects);
+    setCell(grid, 9, 9, WATER, 5);
+    history2.commitAction(grid, objects);
+
+    // The stack stays capped at HISTORY_DEPTH — the oldest restored entry was evicted — and the
+    // newest entry (the just-recorded action) is undoable with a single undo() call.
+    expect(history2.getPersistableUndoStack().length).toBe(HISTORY_DEPTH);
+    const before = visibleSnapshot(grid, objects);
+    expect(history2.undo(grid, objects)).toBe(true);
+    expect(getElement(grid, 9, 9)).toBe(EMPTY);
+    expect(visibleSnapshot(grid, objects)).not.toEqual(before);
   });
 });
