@@ -12,6 +12,13 @@
   import { loadScene as loadSceneState } from '../sim/scenes';
   import { HistoryManager, restoreWorldState, remapWorldState } from '../sim/history';
   import { serializeWorld, deserializeWorld, resyncNextId } from '../sim/save';
+  import {
+    computeFingerprint,
+    serializeHistory,
+    deserializeHistory,
+    writeOrdinarySave,
+    writeFlushSave,
+  } from '../sim/historySave';
   import { step } from '../sim/step';
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
@@ -123,6 +130,7 @@
   const poodlePrevState = new Map<number, PoodleState>();
 
   const SAVE_KEY = 'rainbow-sand-world-v1';
+  const HISTORY_KEY = 'rainbow-sand-history-v1';
   const SAVE_DEBOUNCE_MS = 2000;
 
   let container: HTMLDivElement;
@@ -148,15 +156,25 @@
 
   // Every localStorage touchpoint is wrapped so a quota or privacy failure is silent — the
   // game must be indistinguishable from today when storage is unavailable (no dialogs, no
-  // thrown errors reaching the frame loop).
+  // thrown errors reaching the frame loop). writeOrdinarySave additionally invalidates any
+  // stored history on every ordinary save (FR-013a) — the world is saved far more often than a
+  // going-away flush, so a stale history left beside a newer world must never survive one.
   function saveNow(): void {
-    try {
-      const json = serializeWorld(grid, objectsState, petsState);
-      if (json === '') return; // serializeWorld failed internally; keep whatever save exists
-      localStorage.setItem(SAVE_KEY, json);
-    } catch {
-      // Storage unavailable (private mode, quota). Silent — nothing the child does is ever wrong.
-    }
+    const worldJson = serializeWorld(grid, objectsState, petsState);
+    writeOrdinarySave(localStorage, SAVE_KEY, HISTORY_KEY, worldJson);
+  }
+
+  // The going-away flush's storage-side effect — the only call site that ever writes a history
+  // payload (FR-013). Serializes the world once, fingerprints it, serializes the undo history
+  // against that fingerprint and the live grid's dimensions, and writes both in one storage
+  // orchestration call.
+  function flushSave(): void {
+    const worldJson = serializeWorld(grid, objectsState, petsState);
+    const historyJson =
+      worldJson === ''
+        ? ''
+        : serializeHistory(history.getPersistableUndoStack(), grid.width, grid.height, computeFingerprint(worldJson));
+    writeFlushSave(localStorage, SAVE_KEY, HISTORY_KEY, worldJson, historyJson);
   }
 
   function scheduleSave(): void {
@@ -165,7 +183,7 @@
   }
 
   function handleVisibilityHidden(): void {
-    if (document.visibilityState === 'hidden') saveNow();
+    if (document.visibilityState === 'hidden') flushSave();
   }
 
   // Restores a saved world onto the just-created grid, before the first frame. Best-effort and
@@ -204,8 +222,23 @@
       // they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
 
-      // History starts empty after a restore — the restored world is the new baseline.
-      history.reset();
+      // Restore the paired undo history, if one survived a going-away flush and still agrees
+      // with the world save it was written beside (FR-017: same fingerprint, same recorded
+      // dimensions) — falling back to today's clean-slate reset() on any failure (missing key,
+      // invalid payload, fingerprint mismatch, or a recorded/live dimension mismatch).
+      const historyRaw = localStorage.getItem(HISTORY_KEY);
+      const persisted = historyRaw === null ? null : deserializeHistory(historyRaw, computeFingerprint(raw));
+      if (
+        persisted !== null &&
+        persisted.width === saved.width &&
+        persisted.height === saved.height &&
+        saved.width === grid.width &&
+        saved.height === grid.height
+      ) {
+        history.restoreFromPersisted(persisted.steps);
+      } else {
+        history.reset();
+      }
       onHistoryChange?.(history.canUndo(), history.canRedo());
     } catch {
       // Silent restore failure — start fresh exactly as if there were no save.
@@ -714,7 +747,7 @@
     window.visualViewport?.addEventListener('resize', scheduleResize);
     window.addEventListener('orientationchange', scheduleResize);
     document.addEventListener('visibilitychange', handleVisibilityHidden);
-    window.addEventListener('pagehide', saveNow);
+    window.addEventListener('pagehide', flushSave);
     requestAnimationFrame(frame);
     return () => {
       clearTimeout(resizeTimer);
@@ -723,7 +756,7 @@
       window.visualViewport?.removeEventListener('resize', scheduleResize);
       window.removeEventListener('orientationchange', scheduleResize);
       document.removeEventListener('visibilitychange', handleVisibilityHidden);
-      window.removeEventListener('pagehide', saveNow);
+      window.removeEventListener('pagehide', flushSave);
     };
   });
 </script>
