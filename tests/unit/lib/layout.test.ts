@@ -78,6 +78,35 @@ function legacyFixedGridSize(regionWidth: number, regionHeight: number) {
   return { width: 270 * cellSize, height: 160 * cellSize };
 }
 
+// A stub matching RAIL_MEDIA_QUERY's own semantics ('(max-height: 480px) and (orientation:
+// landscape)') against a given viewport — lets readArrangement() run under vitest's DOM-free
+// environment without adding jsdom (Principle V).
+function stubMatchMediaFor(viewportWidth: number, viewportHeight: number) {
+  return (query: string) => {
+    if (query !== RAIL_MEDIA_QUERY) throw new Error(`unexpected media query: ${query}`);
+    return { matches: viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight };
+  };
+}
+
+describe('readArrangement — single source of truth agrees with the pre-013 internal derivation at every representative viewport (FR-007b, SC-014)', () => {
+  for (const viewport of VIEWPORT_TABLE) {
+    it(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
+      const stubbed = readArrangement(stubMatchMediaFor(viewport.width, viewport.height));
+      expect(stubbed).toBe(legacyArrangement(viewport.width, viewport.height));
+    });
+  }
+
+  it("computeToolbarLayout's fits/controlSize/pitch/thickness are unchanged when fed readArrangement's value instead of the old internal derivation", () => {
+    for (const viewport of VIEWPORT_TABLE) {
+      const fromReadArrangement = readArrangement(stubMatchMediaFor(viewport.width, viewport.height));
+      const fromLegacyDerivation = legacyArrangement(viewport.width, viewport.height);
+      const before = computeToolbarLayout(viewport.width, viewport.height, BASE_CONTROLS, fromLegacyDerivation);
+      const after = computeToolbarLayout(viewport.width, viewport.height, BASE_CONTROLS, fromReadArrangement);
+      expect(after).toEqual(before);
+    }
+  });
+});
+
 describe('layout — representative viewport table (FR-001, FR-003, FR-005, FR-006, FR-007)', () => {
   for (const viewport of VIEWPORT_TABLE) {
     const isPhone = isPhoneSized(viewport.width, viewport.height);
