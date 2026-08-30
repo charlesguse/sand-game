@@ -26,6 +26,7 @@ import {
   type SceneId,
 } from '../../../src/sim/types';
 import { CELL_BUDGET, GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
+import { computeFingerprint, serializeHistory, deserializeHistory } from '../../../src/sim/historySave';
 import {
   captureWorldState,
   restoreWorldState,
@@ -1383,5 +1384,91 @@ describe('history — restoreFromPersisted (US1 spec 011, FR-001, FR-004, FR-005
     expect(history2.undo(grid, objects)).toBe(true);
     expect(getElement(grid, 9, 9)).toBe(EMPTY);
     expect(visibleSnapshot(grid, objects)).not.toEqual(before);
+  });
+});
+
+describe('history — remapWorldStates on round-tripped persisted steps matches a live HistoryManager.remap (US3 spec 011, FR-016, SC-008)', () => {
+  it('every surviving remapped step matches exactly what HistoryManager.remap would have produced, and the dropped step genuinely fails losslessness', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    // Action A: before-state is empty (survives any remap).
+    history.beginAction(grid, objects);
+    setCell(grid, 2, 2, SAND, 4);
+    history.commitAction(grid, objects);
+
+    // Action B: before-state has only (2,2), which stays in-bounds after the shrink below.
+    history.beginAction(grid, objects);
+    setCell(grid, 15, 15, WATER, 6);
+    history.commitAction(grid, objects);
+
+    // Action C: before-state has (2,2) AND (15,15) — (15,15) falls outside a 10x10 grid.
+    history.beginAction(grid, objects);
+    setCell(grid, 3, 3, DIRT, 1);
+    history.commitAction(grid, objects);
+
+    // Simulate persistence: round-trip the undo stack through serializeHistory/deserializeHistory.
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 20, 20, fingerprint);
+    const persisted = deserializeHistory(serialized, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+
+    const persistedRemapped = remapWorldStates(persisted.steps, 20, 20, 10, 10, 0, 0);
+
+    // A live HistoryManager built from the exact same recorded actions, remapped the same way.
+    const liveGrid = createGrid(20, 20);
+    const liveObjects = createObjectsState();
+    const liveHistory = new HistoryManager();
+    liveHistory.beginAction(liveGrid, liveObjects);
+    setCell(liveGrid, 2, 2, SAND, 4);
+    liveHistory.commitAction(liveGrid, liveObjects);
+    liveHistory.beginAction(liveGrid, liveObjects);
+    setCell(liveGrid, 15, 15, WATER, 6);
+    liveHistory.commitAction(liveGrid, liveObjects);
+    liveHistory.beginAction(liveGrid, liveObjects);
+    setCell(liveGrid, 3, 3, DIRT, 1);
+    liveHistory.commitAction(liveGrid, liveObjects);
+    liveHistory.remap(20, 20, 10, 10, 0, 0);
+
+    const liveRemapped = liveHistory.getPersistableUndoStack();
+    expect(persistedRemapped.length).toBe(liveRemapped.length);
+    expect(persistedRemapped.length).toBe(2); // only before-A and before-B survive; before-C is dropped
+
+    for (let i = 0; i < persistedRemapped.length; i++) {
+      expect(Array.from(persistedRemapped[i].elements)).toEqual(Array.from(liveRemapped[i].elements));
+    }
+
+    // The dropped step (before-C) genuinely fails losslessness: force-remapping it directly
+    // (bypassing the filter) shows content that falls outside the new bounds and is clipped —
+    // proof the drop was necessary, not coincidental (a state that already fit would keep every
+    // populated cell).
+    const droppedStepC = persisted.steps[2];
+    const forcedRemap = remapWorldState(droppedStepC, 20, 20, 10, 10, 0, 0);
+    let nonEmptyCount = 0;
+    for (let i = 0; i < 10 * 10; i++) if (forcedRemap.elements[i] !== EMPTY) nonEmptyCount++;
+    expect(nonEmptyCount).toBeLessThan(2);
+  });
+});
+
+describe('history — a reshape severe enough that nothing survives (US3 spec 011, FR-016)', () => {
+  it('remapWorldStates dropping every persisted step, then restoreFromPersisted([]), leaves canUndo() false', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    setCell(grid, 15, 15, SAND, 4); // pre-existing content, captured by the upcoming beginAction
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 16, 16, WATER, 3);
+    history.commitAction(grid, objects);
+    expect(history.canUndo()).toBe(true);
+
+    const remapped = remapWorldStates(history.getPersistableUndoStack(), 20, 20, 3, 3, -20, -20);
+    expect(remapped.length).toBe(0);
+
+    const freshHistory = new HistoryManager();
+    freshHistory.restoreFromPersisted(remapped);
+    expect(freshHistory.canUndo()).toBe(false);
   });
 });

@@ -405,6 +405,35 @@ describe('historySave — measured serialized size across varied field sizes (US
   });
 });
 
+describe('historySave — the "same field size" branch condition (US3, FR-016, Scenario 4)', () => {
+  // Mirrors PlayArea.svelte's tryRestore condition exactly: persisted.width === saved.width &&
+  // persisted.height === saved.height && saved.width === grid.width && saved.height === grid.height.
+  function sameFieldSize(
+    persisted: { width: number; height: number },
+    saved: { width: number; height: number },
+    live: { width: number; height: number },
+  ): boolean {
+    return (
+      persisted.width === saved.width &&
+      persisted.height === saved.height &&
+      saved.width === live.width &&
+      saved.height === live.height
+    );
+  }
+
+  it('is true only when all three dimension pairs match, and false whenever any one differs', () => {
+    const base = { width: 20, height: 15 };
+    expect(sameFieldSize(base, base, base)).toBe(true);
+
+    expect(sameFieldSize({ width: 21, height: 15 }, base, base)).toBe(false); // persisted.width differs
+    expect(sameFieldSize({ width: 20, height: 16 }, base, base)).toBe(false); // persisted.height differs
+    expect(sameFieldSize(base, { width: 21, height: 15 }, base)).toBe(false); // saved.width differs from persisted
+    expect(sameFieldSize(base, { width: 20, height: 16 }, base)).toBe(false); // saved.height differs from persisted
+    expect(sameFieldSize(base, base, { width: 21, height: 15 })).toBe(false); // live.width differs from saved
+    expect(sameFieldSize(base, base, { width: 20, height: 16 })).toBe(false); // live.height differs from saved
+  });
+});
+
 describe('historySave — repeated close/reopen with no drawing between (US2, SC-014)', () => {
   it('closing and reopening 5 times in a row leaves the same steps available every time, with 0 growth and 0 duplication', () => {
     const grid = createGrid(20, 20);

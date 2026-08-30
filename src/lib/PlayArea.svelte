@@ -10,7 +10,7 @@
   import { createGrid, clearGrid as clearGridState } from '../sim/grid';
   import { resizeGrid } from '../sim/resize';
   import { loadScene as loadSceneState } from '../sim/scenes';
-  import { HistoryManager, restoreWorldState, remapWorldState } from '../sim/history';
+  import { HistoryManager, restoreWorldState, remapWorldState, remapWorldStates } from '../sim/history';
   import { serializeWorld, deserializeWorld, resyncNextId } from '../sim/save';
   import {
     computeFingerprint,
@@ -225,17 +225,19 @@
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
       // dimensions) — falling back to today's clean-slate reset() on any failure (missing key,
-      // invalid payload, fingerprint mismatch, or a recorded/live dimension mismatch).
+      // invalid payload, fingerprint mismatch, or a recorded-dimension mismatch). If the live
+      // grid's dimensions differ from the recorded ones (a rotation or fullscreen toggle since
+      // the last flush), re-anchor the surviving steps with the same remapWorldStates machinery
+      // live re-derivation already uses, via the exact offsetX/offsetY just computed above for
+      // the world's own remap (FR-016).
       const historyRaw = localStorage.getItem(HISTORY_KEY);
       const persisted = historyRaw === null ? null : deserializeHistory(historyRaw, computeFingerprint(raw));
-      if (
-        persisted !== null &&
-        persisted.width === saved.width &&
-        persisted.height === saved.height &&
-        saved.width === grid.width &&
-        saved.height === grid.height
-      ) {
-        history.restoreFromPersisted(persisted.steps);
+      if (persisted !== null && persisted.width === saved.width && persisted.height === saved.height) {
+        const steps =
+          saved.width === grid.width && saved.height === grid.height
+            ? persisted.steps
+            : remapWorldStates(persisted.steps, saved.width, saved.height, grid.width, grid.height, offsetX, offsetY);
+        history.restoreFromPersisted(steps);
       } else {
         history.reset();
       }
