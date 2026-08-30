@@ -41,6 +41,21 @@ export const PREFERRED_PITCH = 16;
 /** Floor below which pitch never shrinks, px — keeps neighbouring targets from crowding close enough to co-activate (FR-009). */
 export const MIN_PITCH = 4;
 
+/** The exact media-query text `App.svelte`'s rail switch and `readArrangement` both evaluate against the layout viewport (FR-007b) — unchanged in value from spec 012's CSS. */
+export const RAIL_MEDIA_QUERY = '(max-height: 480px) and (orientation: landscape)';
+
+/**
+ * The single source of the rows-versus-rail decision (FR-007, FR-007a): reads RAIL_MEDIA_QUERY
+ * against the layout viewport via window.matchMedia, immune to pinch-zoom by construction since
+ * matchMedia never consults window.visualViewport. The injectable matchMedia parameter exists
+ * solely so tests can exercise this under vitest's DOM-free environment (Principle V).
+ */
+export function readArrangement(
+  matchMedia: (query: string) => { matches: boolean } = (q) => window.matchMedia(q),
+): 'rows' | 'rail' {
+  return matchMedia(RAIL_MEDIA_QUERY).matches ? 'rail' : 'rows';
+}
+
 export interface ToolbarLayoutResult {
   fits: boolean;
   /** px, always >= MIN_TOUCH_TARGET */
@@ -162,9 +177,8 @@ export function computeToolbarLayout(
   viewportWidth: number,
   viewportHeight: number,
   controlCount: number,
+  arrangement: 'rows' | 'rail',
 ): ToolbarLayoutResult {
-  const arrangement: 'rows' | 'rail' =
-    viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight ? 'rail' : 'rows';
   const constrainedAxisLength = arrangement === 'rail' ? viewportWidth : viewportHeight;
   const mainAxisLength = arrangement === 'rail' ? viewportHeight : viewportWidth;
   const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;

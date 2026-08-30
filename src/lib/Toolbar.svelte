@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Tool, BrushSize, SceneId } from '../sim/types';
-  import { MIN_TOUCH_TARGET, RESIZE_SETTLE_MS, computeToolbarLayout } from './layout';
+  import { MIN_TOUCH_TARGET, RESIZE_SETTLE_MS, computeToolbarLayout, readArrangement } from './layout';
   import { shippedToolbarControls } from './toolbarControls';
   import BucketIcon from './BucketIcon.svelte';
 
@@ -232,12 +232,14 @@
   // PlayArea's own size.
   let viewportWidth = $state(window.visualViewport?.width ?? window.innerWidth);
   let viewportHeight = $state(window.visualViewport?.height ?? window.innerHeight);
+  let arrangement = $state(readArrangement());
 
-  const layout = $derived(computeToolbarLayout(viewportWidth, viewportHeight, controls.length));
+  const layout = $derived(computeToolbarLayout(viewportWidth, viewportHeight, controls.length, arrangement));
 
   function measureViewport(): void {
     viewportWidth = window.visualViewport?.width ?? window.innerWidth;
     viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+    arrangement = readArrangement();
   }
 
   let resizeTimer: ReturnType<typeof setTimeout> | undefined;

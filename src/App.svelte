@@ -1,15 +1,18 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Toolbar from './lib/Toolbar.svelte';
   import PlayArea from './lib/PlayArea.svelte';
   import type { Tool, BrushSize, SceneId } from './sim/types';
   import { isFullscreenSupported, toggleFullscreen } from './lib/fullscreen';
   import { isMuted, setMuted } from './lib/sound';
+  import { readArrangement, RAIL_MEDIA_QUERY } from './lib/layout';
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
   let canUndo = $state(false);
   let canRedo = $state(false);
   let muted = $state(isMuted());
+  let arrangement = $state(readArrangement());
   let playArea: PlayArea;
 
   const showFullscreen = isFullscreenSupported(document.documentElement);
@@ -69,9 +72,16 @@
   function redo(): void {
     playArea.redo();
   }
+
+  onMount(() => {
+    const media = window.matchMedia(RAIL_MEDIA_QUERY);
+    const updateArrangement = () => (arrangement = readArrangement());
+    media.addEventListener('change', updateArrangement);
+    return () => media.removeEventListener('change', updateArrangement);
+  });
 </script>
 
-<main>
+<main class:rail={arrangement === 'rail'}>
   <PlayArea bind:this={playArea} {tool} {brushSize} onHistoryChange={handleHistoryChange} />
   <Toolbar
     {tool}
@@ -114,9 +124,7 @@
     min-width: 0;
   }
 
-  @media (max-height: 480px) and (orientation: landscape) {
-    main {
-      flex-direction: row;
-    }
+  main.rail {
+    flex-direction: row;
   }
 </style>

@@ -12,6 +12,9 @@ import {
   isPhoneSized,
   computePlayField,
   computeToolbarLayout,
+  readArrangement,
+  RAIL_MEDIA_QUERY,
+  PHONE_MAX_SHORT_SIDE,
 } from '../../../src/lib/layout';
 import { shippedToolbarControls } from '../../../src/lib/toolbarControls';
 
@@ -42,12 +45,24 @@ const BASE_CONTROLS = shippedToolbarControls(false, false).length;
 const FULL_CONTROLS = shippedToolbarControls(true, true).length;
 const CONTROL_COUNTS = [BASE_CONTROLS, FULL_CONTROLS];
 
+// The pre-013 internal derivation computeToolbarLayout used to compute before arrangement became
+// an explicit parameter (T002) — kept here only so call sites can reproduce it exactly, and so
+// T013 can confirm readArrangement() agrees with it at every representative-table viewport.
+function legacyArrangement(viewportWidth: number, viewportHeight: number): 'rows' | 'rail' {
+  return viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight ? 'rail' : 'rows';
+}
+
 // Derives the drawing region left over once the toolbar takes its own capped box, reading
 // computeToolbarLayout's own arrangement/thickness fields rather than a locally reimplemented
 // model — the check and the sizing rule can never disagree because both call the same function
 // (FR-014, research.md §5).
 function drawingRegionFor(viewport: ViewportCase, controlCount: number) {
-  const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+  const toolbar = computeToolbarLayout(
+    viewport.width,
+    viewport.height,
+    controlCount,
+    legacyArrangement(viewport.width, viewport.height),
+  );
   const isRail = toolbar.arrangement === 'rail';
   return {
     toolbar,
@@ -62,6 +77,35 @@ function legacyFixedGridSize(regionWidth: number, regionHeight: number) {
   const cellSize = Math.max(1, Math.floor(Math.min(regionWidth / 270, regionHeight / 160)));
   return { width: 270 * cellSize, height: 160 * cellSize };
 }
+
+// A stub matching RAIL_MEDIA_QUERY's own semantics ('(max-height: 480px) and (orientation:
+// landscape)') against a given viewport — lets readArrangement() run under vitest's DOM-free
+// environment without adding jsdom (Principle V).
+function stubMatchMediaFor(viewportWidth: number, viewportHeight: number) {
+  return (query: string) => {
+    if (query !== RAIL_MEDIA_QUERY) throw new Error(`unexpected media query: ${query}`);
+    return { matches: viewportHeight <= PHONE_MAX_SHORT_SIDE && viewportWidth > viewportHeight };
+  };
+}
+
+describe('readArrangement — single source of truth agrees with the pre-013 internal derivation at every representative viewport (FR-007b, SC-014)', () => {
+  for (const viewport of VIEWPORT_TABLE) {
+    it(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
+      const stubbed = readArrangement(stubMatchMediaFor(viewport.width, viewport.height));
+      expect(stubbed).toBe(legacyArrangement(viewport.width, viewport.height));
+    });
+  }
+
+  it("computeToolbarLayout's fits/controlSize/pitch/thickness are unchanged when fed readArrangement's value instead of the old internal derivation", () => {
+    for (const viewport of VIEWPORT_TABLE) {
+      const fromReadArrangement = readArrangement(stubMatchMediaFor(viewport.width, viewport.height));
+      const fromLegacyDerivation = legacyArrangement(viewport.width, viewport.height);
+      const before = computeToolbarLayout(viewport.width, viewport.height, BASE_CONTROLS, fromLegacyDerivation);
+      const after = computeToolbarLayout(viewport.width, viewport.height, BASE_CONTROLS, fromReadArrangement);
+      expect(after).toEqual(before);
+    }
+  });
+});
 
 describe('layout — representative viewport table (FR-001, FR-003, FR-005, FR-006, FR-007)', () => {
   for (const viewport of VIEWPORT_TABLE) {
@@ -124,13 +168,23 @@ describe('computeToolbarLayout — axis floor holds universally, both control se
         if (KNOWN_INFEASIBLE.has(`${viewport.label}:${controlCount}`)) continue;
 
         it(`keeps the drawing region at >= 60% of the constrained axis (${controlCount} controls)`, () => {
-          const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+          const toolbar = computeToolbarLayout(
+            viewport.width,
+            viewport.height,
+            controlCount,
+            legacyArrangement(viewport.width, viewport.height),
+          );
           const constrainedAxisLength = toolbar.arrangement === 'rail' ? viewport.width : viewport.height;
           expect((constrainedAxisLength - toolbar.thickness) / constrainedAxisLength).toBeGreaterThanOrEqual(0.6);
         });
 
         it(`fits every control at or above the touch-target and pitch floors simultaneously (${controlCount} controls)`, () => {
-          const toolbar = computeToolbarLayout(viewport.width, viewport.height, controlCount);
+          const toolbar = computeToolbarLayout(
+            viewport.width,
+            viewport.height,
+            controlCount,
+            legacyArrangement(viewport.width, viewport.height),
+          );
           expect(toolbar.fits).toBe(true);
           expect(toolbar.controlSize).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
           expect(toolbar.pitch).toBeGreaterThanOrEqual(MIN_PITCH);
@@ -162,7 +216,12 @@ describe('computeToolbarLayout — phone-sized area-fill floors hold alongside t
 describe('computeToolbarLayout — the one known-infeasible combination reports fits: false, not a silently-violated floor (FR-012, FR-012b)', () => {
   it('small phone (320x568) with both feature-detected controls shown cannot clear both floors', () => {
     const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
-    const toolbar = computeToolbarLayout(smallest.width, smallest.height, FULL_CONTROLS);
+    const toolbar = computeToolbarLayout(
+      smallest.width,
+      smallest.height,
+      FULL_CONTROLS,
+      legacyArrangement(smallest.width, smallest.height),
+    );
     const constrainedAxisLength = toolbar.arrangement === 'rail' ? smallest.width : smallest.height;
     const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
 
@@ -179,7 +238,12 @@ describe('computeToolbarLayout — desktop non-regression, no active shrinking (
   const laptop = VIEWPORT_TABLE.find((v) => v.label === 'laptop')!;
 
   it('stays at the preferred control size and pitch at 1280x800', () => {
-    const toolbar = computeToolbarLayout(laptop.width, laptop.height, BASE_CONTROLS);
+    const toolbar = computeToolbarLayout(
+      laptop.width,
+      laptop.height,
+      BASE_CONTROLS,
+      legacyArrangement(laptop.width, laptop.height),
+    );
     expect(toolbar.controlSize).toBe(PREFERRED_CONTROL_SIZE);
     expect(toolbar.pitch).toBe(PREFERRED_PITCH);
   });
@@ -221,8 +285,9 @@ describe('shippedToolbarControls — manifest shape and feature-detected gating 
 describe('computeToolbarLayout — the guarantee reacts to a changed control count (SC-008)', () => {
   it('one extra control changes the computed layout for at least one representative viewport', () => {
     const changed = VIEWPORT_TABLE.some((viewport) => {
-      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS);
-      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1);
+      const arrangement = legacyArrangement(viewport.width, viewport.height);
+      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS, arrangement);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1, arrangement);
       return (
         after.thickness !== before.thickness ||
         after.controlSize !== before.controlSize ||
@@ -235,8 +300,9 @@ describe('computeToolbarLayout — the guarantee reacts to a changed control cou
 
   it('never needs less space than before when a control is added, at every representative viewport', () => {
     for (const viewport of VIEWPORT_TABLE) {
-      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS);
-      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1);
+      const arrangement = legacyArrangement(viewport.width, viewport.height);
+      const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS, arrangement);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1, arrangement);
       expect(after.requiredThickness).toBeGreaterThanOrEqual(before.requiredThickness);
     }
   });
@@ -245,7 +311,12 @@ describe('computeToolbarLayout — the guarantee reacts to a changed control cou
 describe('computeToolbarLayout — a control set that cannot fit is reported, not silently accepted (FR-012, FR-012b, SC-012)', () => {
   it('reports fits: false with the exact shortfall at the smallest table viewport', () => {
     const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
-    const toolbar = computeToolbarLayout(smallest.width, smallest.height, 500);
+    const toolbar = computeToolbarLayout(
+      smallest.width,
+      smallest.height,
+      500,
+      legacyArrangement(smallest.width, smallest.height),
+    );
     const constrainedAxisLength = toolbar.arrangement === 'rail' ? smallest.width : smallest.height;
     const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
 
