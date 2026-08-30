@@ -125,9 +125,9 @@ Single client-only web app (established 001–010, plus PR #33's auto-save): `sr
 
 **Purpose**: Final non-regression and manual verification per quickstart.md; no new production code expected.
 
-- [ ] T033 [P] Run `npm test` and confirm every test carried over from specs 001–010 (plus PR #33) still passes completely unchanged (FR-023, SC-011)
-- [ ] T034 [P] Run `npm run build` and confirm `dist/` contains exactly one file, `dist/index.html`, and that its size has grown by at most 3 KB over the pre-feature build (FR-024, SC-012)
-- [ ] T035 Confirm `src/sim/save.ts` has no diff at all from its pre-feature state, and no existing `src/sim/*` file other than the new `historySave.ts` and the additively-extended `history.ts` has any diff (quickstart.md "Validate existing behavior is unchanged", FR-023)
+- [X] T033 [P] Run `npm test` and confirm every test carried over from specs 001–010 (plus PR #33) still passes completely unchanged (FR-023, SC-011)
+- [X] T034 [P] Run `npm run build` and confirm `dist/` contains exactly one file, `dist/index.html`, and that its size has grown by at most 3 KB over the pre-feature build (FR-024, SC-012)
+- [X] T035 Confirm `src/sim/save.ts` has no diff at all from its pre-feature state, and no existing `src/sim/*` file other than the new `historySave.ts` and the additively-extended `history.ts` has any diff (quickstart.md "Validate existing behavior is unchanged", FR-023)
 - [ ] T036 Work through quickstart.md's on-device/manual checklist on the Fire 7 Kids tablet and desktop Chrome (Charlie's column) and the iPad standalone home-screen app (Max's column) — close-and-reopen, budget/quota behavior on a busy field, rotation and fullscreen-toggle reopen, 5 consecutive reopens, several days of ordinary use — and record findings for the maintainers per `CLAUDE.md`'s two-platform split; no automated coverage exists for this step
 
 ---
