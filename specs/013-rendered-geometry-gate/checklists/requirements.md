@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,15 +31,19 @@
 
 ## Notes
 
-- **3 [NEEDS CLARIFICATION] markers remain** in the Open Questions section, at
-  the maximum the specify workflow permits. They are posted to lifecycle issue
-  #41 rather than blocking: (1) whether the check rejects *unrecognised*
-  geometry-critical declarations or only asserts the enumerated facts; (2)
-  whether the rows/rail arrangement decision must be unified onto the layout
-  model or merely asserted to agree; (3) whether the "each historical cause
-  fails the suite" acceptance is a one-time verification or a permanent
-  mechanism. Each has a reasonable default recorded in the requirement it
-  annotates, so planning can proceed if they go unanswered.
+- **All 3 clarifications are resolved** (answered by @charlesguse on lifecycle
+  issue #41, 2026-08-30; recorded in the spec's Clarifications section). (1) The
+  check closes the class *hybrid*: a closed allowlist over declarations that
+  change a control's border box or flow participation, assert-only elsewhere, so
+  the toolbar's cosmetic box-shadow/gradient grouping cue never trips it
+  (FR-018…FR-018c, SC-013). (2) The rows/rail decision is **unified** onto one
+  owner read from the *layout* viewport with the existing media query's
+  semantics — no behaviour change at any spec-012 table viewport, and a
+  pinch-zoom can no longer flip the arrangement (FR-007…FR-007b, SC-014). (3) The
+  "each historical cause fails the suite" acceptance is a **permanent** mechanism
+  whose negative cases are derived from the shipped component's current source at
+  test time, which makes the check a pure function over source text
+  (FR-013a…FR-013c, SC-001). 0 [NEEDS CLARIFICATION] markers remain.
 - **Implementation-name mentions are deliberate and bounded.** The Assumptions
   section names `computeToolbarLayout`, `computePlayField`, and
   `tests/unit/shell/toolbarGeometry.test.ts`. This feature's subject *is* the

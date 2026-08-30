@@ -144,9 +144,10 @@ guarantee could not rot, and it rotted anyway in the one place the gate did not
 look. A guarantee that only holds until the next stylesheet edit is not a
 guarantee.
 
-**Independent Test**: Re-introduce each of the three historical causes, one at a
-time, into the shipped component and confirm the test suite fails each time with
-a message naming the broken fact — then restore. Confirm the suite still runs
+**Independent Test**: Confirm the suite itself re-derives each of the three
+historical causes on every run — taking the shipped component's own source,
+producing the drifted variant of it in memory, and requiring the check to reject
+that variant with a message naming the broken fact. Confirm the suite still runs
 with no DOM and no browser.
 
 **Acceptance Scenarios**:
@@ -172,6 +173,17 @@ with no DOM and no browser.
 7. **Given** a change that would breach a spec-012 floor, **When** the suite runs,
    **Then** it still fails exactly as spec 012 requires — this feature adds a gate
    and weakens none.
+8. **Given** the shipped component is refactored — renamed, restructured, its
+   styles reorganised — **When** the suite runs, **Then** the three historical
+   causes are still re-derived from that component's *current* source, so the
+   negative cases cannot go stale against code that has moved on.
+9. **Given** a maintainer adds an unrecognised declaration that changes a
+   control's own border box or how it participates in flow, **When** the suite
+   runs, **Then** it fails even though no existing invariant named that
+   declaration.
+10. **Given** a maintainer changes a box-shadow, a conic gradient, or any other
+    declaration outside a control's border box and flow participation, **When**
+    the suite runs, **Then** it stays green.
 
 ---
 
@@ -233,8 +245,13 @@ pinned, or explicitly recorded as not affecting rendered size or flow.
 2. **Given** a change that would make the canvas render larger than the region the
    model measured, **When** the suite runs, **Then** it fails.
 3. **Given** the rows-versus-rail arrangement, **When** the toolbar band and the
-   app shell each decide which way the screen is split, **Then** they cannot
-   disagree — there is one source of truth for that decision.
+   app shell each need to know which way the screen is split, **Then** both read
+   the *same single* decision rather than each resolving a rule of its own, so
+   they cannot disagree.
+4. **Given** a child pinch-zooms with two fingers, **When** the visual viewport
+   shrinks, **Then** the arrangement does not flip between rows and rail — the
+   arrangement decision reads the layout viewport, which pinch-zoom does not
+   change.
 
 ---
 
@@ -266,9 +283,19 @@ pinned, or explicitly recorded as not affecting rendered size or flow.
   the list. The list must make its own scope explicit so the gap is visible rather
   than silent.
 - **A geometry-critical property nobody thought of.** The enumeration is a
-  judgement about which properties matter. A property outside the enumerated
-  categories can still cause drift, which is why FR-018 fixes how the enumeration
-  is revised when that happens.
+  judgement about which properties matter. Inside the guarded set (FR-018) an
+  unrecognised declaration fails outright, so the class is closed there. Outside
+  it, a property can still cause drift — which is why FR-018c fixes how the
+  enumeration, and the boundary itself, are revised when that happens.
+- **A child pinch-zooms mid-play.** Two small fingers land on the glass and the
+  visual viewport shrinks. The arrangement decision must not read that: a rule
+  driven by measured visual-viewport size would flip the whole toy from rows to
+  rail on a two-finger accident. Reading the layout viewport (FR-007a) is immune,
+  and closes a hazard neither of today's two rules handles.
+- **The shipped component gets refactored.** The negative cases for the three
+  historical causes are derived from the component's current source (FR-013b), so
+  a rename or a restructure cannot leave the acceptance test passing against code
+  that no longer exists.
 - **A styling change that is genuinely cosmetic.** Colour, shadow, gradient, and
   animation of non-geometric properties must stay free to change without touching
   the list — a gate that fires on every visual tweak will be routed around.
@@ -310,10 +337,20 @@ weakened, relaxed, or made conditional by anything in this feature.**
   match what the model's thickness computation assumes. A gap the model does not
   account for MUST NOT exist.
 - **FR-007**: The rows-versus-rail arrangement MUST have exactly one source of
-  truth. Every part of the layout that depends on which arrangement is active MUST
-  read that same decision, so the band's flow axis and the surrounding layout's
-  split direction can never disagree at a viewport where two independent rules
-  would resolve differently.
+  truth. Every part of the layout that depends on which arrangement is active —
+  the toolbar band's flow axis and the surrounding shell's split direction alike —
+  MUST read that same single decision, so they can never disagree at a viewport
+  where two independent rules would resolve differently.
+- **FR-007a**: That single decision MUST be taken from the **layout** viewport,
+  with the semantics of the media query the shell uses today (landscape and a
+  short viewport), and MUST NOT be re-derived from a measured *visual* viewport.
+  A child pinch-zooming shrinks the visual viewport; the arrangement MUST NOT flip
+  between rows and rail because of it.
+- **FR-007b**: Unifying the arrangement decision MUST NOT change behaviour at any
+  viewport in spec 012's representative table — this is a de-duplication of one
+  binary fact, not a layout change. Continuous sizing (band thickness, control
+  size, pitch) MUST keep using the measured visible viewport exactly as it does
+  today; only the binary arrangement decision gets a single owner.
 
 **The invariant list**
 
@@ -347,23 +384,55 @@ weakened, relaxed, or made conditional by anything in this feature.**
   budgets against; (3) a control state that scales a control beyond its budgeted
   box. This is the feature's acceptance test — the check earns its place only by
   catching the exact bug that got through.
+- **FR-013a**: That acceptance MUST be held by a **permanent mechanism that runs
+  on every suite run**, not by a one-time verification recorded in this feature's
+  artifacts. Each of the three causes MUST be a live regression test for as long
+  as the toy ships.
+- **FR-013b**: The negative cases MUST be **derived from the shipped component's
+  own current source**, by producing the drifted variant of that source in memory
+  at test time. Committed copies or hand-maintained fixtures of the component MUST
+  NOT be the input: a fixture that no longer resembles what ships keeps passing
+  while proving nothing — the same failure mode this feature exists to close.
+- **FR-013c**: Consequently the check MUST be expressible as a pure function over
+  component source text, rather than something that can only read one fixed path.
+  This is a binding design constraint, and it keeps the mechanism plainly inside
+  constitution Principle V — no DOM, no browser.
 - **FR-014**: When the check fails it MUST name the component, the invariant that
   broke, what the layout model assumes, and what was found instead — enough for a
   maintainer to fix it without re-deriving the model (matching spec 012 FR-012b's
   standard for its own failures).
 - **FR-015**: The check MUST NOT fire on changes that cannot alter rendered size
   or flow — colour, shadow, gradient, and animation of non-geometric properties
-  MUST remain free to change.
+  MUST remain free to change, and MUST stay outside the guarded set of FR-018.
 - **FR-016**: The check MUST distinguish a size-**increasing** transform (which can
   push a control past a screen edge) from a size-**decreasing** one (which cannot),
   and MUST forbid only the former.
 - **FR-017**: The check MUST hold for every control set the toy can ship,
   including with the feature-detected fullscreen and photo controls present and
   absent.
-- **FR-018**: When drift is found in a property outside the enumerated categories,
-  the resolution MUST be to add the category to the invariant list and to the
-  check — not to fix the one declaration and move on. The list is the artifact
-  that grows; a one-off fix leaves the class of bug open.
+- **FR-018**: The check's closure of the class MUST be **hybrid**, with the
+  boundary drawn where the history actually lives. There is a **guarded set** of
+  declarations: those that change a control's own border box, or how a control
+  participates in flow — box sizing, border width, padding, margin, explicit
+  width/height (including min/max), and any transform that scales. Two of the
+  three historical causes lived on the control and its selected state; the third,
+  flow direction, is enumerated anyway.
+- **FR-018a**: Within the guarded set the check MUST be a **closed allowlist**: a
+  declaration in one of those categories that the invariant list does not name
+  MUST fail the suite, even if nobody anticipated it. Outside the guarded set the
+  check MUST assert only the enumerated facts, leaving a genuinely novel property
+  to be caught at review and then added.
+- **FR-018b**: The guarded set MUST NOT be widened to declarations that cannot
+  change a control's border box or its flow participation. This toolbar's grouping
+  cue is *entirely* cosmetic — box-shadows and conic gradients — so a blanket
+  allowlist would fire on ordinary tinting work, and the gate, not the styling,
+  would be what got weakened. A gate maintainers route around is wrong by
+  construction.
+- **FR-018c**: When drift is nevertheless found in a property outside the guarded
+  set, the resolution MUST be to add the category to the invariant list and to the
+  check, and to reconsider whether the guarded set's boundary should move — not to
+  fix the one declaration and move on. The list is the artifact that grows; a
+  one-off fix leaves the class of bug open.
 
 **The maintainer eyeball half**
 
@@ -416,6 +485,11 @@ weakened, relaxed, or made conditional by anything in this feature.**
 - Spec 012's **SC-009** ("0 hand-maintained duplicates of the control count or
   control size") is extended by FR-001: no hand-maintained duplicate of any
   geometry-critical value may exist that could disagree with what renders.
+- The rows-versus-rail **threshold** of specs 006 and 012 is unchanged in value
+  and in effect; what changes is that its result now has one owner, read by both
+  the shell and the toolbar band (FR-007, FR-007a, FR-007b), instead of being
+  resolved twice. Behaviour at every viewport in spec 012's representative table
+  is identical to today.
 - Spec 006's and spec 012's floors, arrangements, and thresholds are otherwise
   untouched. This feature adds verification; it changes no layout promise.
 
@@ -423,8 +497,10 @@ weakened, relaxed, or made conditional by anything in this feature.**
 
 ### Measurable Outcomes
 
-- **SC-001**: Re-introducing each of the three historical causes, one at a time,
-  fails `npm test` — 3 of 3 — verified by doing it and restoring afterwards.
+- **SC-001**: Each of the three historical causes fails `npm test` — 3 of 3 — on
+  **every** run, from drifted variants derived at test time from the shipped
+  component's current source: 0 committed fixtures or copies of the component, and
+  0 of the three verified only once by hand.
 - **SC-002**: 0 controls render outside the visible viewport at any viewport in
   spec 012's representative table, in either orientation, with and without the
   feature-detected controls — down from 6 off-screen at 667×375.
@@ -450,7 +526,15 @@ weakened, relaxed, or made conditional by anything in this feature.**
   invariant, the model's assumption, and what was found — verified by forcing each
   of the 3 failures and reading the output.
 - **SC-012**: A purely cosmetic change (a colour or a shadow) leaves the suite
-  green — 0 false failures on non-geometric styling.
+  green — 0 false failures on non-geometric styling, including on the box-shadows
+  and conic gradients that carry the toolbar's grouping cue.
+- **SC-013**: An unrecognised declaration inside the guarded set — one that
+  changes a control's border box or its flow participation and that no invariant
+  names — fails the suite, verified on 1 such declaration.
+- **SC-014**: Exactly 1 source of truth decides rows versus rail, read by both the
+  toolbar band and the app shell — down from 2 independent rules — with 0
+  viewports in spec 012's representative table where the arrangement differs from
+  today, and 0 arrangement changes caused by a pinch-zoom.
 
 ### What the maintainers eyeball
 
@@ -471,9 +555,16 @@ the named maintainer's device (CLAUDE.md platform split):
 - **Max — iPad Safari, standalone, rotate while a control is selected**: the
   selected control's emphasis stays inside the band through the rotation and no
   control lands off-screen afterwards.
-- **Either maintainer**: a purely visual change (a colour tweak) still merges
-  without touching the invariant list — the gate is not so broad that it fires on
-  cosmetics.
+- **Max — iPad Safari, standalone, pinch-zoom in landscape**: pinching with two
+  fingers does not flip the toolbar between the row arrangement and the side rail
+  (verifiable only on a touch device with pinch-zoom — Charlie's desktop Chrome
+  does not exercise this).
+- **Charlie — Fire 7 Kids tablet (Silk) and desktop Chrome, rotate and resize**:
+  the arrangement switches between rows and rail at the same point it does today,
+  and the band and the play area switch together — never one without the other.
+- **Either maintainer**: a purely visual change (a colour tweak, or a box-shadow
+  or gradient on the control-group cue) still merges without touching the
+  invariant list — the gate is not so broad that it fires on cosmetics.
 
 ## Assumptions
 
@@ -505,26 +596,64 @@ the named maintainer's device (CLAUDE.md platform split):
   item.
 - Spec 012's representative viewport table remains the verification surface for
   the floors; this feature adds no viewports and removes none.
+- A media-query result is available to both the shell and the layout model in
+  every browser the toy supports, so the unified arrangement decision (FR-007a)
+  needs no new capability and no fallback path. The threshold it encodes is the
+  one the shell already uses: landscape with a viewport height at or below the
+  existing 480px rail threshold.
+- Only the binary rows-versus-rail decision moves to the layout viewport.
+  Continuous sizing — band thickness, control size, pitch, play-field size —
+  keeps reading the measured visible viewport exactly as it does today, which is
+  what keeps the band correct when a browser's chrome or keyboard shrinks the
+  visible area.
+- The shipped component's source text is available to the test suite as text.
+  Deriving the historical-cause variants from it (FR-013b) needs no DOM, no
+  browser, and no build step — only reading and transforming source, which is
+  what "structural invariants, not a rendering harness" already assumes.
 
-## Open Questions
+## Clarifications
 
-- **FR-018 / FR-010 — how completely is the class closed?** [NEEDS
-  CLARIFICATION: should the check reject any *unrecognised* geometry-critical
-  declaration in a derived-geometry component (an allowlist that fails on
-  anything not on the invariant list), or assert only the enumerated facts,
-  leaving a genuinely novel property to be caught at review and then added to the
-  list? The first closes the whole class but fails on unrelated styling work; the
-  second is quieter but only ever as complete as the last person's imagination.]
-- **FR-007 / Story 4 — how far does the play area's coverage go?** [NEEDS
-  CLARIFICATION: the app shell decides the rows-versus-rail split with a
-  viewport-width rule of its own, while the toolbar band takes the same decision
-  from the layout model. Must this feature unify them onto the model's single
-  decision (a change to the shipped layout, however invisible today), or is
-  asserting that the two rules agree at every viewport in the representative
-  table sufficient?]
-- **FR-013 / SC-001 — how is "re-introducing each cause fails the suite"
-  verified?** [NEEDS CLARIFICATION: as a one-time manual verification recorded in
-  this feature's artifacts, or as a permanent mechanism in the repository that
-  re-checks on every run that each historical cause would still be caught? The
-  second keeps the acceptance test alive as the code moves on; the first is
-  smaller and adds no machinery of its own.]
+### Session 2026-08-30
+
+Answered by @charlesguse on lifecycle issue #41
+([comment](https://github.com/charlesguse/sand-game/issues/41#issuecomment-5470836672)).
+No open questions remain.
+
+- **Q: How completely is the class closed — allowlist or enumerated facts only?**
+  (FR-010 / FR-018) → **Hybrid, with the boundary drawn by evidence.** Allowlist
+  exactly the declarations that change a control's own border box or how it
+  participates in flow — box sizing, border width, padding, margin, width/height,
+  and any transform that scales — and assert only the enumerated facts elsewhere.
+  That is where the history lives: two of the three causes were on the control and
+  its selected state, and the third (flow direction) is enumerated anyway. A
+  blanket allowlist would fire constantly on this toolbar, whose grouping cue is
+  *entirely* cosmetic box-shadows and conic gradients; ordinary tinting work would
+  trip a geometry gate, and the gate would be the thing that got weakened. The
+  boundary may be wrong, but a gate people route around is wrong by construction.
+  Recorded as FR-018, FR-018a, FR-018b, FR-018c, FR-015, SC-012, SC-013.
+- **Q: Must the rows-versus-rail decision be unified, or only asserted to agree?**
+  (FR-007 / Story 4) → **Unify — on the layout viewport, not the visual one.** Two
+  sources of truth for one binary fact is the pathology this spec exists to
+  remove. But handing the shell's flow direction to a measured *visual* viewport
+  would let a child's two-finger pinch shrink it and flip the toy from rows to
+  rail mid-play; a media query reads the layout viewport and is immune. So: one
+  decision, with the media query's semantics (landscape and a short viewport),
+  consumed by both the shell and the layout model. Behaviour at every viewport in
+  spec 012's table is identical to today — a de-duplication, not a layout change —
+  and it closes a pinch-zoom hazard neither of today's rules handles. Continuous
+  sizing keeps using the measured visible viewport; only the binary arrangement
+  decision gets one owner. Recorded as FR-007, FR-007a, FR-007b, SC-014, Story 4
+  scenarios 3–4.
+- **Q: Is "re-introducing each cause fails the suite" one-time or permanent?**
+  (FR-013 / SC-001) → **Permanent, and derived from the real component.** A
+  one-time note proves the check worked the day it was written, which is exactly
+  the assurance that already failed: spec 012's gate was correct on its own terms
+  and stopped mapping to reality. Committed fixtures rot silently — a fixture that
+  no longer resembles the shipped component keeps passing while proving nothing,
+  the same bug in a third costume. Deriving the negative cases by transforming the
+  live component source in memory means the input can never drift from what ships.
+  It constrains the design — the check must be a pure function over source text
+  rather than something that reads a fixed path — and that constraint is accepted:
+  it is better design regardless, stays plainly inside Principle V, and makes the
+  three historical causes permanent regression tests instead of an anecdote in a
+  quickstart. Recorded as FR-013a, FR-013b, FR-013c, SC-001, Story 2 scenario 8.
