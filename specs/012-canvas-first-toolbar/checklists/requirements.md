@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,19 +31,25 @@
 
 ## Notes
 
-- **Three [NEEDS CLARIFICATION] markers remain by design** (FR-002, FR-006,
-  FR-012), at the skill's maximum of 3. This spec was produced by the
-  non-interactive intake stage of the pipeline, so the questions are posted to
-  lifecycle issue #38 rather than answered inline. They are:
-  1. FR-002 — the floor's value and how it is expressed (share of the
-     constrained axis vs. share of viewport area).
-  2. FR-006 — whether the guarantee is gated to phone-sized viewports or
-     applies universally.
-  3. FR-012 — the fallback when the control set outgrows the toolbar's
-     allowance at the 44-pixel floor.
-  Each is scope- or UX-impacting with multiple reasonable readings; a default
-  is written into FR-002 so the spec is implementable if no answer arrives,
-  while FR-006 and FR-012 need a decision before planning.
+- **All three clarifications are resolved** (2026-08-30, answered by
+  `charlesguse` on lifecycle issue #38). The spec was produced by the
+  non-interactive intake stage of the pipeline, so the questions were posted to
+  the issue rather than answered inline. The decisions:
+  1. FR-002 — **both floors hold.** The drawing region keeps ≥ 60% of the
+     constrained axis *and* spec 006's 65%/60% viewport-area floors (FR-004)
+     are asserted alongside it at every test viewport. 60% is confirmed as the
+     right axis number: at 375×667 it leaves real headroom rather than being
+     barely met.
+  2. FR-006 — **universal.** The axis floor applies at every viewport size, with
+     no threshold; only the rows-vs-rail arrangement stays gated on the existing
+     480-pixel phone threshold.
+  3. FR-012 — **hard build-time gate, no runtime fallback.** Neither scrolling
+     the band nor letting it exceed its budget is permitted. FR-012a fixes what
+     is hard (44px target, canvas floor) versus flexible (pitch, spent first),
+     FR-012b requires the failure to name the shortfall, and FR-012c makes
+     resolution an explicit maintainer decision.
+  These answers added FR-012a/b/c, SC-011, SC-012, US1 scenario 7, US3
+  scenario 4, and a scope amendment for spec 006's toolbar-fit rule.
 - Pixel figures that appear in requirements (44-pixel touch target, 480-pixel
   phone threshold, 65%/60% fill floors) are inherited product constraints from
   spec 006 and the constitution, not implementation choices introduced here.

@@ -110,6 +110,10 @@ play area keeps at least the required share of the whole visible viewport. The
 6. **Given** a laptop or desktop viewport, **When** the toy opens, **Then** the
    play area is at least as large as it is today and the toolbar looks and
    behaves as it does today.
+7. **Given** a viewport larger than phone-sized — a Fire 7 in portrait, a
+   tablet, a foldable, or a half-screen desktop window — **When** the toy opens,
+   **Then** the drawing region's share of the constrained axis holds there too:
+   the guarantee has no size threshold below which it stops applying.
 
 ---
 
@@ -184,7 +188,12 @@ control count or the control size exists that could disagree with what renders.
    rule that governs what actually renders — the check cannot pass while the
    shipped layout differs.
 3. **Given** a change that would push the drawing region below its floor at any
-   viewport in the table, **When** the test suite runs, **Then** it fails.
+   viewport in the table, **When** the test suite runs, **Then** it fails — the
+   build is blocked rather than the canvas quietly shrinking.
+4. **Given** a control set that cannot fit even at the tightest spacing,
+   **When** the check fails, **Then** the failure names the viewport, the
+   arrangement, the band thickness required and the band thickness available, so
+   the maintainer can see the size of the shortfall at a glance.
 
 ---
 
@@ -192,9 +201,12 @@ control count or the control size exists that could disagree with what renders.
 
 - **The controls genuinely do not fit.** At some control count, on some small
   enough viewport, controls at the 44-pixel floor with non-overlapping spacing
-  cannot fit inside the toolbar's budget. FR-012 governs what happens; whatever
-  it is, the child must never see an error, a clipped control she cannot reach,
-  or a control permanently off-screen.
+  cannot fit inside the toolbar's budget. Per FR-012 this is a build-time
+  failure, not a runtime behaviour: the flexible pitch is spent first
+  (FR-012a), the check then fails with the shortfall named (FR-012b), and a
+  maintainer decides how to resolve it (FR-012c). The child never sees an error,
+  a clipped control she cannot reach, or a control permanently off-screen,
+  because such a build never ships.
 - **Address bar collapse and expansion.** The floors are measured against the
   visible viewport at the moment, so both the chrome-expanded and
   chrome-collapsed heights must satisfy them; the transition must not thrash the
@@ -234,12 +246,13 @@ the **Amendments to earlier specs** section below.
   floor and fit the controls inside that allowance, rather than letting the
   toolbar take whatever size its contents want and giving the drawing region the
   remainder.
-- **FR-002**: On a phone-sized viewport, in both orientations, the drawing
-  region MUST retain at least **60%** of the constrained axis — equivalently,
-  the toolbar band's thickness MUST NOT exceed 40% of that axis.
-  [NEEDS CLARIFICATION: is 60% of the constrained axis the right floor, or
-  should the guarantee instead (or additionally) be stated as a share of total
-  viewport area?]
+- **FR-002**: In both orientations, the drawing region MUST retain at least
+  **60%** of the constrained axis — equivalently, the toolbar band's thickness
+  MUST NOT exceed 40% of that axis. This axis floor and the whole-viewport area
+  floors of FR-004 are **both** in force: neither replaces the other, and both
+  MUST be asserted together at every viewport in the representative table of
+  SC-001. The axis floor is what directly caps the toolbar band; the area floor
+  is spec 006's inherited promise that this feature exists to make true.
 - **FR-003**: The floor in FR-002 MUST hold at every viewport in the
   representative table of SC-001, in both orientations, and MUST hold whether or
   not the feature-detected fullscreen (📺) and photo (📷) controls are present.
@@ -247,15 +260,21 @@ the **Amendments to earlier specs** section below.
   shipped layout: the play area MUST cover at least 65% of the visible viewport
   on a phone-sized viewport in portrait and at least 60% in landscape (spec 006
   FR-002), alongside its at-least-90%-of-the-drawing-region floors (spec 006
-  FR-001).
+  FR-001). These area floors keep spec 006's phone-sized scope; the axis floor
+  of FR-002 is universal (FR-006).
 - **FR-005**: The floors MUST be measured against the **visible** viewport, so a
   collapsing or reappearing address bar cannot invalidate them; safe-area insets
   MUST be absorbed by the toolbar band's budget, never by the drawing region's
   floor.
-- **FR-006**: The guarantee MUST apply beyond phone-sized viewports as follows.
-  [NEEDS CLARIFICATION: does the floor apply only to phone-sized viewports
-  (shorter side ≤ 480px, spec 006's existing definition), or to every viewport
-  including small desktop windows, tablets, and foldables?]
+- **FR-006**: The axis floor of FR-002 MUST apply at **every** viewport size, as
+  a universal invariant — phones, the Fire 7 in portrait (600×1024), tablets,
+  foldables, half-screen desktop windows, and full desktop alike. There is no
+  size threshold below which the drawing region loses its guarantee. The
+  rows-vs-rail **arrangement** stays gated on the existing 480-pixel phone
+  threshold exactly as it is today (spec 006's `isPhoneSized` /
+  `PHONE_MAX_SHORT_SIDE` and the 480px landscape-rail media query); only the
+  size cap becomes universal. Desktop already clears the floor comfortably, so
+  FR-016's non-regression holds without special-casing.
 
 **Fitting the controls inside the budget**
 
@@ -279,12 +298,30 @@ the **Amendments to earlier specs** section below.
   drawing on the canvas work exactly as they do today.
 - **FR-012**: When the control set cannot fit inside the toolbar's allowance
   even with every control at the 44-pixel floor and the tightest acceptable
-  spacing, the toy MUST resolve the conflict as follows.
-  [NEEDS CLARIFICATION: what is the fallback — (a) let the toolbar band scroll
-  within its budget, (b) let the band exceed its budget so the floor becomes a
-  target rather than a guarantee, or (c) treat it as a build-time failure of the
-  automated check so a maintainer must act before shipping, with the runtime
-  behaviour unchanged from whatever (a) or (b) specifies?]
+  spacing, this MUST be a **build-time failure of the automated check** — a hard
+  gate, not a target. The floors are a contract: a change that breaks them
+  cannot ship until a maintainer resolves it. There is no runtime fallback: the
+  toolbar band MUST NOT scroll, MUST NOT exceed its budget, and MUST NOT hide a
+  control. Nothing the child can see degrades, and the failure is verifiable
+  without a browser (constitution Principle V).
+- **FR-012a**: The check MUST distinguish what is hard from what is flexible.
+  **Hard**: the 44-pixel touch target (FR-007) and the drawing region's floors
+  (FR-002, FR-004). **Flexible**: the *pitch* — the gaps between controls, the
+  padding inside a group, and the margins between groups. Flexible space MUST be
+  spent first, down to the tightest spacing that still satisfies FR-009, before
+  the layout is declared not to fit.
+- **FR-012b**: When the check fails it MUST name the fix, not merely report one.
+  The failure MUST report the viewport, the arrangement (rows or rail), the band
+  thickness required, and the band thickness available — e.g. "375×667 rows:
+  needs 218px, has 200px" — so the maintainer can see the size of the shortfall
+  without re-deriving it.
+- **FR-012c**: Resolving such a failure is an explicit maintainer decision, never
+  an implementation trick. Acceptable resolutions are: merge or drop a control,
+  or drop the offending viewport from the guaranteed table (with the reasoning
+  recorded) — no device either maintainer ships to is smaller than the 375×667
+  iPhone SE 3 that prompted this work. What MUST NOT happen is the
+  implementation quietly widening the band, shrinking a control below 44 pixels,
+  or hiding a control to make the check pass.
 
 **Not letting the guarantee rot**
 
@@ -349,6 +386,11 @@ the **Amendments to earlier specs** section below.
   FR-002, FR-007, and FR-008: the toolbar's allowance is now derived from the
   drawing region's floor, control size is a continuous function of that
   allowance, and groups may share a row or a rail column.
+- Spec 006's **scope for the toolbar-fit rule** is widened. Where spec 006 gated
+  its toolbar-fit behaviour on `isPhoneSized` (shorter side ≤ 480px), FR-006
+  makes the drawing region's axis floor a universal invariant that holds at
+  every viewport. The 480-pixel threshold survives untouched for its other
+  purpose — choosing the rows arrangement over the rail one.
 - Spec 006's **FR-035** is amended by FR-013, FR-014, and FR-015. Its automated
   coverage was satisfied by a model of the toolbar that could — and did — drift
   from what renders. The coverage must now be driven by the shipped control set
@@ -376,8 +418,12 @@ the **Amendments to earlier specs** section below.
   | 412×915 (Android portrait) | 43% of area | ≥ 65% of area |
   | 600×1024 / 1024×600 (Fire 7) | — | meets FR-002 |
   | 768×1024 / 1024×768 (iPad) | — | meets FR-002 and FR-016 |
-  | 1280×800 (desktop) | 77% of area | ≥ 77% — no regression |
+  | 1280×800 (desktop) | 77% of area | ≥ 77% — no regression; meets FR-002 |
   | 400×1400 (extreme aspect) | — | meets FR-002 |
+
+  The FR-002 axis floor is asserted at **every** row, phone-sized or not
+  (FR-006); the FR-004 area floors are asserted at the phone-sized rows, which
+  is the scope spec 006 gives them.
 
 - **SC-002**: On a 375×667 phone in portrait the play area covers at least 65%
   of the visible viewport, up from 22% today — at least a threefold increase in
@@ -403,6 +449,12 @@ the **Amendments to earlier specs** section below.
   size exist that could disagree with the shipped toolbar.
 - **SC-010**: The build still emits exactly one self-contained page that plays
   from `file://` with 0 network requests.
+- **SC-011**: 0 runtime fallbacks exist for an over-full toolbar: at no viewport
+  does the band scroll, exceed its budget, drop below the 44-pixel target, or
+  omit a control. A control set that cannot fit fails the suite instead.
+- **SC-012**: When the layout check fails, its message names the viewport, the
+  arrangement, the required band thickness and the available one — verified by
+  forcing a failure and reading the output.
 
 ### What the maintainers eyeball
 
@@ -425,9 +477,15 @@ each is only verifiable on one maintainer's device (CLAUDE.md platform split):
 - The fix is a sizing-and-arrangement change only; no control is removed, added,
   merged, or relabelled by this feature, and no new interaction is introduced.
 - "Phone-sized" keeps spec 006's definition (visible viewport's shorter side at
-  most 480 screen pixels) and the existing rows-in-portrait /
-  rail-in-landscape arrangement is retained — this feature changes how big the
-  band may be, not which edge it sits on.
+  most 480 screen pixels) and continues to gate only the *arrangement* — the
+  existing rows-in-portrait / rail-in-landscape choice is retained. The size cap
+  itself is universal (FR-006): this feature changes how big the band may be,
+  and at which sizes that limit applies, not which edge it sits on.
+- The 320×568 row of the SC-001 table is a guarantee the maintainers choose to
+  make, not a device either of them ships to. If a future control set cannot fit
+  there at minimum pitch, dropping that row is a legitimate maintainer
+  resolution under FR-012c — unlike any change that would widen the band, shrink
+  a control, or hide one.
 - The 44-pixel touch-target floor from spec 006 FR-020 is a hard floor: no
   viewport is permitted to render a smaller control, and control spacing must
   keep targets from overlapping even at that floor.
