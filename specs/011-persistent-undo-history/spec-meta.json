@@ -2,7 +2,7 @@
   "issue": 35,
   "spec_dir": "specs/011-persistent-undo-history",
   "feature_num": "011",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/011-persistent-undo-history"
 }
