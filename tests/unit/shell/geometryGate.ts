@@ -340,6 +340,76 @@ export function checkArrangementSingleSource(appSource: string, toolbarSource: s
   };
 }
 
+// --- Historical-cause mutators (FR-013) -------------------------------------
+
+/**
+ * Replaces the first occurrence of `search` inside the rule block matched by `selector` with
+ * `replacement`, leaving the rest of `source` untouched. Returns `source` unchanged if either
+ * the selector or the search text isn't found — the signal a mutator uses to detect it has been
+ * silently defeated by a refactor (Edge Case, Story 2 Scenario 8).
+ */
+function replaceInRuleBlock(source: string, selector: string, search: string, replacement: string): string {
+  const selectorIndex = source.indexOf(selector);
+  if (selectorIndex === -1) return source;
+  const braceStart = source.indexOf('{', selectorIndex);
+  if (braceStart === -1) return source;
+
+  let depth = 0;
+  let braceEnd = -1;
+  for (let i = braceStart; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        braceEnd = i;
+        break;
+      }
+    }
+  }
+  if (braceEnd === -1) return source;
+
+  const block = source.slice(braceStart + 1, braceEnd);
+  const searchIndex = block.indexOf(search);
+  if (searchIndex === -1) return source;
+
+  const mutatedBlock = block.slice(0, searchIndex) + replacement + block.slice(searchIndex + search.length);
+  return source.slice(0, braceStart + 1) + mutatedBlock + source.slice(braceEnd);
+}
+
+/** Inserts `declaration` as the first declaration inside the rule block matched by `selector`. Returns `source` unchanged if the selector isn't found (same defeated-mutator signal as replaceInRuleBlock). */
+function insertIntoRuleBlock(source: string, selector: string, declaration: string): string {
+  const selectorIndex = source.indexOf(selector);
+  if (selectorIndex === -1) return source;
+  const braceStart = source.indexOf('{', selectorIndex);
+  if (braceStart === -1) return source;
+  return source.slice(0, braceStart + 1) + declaration + source.slice(braceStart + 1);
+}
+
+export interface Mutator {
+  id: 'content-box-control' | 'rail-row-flow' | 'selected-scale-up';
+  mutate: (source: string) => string;
+  targetCheckId: string;
+}
+
+/** One mutator per historical cause (FR-013) — each reintroduces a shipped bug into a copy of the live component source, derived from that source at test time rather than a fixture. */
+export const HISTORICAL_CAUSE_MUTATORS: readonly Mutator[] = [
+  {
+    id: 'content-box-control',
+    mutate: (source) => replaceInRuleBlock(source, CONTROL_RULE_SELECTOR, 'box-sizing: border-box', 'box-sizing: content-box'),
+    targetCheckId: 'checkControlBoxSizing',
+  },
+  {
+    id: 'rail-row-flow',
+    mutate: (source) => replaceInRuleBlock(source, BAND_RAIL_RULE_SELECTOR, 'flex-direction: column', 'flex-direction: row'),
+    targetCheckId: 'checkRailFlowDirection',
+  },
+  {
+    id: 'selected-scale-up',
+    mutate: (source) => insertIntoRuleBlock(source, CONTROL_SELECTED_RULE_SELECTOR, '\n    transform: scale(1.15);'),
+    targetCheckId: 'checkSelectedGuardedDeclarations',
+  },
+];
+
 /** Gaps for both arrangements (FR-009's gaps category) — flow-axis-only spacing, per research.md §6's toolbarThickness comment. */
 export function checkGapAxes(toolbarSource: string): GeometryCheckResult[] {
   const invariant = 'toolbar-band-gaps';
