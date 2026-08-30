@@ -96,7 +96,7 @@ Single client-only project (no `backend/`/`frontend/` split) — `src/`, `tests/
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] Review spec.md's "What the maintainers eyeball" section and quickstart.md's copy of it against FR-019/FR-020: confirm every item names a maintainer, a device, an orientation/viewport, and one true-or-false observable with no "looks right"/judgement language, and that the pinch-zoom item is explicitly marked verifiable only on Max's touch device — this is a reading/verification task with no automated coverage by design (spec's Independent Test), no code or test file changes expected
+- [X] T018 [US3] Review spec.md's "What the maintainers eyeball" section and quickstart.md's copy of it against FR-019/FR-020: confirm every item names a maintainer, a device, an orientation/viewport, and one true-or-false observable with no "looks right"/judgement language, and that the pinch-zoom item is explicitly marked verifiable only on Max's touch device — this is a reading/verification task with no automated coverage by design (spec's Independent Test), no code or test file changes expected
 
 **Checkpoint**: The checklist itself satisfies FR-019/FR-020 — verified by inspection, not by `npm test`.
 
