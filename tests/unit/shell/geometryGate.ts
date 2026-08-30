@@ -214,6 +214,26 @@ export function checkSelectedGuardedDeclarations(toolbarSource: string): Geometr
   );
 }
 
+const CONTROL_PRESSED_RULE_SELECTOR = '.control:active:not(:disabled) {';
+
+/** The pressed state's rule block carries only a transform among the guarded set (FR-004, FR-016) — a dedicated check rather than a generic scan since there is no other guarded declaration to allow-list there today. */
+export function checkPressedGuardedDeclarations(toolbarSource: string): GeometryCheckResult {
+  const invariant = 'toolbar-control-transforms-pressed';
+  const transform = parseDeclarations(extractRuleBlock(toolbarSource, CONTROL_PRESSED_RULE_SELECTOR)).find(
+    (d) => d.property === 'transform',
+  );
+  const factors = transform ? transformGrowthFactors(transform.value) : [];
+  const growing = factors.filter((f) => f > 1);
+  const ok = growing.length === 0;
+  return {
+    ok,
+    component: 'toolbar-control',
+    invariant,
+    assumption: assumptionFor(invariant),
+    found: transform ? `transform: ${transform.value}` : 'absent',
+  };
+}
+
 // --- toolbar-band ------------------------------------------------------------
 
 const BAND_RULE_SELECTOR = '.toolbar {';

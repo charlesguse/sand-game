@@ -109,6 +109,16 @@ export const GEOMETRY_INVARIANTS: readonly GeometryInvariant[] = [
       "the selected control's emphasis never uses a scale() factor above 1 — a scale-up shipped the ring clipped against the screen edge on the outer line.",
   },
   {
+    id: 'toolbar-control-transforms-pressed',
+    component: 'toolbar-control',
+    category: 'transforms',
+    mechanism: 'pinned',
+    historicalCause: 3,
+    checkId: 'checkPressedGuardedDeclarations',
+    assumption:
+      "the pressed control's active-state transform (scale(0.92)) never uses a scale() factor above 1 — pressed feedback may shrink the control but must never grow it beyond what --control-size budgeted, per FR-004's 'any state it can be in — resting, selected, pressed, disabled, or focused.'",
+  },
+  {
     id: 'toolbar-control-flow-direction',
     component: 'toolbar-control',
     category: 'flow-direction',

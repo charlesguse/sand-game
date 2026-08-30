@@ -79,6 +79,7 @@ const ASSERTION_CHECK_IDS = [
   'checkControlBoxSizing',
   'checkControlGuardedDeclarations',
   'checkSelectedGuardedDeclarations',
+  'checkPressedGuardedDeclarations',
   'checkRailFlowDirection',
   'checkBandWrapping',
   'checkBandBoxSizing',
