@@ -255,3 +255,184 @@ describe('historySave — writeOrdinarySave/writeFlushSave basic write path (US1
     expect(store.map.get(HISTORY_KEY)).toBe('{"history":true}');
   });
 });
+
+// The final serialized JSON adds a small, deliberately-uncounted envelope (version/width/
+// height/worldFingerprint fields, array brackets, and up to HISTORY_DEPTH-1 commas) on top of
+// the per-step running total serializeHistory actually bounds against — research.md §3's own
+// "correctness must never depend on the arithmetic being right" conservative-slack philosophy.
+const ENVELOPE_SLACK = 2048;
+
+describe('historySave — budget filling under a full history at a busy field (US2, FR-008, FR-009, SC-004, SC-005)', () => {
+  it('serializeHistory never exceeds the budget (plus envelope slack), keeps only the newest steps, in original relative order', () => {
+    const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    recordSeveralActions(grid, objects, history, HISTORY_DEPTH);
+
+    const fullStack = history.getPersistableUndoStack();
+    expect(fullStack.length).toBe(HISTORY_DEPTH);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(fullStack, GRID_WIDTH, GRID_HEIGHT, fingerprint);
+    expect(serialized).not.toBe('');
+    expect(serialized.length).toBeLessThanOrEqual(HISTORY_BYTE_BUDGET + ENVELOPE_SLACK);
+
+    const persisted = deserializeHistory(serialized, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    // A full 10-step history at the largest field size does not all fit under the budget.
+    expect(persisted.steps.length).toBeLessThan(HISTORY_DEPTH);
+    expect(persisted.steps.length).toBeGreaterThan(0);
+
+    const keptCount = persisted.steps.length;
+    const expectedTail = fullStack.slice(fullStack.length - keptCount);
+    for (let i = 0; i < keptCount; i++) {
+      expect(Array.from(persisted.steps[i].elements)).toEqual(Array.from(expectedTail[i].elements));
+      expect(Array.from(persisted.steps[i].colorAux)).toEqual(Array.from(expectedTail[i].colorAux));
+    }
+  });
+
+  it('the world save is byte-for-byte unaffected by how many history steps were kept', () => {
+    const grid = createGrid(GRID_WIDTH, GRID_HEIGHT);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    recordSeveralActions(grid, objects, history, HISTORY_DEPTH);
+
+    const store = createFakeStore();
+    const worldJson = '{"world":"unchanged"}';
+    const fingerprint = computeFingerprint(worldJson);
+    const historyJson = serializeHistory(history.getPersistableUndoStack(), GRID_WIDTH, GRID_HEIGHT, fingerprint);
+
+    writeFlushSave(store, 'save', 'history', worldJson, historyJson);
+    expect(store.map.get('save')).toBe(worldJson);
+  });
+});
+
+describe('historySave — a field too large for even one step to fit the budget (US2, FR-010)', () => {
+  it('serializeHistory returns the empty-string sentinel, and writeFlushSave removes any existing history key', () => {
+    // Large enough that one step's five base64'd arrays alone exceed HISTORY_BYTE_BUDGET.
+    const width = 600;
+    const height = 600;
+    const grid = createGrid(width, height);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), width, height, fingerprint);
+    expect(serialized).toBe('');
+
+    const store = createFakeStore();
+    store.map.set('history', 'stale-history-payload');
+    writeFlushSave(store, 'save', 'history', '{"world":true}', serialized);
+
+    expect(store.map.get('save')).toBe('{"world":true}');
+    expect(store.map.has('history')).toBe(false);
+  });
+});
+
+describe('historySave — quota exhaustion / storage disabled (US2, FR-012, SC-006)', () => {
+  it('writeFlushSave and writeOrdinarySave both attempt the world write, store 0 history bytes, and let 0 exceptions escape', () => {
+    const throwingStore = alwaysThrowsStore();
+
+    expect(() => writeFlushSave(throwingStore, 'save', 'history', '{"world":true}', '{"history":true}')).not.toThrow();
+    expect(() => writeOrdinarySave(throwingStore, 'save', 'history', '{"world":true}')).not.toThrow();
+  });
+});
+
+describe('historySave — a world save landing between flushes invalidates a stale history (US2, FR-013a, SC-016)', () => {
+  it('writeOrdinarySave removes a pre-seeded stale history entry', () => {
+    const store = createFakeStore();
+    store.map.set('history', 'stale-history-payload');
+
+    writeOrdinarySave(store, 'save', 'history', '{"world":true}');
+
+    expect(store.map.has('history')).toBe(false);
+  });
+
+  it('writeFlushSave with an empty historyJson also removes a pre-seeded stale history entry', () => {
+    const store = createFakeStore();
+    store.map.set('history', 'stale-history-payload');
+
+    writeFlushSave(store, 'save', 'history', '{"world":true}', '');
+
+    expect(store.map.has('history')).toBe(false);
+  });
+});
+
+describe('historySave — measured serialized size across varied field sizes (US2, SC-004)', () => {
+  it('serializeHistory\'s actual JSON.stringify length is always <= HISTORY_BYTE_BUDGET (plus envelope slack) across 20+ varied sessions spanning spec 006\'s supported field sizes', () => {
+    const sizes: Array<[number, number]> = [
+      [10, 10],
+      [20, 15],
+      [30, 30],
+      [50, 40],
+      [60, 60],
+      [80, 60],
+      [100, 80],
+      [120, 90],
+      [150, 100],
+      [160, 120],
+      [180, 120],
+      [200, 130],
+      [210, 140],
+      [220, 140],
+      [230, 150],
+      [240, 150],
+      [250, 155],
+      [260, 158],
+      [GRID_WIDTH, GRID_HEIGHT],
+      [GRID_WIDTH, GRID_HEIGHT - 5],
+      [GRID_WIDTH - 10, GRID_HEIGHT],
+      [GRID_WIDTH - 20, GRID_HEIGHT - 10],
+    ];
+    expect(sizes.length).toBeGreaterThanOrEqual(20);
+    expect(GRID_WIDTH * GRID_HEIGHT).toBe(CELL_BUDGET);
+
+    for (const [width, height] of sizes) {
+      const grid = createGrid(width, height);
+      const objects = createObjectsState();
+      const history = new HistoryManager();
+      recordSeveralActions(grid, objects, history, HISTORY_DEPTH);
+      if (Math.min(width, height) > 20) placeObject(grid, objects, 'rainbow', 5, 5);
+
+      const fingerprint = computeFingerprint('world');
+      const serialized = serializeHistory(history.getPersistableUndoStack(), width, height, fingerprint);
+      expect(serialized.length).toBeLessThanOrEqual(HISTORY_BYTE_BUDGET + ENVELOPE_SLACK);
+    }
+  });
+});
+
+describe('historySave — repeated close/reopen with no drawing between (US2, SC-014)', () => {
+  it('closing and reopening 5 times in a row leaves the same steps available every time, with 0 growth and 0 duplication', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    recordSeveralActions(grid, objects, history, 4);
+
+    const fingerprint = computeFingerprint('world');
+    let currentStack: readonly WorldState[] = history.getPersistableUndoStack();
+    let firstSerializedLength = -1;
+
+    for (let round = 0; round < 5; round++) {
+      const serialized = serializeHistory(currentStack, 20, 20, fingerprint);
+      expect(serialized).not.toBe('');
+      if (firstSerializedLength === -1) {
+        firstSerializedLength = serialized.length;
+      } else {
+        expect(serialized.length).toBe(firstSerializedLength);
+      }
+
+      const persisted = deserializeHistory(serialized, fingerprint);
+      expect(persisted).not.toBeNull();
+      if (persisted === null) return;
+      expect(persisted.steps.length).toBe(4);
+
+      const freshHistory = new HistoryManager();
+      freshHistory.restoreFromPersisted(persisted.steps);
+      currentStack = freshHistory.getPersistableUndoStack();
+    }
+  });
+});
