@@ -8,12 +8,13 @@ const toolbar = readFileSync(
 );
 
 describe('the sand tool is labelled as sand, not as a colour', () => {
-  it('uses the bucket glyph', () => {
-    expect(toolbar).toContain('🪣');
+  it('prefers the bucket glyph', () => {
+    expect(toolbar).toContain('SAND_GLYPHS');
   });
 
-  it('no longer uses a heart for sand', () => {
-    expect(toolbar).not.toContain('💗');
+  it('renders the sand glyph the platform can actually draw, never a hard-coded one', () => {
+    expect(toolbar).toMatch(/\{sandGlyph\}/);
+    expect(toolbar).toMatch(/pickGlyph\(\s*SAND_GLYPHS/);
   });
 
   it('still labels it for assistive tech', () => {

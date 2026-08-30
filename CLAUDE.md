@@ -30,4 +30,5 @@ verify instead of assuming it works.
 | Sound | `webkitAudioContext` fallback, context created only inside a user gesture (`src/lib/sound.ts`) | standard `AudioContext`, same gesture gate |
 | Photo share (📷) | `navigator.canShare({files})` probe in `src/App.svelte`; WebKit user-activation can lapse after slow `toBlob` | same probe; button simply absent on Silk/desktops without file share |
 | Auto-save | `localStorage`, flushed on `visibilitychange`/`pagehide` (`src/sim/save.ts` + PlayArea glue) | identical — but locked-down kids' browsers may wipe storage; failures stay silent by design |
+| Emoji glyph coverage | newer emoji (Emoji 13.0+, e.g. 🪣 🪄) render fine; free to pick them | Segoe UI Emoji on Windows 10 / Fire draws them as an empty box — every control's glyph goes through `pickGlyph` in `src/lib/glyphSupport.ts` with an older guaranteed fallback last |
 | Safe areas / viewport | `viewport-fit=cover` + `env(safe-area-inset-*)` paddings | same mechanism; also the 480px landscape-rail media query in `src/lib/layout.ts` + `Toolbar.svelte` |

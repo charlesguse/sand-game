@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Tool, BrushSize, SceneId } from '../sim/types';
   import { MIN_TOUCH_TARGET } from './layout';
+  import { pickGlyph, createMeasurer, SAND_GLYPHS, CONTROL_FONT } from './glyphSupport';
 
   interface Props {
     tool: Tool;
@@ -39,6 +40,14 @@
     onToggleMuted,
     onSharePhoto,
   }: Props = $props();
+
+  // Older system emoji fonts (Windows 10 Chrome, the Fire tablet) have no 🪣, and draw an
+  // empty box instead. Resolve it once, before the first paint, so every platform shows a
+  // picture: the bucket where it exists, the heart that shipped before it everywhere else.
+  const sandGlyph = pickGlyph(
+    SAND_GLYPHS,
+    typeof document === 'undefined' ? null : createMeasurer(CONTROL_FONT, document),
+  );
 </script>
 
 <div class="toolbar" style="--control-min: {MIN_TOUCH_TARGET}px">
@@ -49,7 +58,7 @@
       aria-label="Pink sand"
       onclick={() => onSelectTool('sand')}
     >
-      🪣
+      {sandGlyph}
     </button>
     <button
       class="control"
