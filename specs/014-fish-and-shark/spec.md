@@ -31,6 +31,25 @@
 >
 > Existing water behavior (flow, evaporation/fog, star-powered weather) must not regress.
 
+## Clarifications
+
+### Session 2026-09-07 (answered by @charlesguse on issue #45)
+
+- **Q: Are 120 cells (fish) and 700 cells (shark) the right "rare but findable"
+  calibration, or should the thresholds scale with field size?** → Keep 120 / 700
+  as fixed cell counts against the default field. Already calibrated and simple
+  to test; scaling by a fraction of the field adds complexity the constitution
+  does not ask for here. (FR-003, FR-005)
+- **Q: On a canvas of many puddles, should the caps be global with largest pools
+  populated first, per-pool only, or spread one-per-pool?** → Global caps,
+  largest pools first — consistent with the existing cap pattern in the game and
+  it keeps the performance budget bounded however many puddles she draws.
+  (FR-006)
+- **Q: After the eraser removes a creature, should the pool hold off ~3 seconds,
+  stay empty until its water changes, or replace at once?** → ~3 second hold-off,
+  then repopulate on its own. The eraser visibly works, and the pond quietly
+  refills rather than looking broken or permanently emptied. (FR-025)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Fish come to live in her pond (Priority: P1)
@@ -132,7 +151,7 @@ gone, and that nothing throws.
 2. **Given** a lake with a shark, **When** the lake shrinks below the shark threshold but stays above the fish threshold, **Then** the shark leaves and the fish stay.
 3. **Given** a pool that splits into two puddles, **When** the simulation runs, **Then** each puddle keeps only the fish its own size earns and the rest are gone; **and given** two pools that merge into one big lake, **Then** the combined lake is populated by the rule for its combined size.
 4. **Given** a fish leaving for any reason, **When** the child watches, **Then** it just fades out of the pond — nothing dies, nothing sinks, no bones, no puff, no message.
-5. **Given** the eraser dragged across a fish or a shark, **When** the stroke touches it, **Then** it is removed immediately, and that pool does not instantly produce a replacement, so the eraser plainly did something.
+5. **Given** the eraser dragged across a fish or a shark, **When** the stroke touches it, **Then** it is removed immediately, and that pool does not instantly produce a replacement, so the eraser plainly did something; **and when** about three seconds have passed, **Then** the pool quietly fills back up under the ordinary rule with no action from her.
 6. **Given** any number of fish and sharks, **When** the child presses 🗑️, **Then** every one of them is gone along with everything else, and the empty canvas stays empty.
 7. **Given** a world with fish and sharks in it, **When** the app is closed and reopened, **Then** her water, sand, objects and poodles restore exactly as they always have, and fish reappear in whatever water restored — the same kind of fish, not necessarily the same individuals.
 8. **Given** a save written before this feature existed, **When** it is loaded, **Then** it restores exactly as it does today and gets fish in its water.
@@ -144,7 +163,7 @@ gone, and that nothing throws.
 ### Edge Cases
 
 - **A pool exactly at the threshold**, wobbling one cell either side of it as water sloshes: the population must not flicker in and out every frame — crossing the line has to be steady enough that the child never sees a strobing fish.
-- **Very many small pools** (a canvas of puddles, or rain pattering into dozens of dents): total fish and sharks stay under the global caps, so cost cannot grow with the number of puddles she draws.
+- **Very many small pools** (a canvas of puddles, or rain pattering into dozens of dents): total fish and sharks stay under the global caps, so cost cannot grow with the number of puddles she draws, and the biggest pools are the ones that get populated — a qualifying puddle can end up with no fish because the caps were already spent on larger water.
 - **A pool that is one cell tall and very wide** (a thin flood across the floor): either it is populated and the fish visibly fit inside it, or it does not qualify — never a fish rendered mostly outside its own water.
 - **Water inside a preloaded landscape scene**: the same rule applies with no special-casing, so switching scenes populates the new water and drops the old scene's fish.
 - **Star power waved over a populated lake**: water becomes fog, the pool shrinks, and the fish leave under the ordinary rule; the weather cycle itself is untouched.
@@ -164,10 +183,10 @@ gone, and that nothing throws.
 
 - **FR-001**: The toy MUST place fish into sufficiently large bodies of water on its own, with no button, tool, gesture or menu — the child never asks for fish and can never fail to get them.
 - **FR-002**: A body of water MUST be treated as one "pool" — the water cells connected to each other — and its size measured as a count of those cells.
-- **FR-003**: A pool MUST get fish once its size reaches the fish threshold, and MUST get none below it. Default fish threshold: **120 water cells** — about one large-brush blob, so a few deliberate strokes earn a fish [NEEDS CLARIFICATION: are 120 cells (fish) and 700 cells (shark) the right "rare but findable" calibration on the Fire 7 and iPad at the default 270×160 field, or should either be raised/lowered?].
+- **FR-003**: A pool MUST get fish once its size reaches the fish threshold, and MUST get none below it. Fish threshold: **120 water cells** — about one large-brush blob, so a few deliberate strokes earn a fish. Thresholds are fixed cell counts calibrated against the 270×160 default field, not a fraction of the field.
 - **FR-004**: The number of fish in a pool MUST grow with the pool's size and MUST be capped at **3 fish per pool**.
-- **FR-005**: A pool MUST get a shark only once its size reaches the shark threshold (default **700 water cells** — a lake, not a pond), and MUST never have more than one shark.
-- **FR-006**: Totals across the whole play field MUST be capped at **6 fish and 2 sharks**, whatever the child draws. When more pools qualify than the caps allow, the largest pools MUST be populated first [NEEDS CLARIFICATION: is largest-pools-first the behaviour she should see on a canvas of many puddles, or should the caps be per-pool only with no global limit, or should populations be spread one-per-pool before any pool gets a second fish?].
+- **FR-005**: A pool MUST get a shark only once its size reaches the shark threshold (**700 water cells** — a lake, not a pond), and MUST never have more than one shark.
+- **FR-006**: Totals across the whole play field MUST be capped at **6 fish and 2 sharks**, whatever the child draws. When more pools qualify than the caps allow, the largest pools MUST be populated first — a big lake fills to its per-pool cap before a smaller puddle gets anything.
 - **FR-007**: Newly qualifying water MUST be populated within about a second of qualifying, so the arrival feels like a response to her pouring.
 - **FR-008**: The feature MUST add no toolbar control of any kind; the toolbar's control count and layout budget from specs 012/013 MUST be unchanged.
 
@@ -195,7 +214,7 @@ gone, and that nothing throws.
 - **FR-022**: When a pool falls below a threshold — drained, evaporated, drawn over, erased, or split — the fish and shark it can no longer support MUST be gone within about a second, and MUST never be shown outside water in the meantime.
 - **FR-023**: A departure MUST look like a gentle disappearance. Nothing dies, sinks, flops, breaks, or produces a message, a mark, or any other error surface.
 - **FR-024**: The eraser MUST remove any fish or shark its stroke passes over, immediately, including on a fast drag whose pointer samples straddle the creature.
-- **FR-025**: After the eraser removes a creature, its pool MUST NOT immediately produce a replacement; repopulation of that pool MUST be held off for a short, visible delay (default **about 3 seconds**) so the eraser is plainly seen to work [NEEDS CLARIFICATION: is a ~3s hold-off the right feel, or should an erased pool stay empty until the child changes its water, or should replacements simply appear at once because a pond that keeps its fish is friendlier?].
+- **FR-025**: After the eraser removes a creature, its pool MUST NOT immediately produce a replacement; repopulation of that pool MUST be held off for a short, visible delay of **about 3 seconds** so the eraser is plainly seen to work. Once the hold-off passes, the pool MUST repopulate on its own under the ordinary rule — an erased pool is never permanently emptied, and the child never has to do anything to get her fish back.
 - **FR-026**: 🗑️ clear-all MUST remove every fish and shark along with everything else, and the cleared canvas MUST stay empty.
 
 **Saving, undo, and re-derivation**
@@ -213,7 +232,7 @@ gone, and that nothing throws.
 
 **Verification**
 
-- **FR-034**: Automated tests, running with no DOM and no browser, MUST cover: the spawn-threshold rule at, below and above each threshold; the caps; the "shark never catches a fish" invariant over a long run; that no play-field cell is written by the feature; that draining, erasing and clearing remove creatures and leave none outside water; and that re-derivation onto a different field shape leaves every creature in-bounds and in water.
+- **FR-034**: Automated tests, running with no DOM and no browser, MUST cover: the spawn-threshold rule at, below and above each threshold; the per-pool and global caps, including that the largest pools are populated first when more pools qualify than the caps allow; the eraser hold-off, including that the pool does repopulate once it elapses; the "shark never catches a fish" invariant over a long run; that no play-field cell is written by the feature; that draining, erasing and clearing remove creatures and leave none outside water; and that re-derivation onto a different field shape leaves every creature in-bounds and in water.
 
 ### Key Entities
 
@@ -272,11 +291,13 @@ toolbar-glyph test and must be looked at on both columns:
   poke them, or feed them — the only controls that touch them are the eraser and
   🗑️, which she already knows. A poke-the-fish reaction like the poodle's trick
   is deliberately out of scope for this spec.
-- **Default numbers are the spec's calibration**, chosen against the 270×160
-  default field (43,200 cells): fish at 120 connected water cells, shark at 700,
-  3 fish per pool, 6 fish and 2 sharks overall, minimum shark-to-fish separation
-  of 2 cells, and a ~3 second hold-off after an eraser removal. The three
-  clarification markers above cover the ones a maintainer may want to retune.
+- **The numbers are settled**, calibrated against the 270×160 default field
+  (43,200 cells) and confirmed by the maintainer: fish at 120 connected water
+  cells, shark at 700, 3 fish per pool, 6 fish and 2 sharks overall, minimum
+  shark-to-fish separation of 2 cells, and a ~3 second hold-off after an eraser
+  removal. They are fixed cell counts rather than a fraction of the field, which
+  keeps the rule simple to test; if a non-default field size ever makes them feel
+  wrong on a device, that is a retune, not a redesign.
 - **Both glyphs predate the platform glyph-coverage caution** in `CLAUDE.md`
   (🐠 Unicode 6.0, 🦈 Unicode 9.0), so no inline SVG fallback is planned — but
   both are on the manual verification list above.
