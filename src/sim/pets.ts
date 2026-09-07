@@ -35,8 +35,35 @@ export interface Poodle {
   wanderDir: 1 | -1;
 }
 
+export type MermaidState = 'resting' | 'drifting' | 'swimming' | 'eating' | 'freeing' | 'tricking';
+
+export interface Mermaid {
+  readonly id: number;
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  state: MermaidState;
+  /** Frames remaining in a busy state (eating/tricking/freeing); 0 means free to act. */
+  timer: number;
+  /** Ice cream she is currently pursuing, or -1/-1 if none. */
+  pursuitX: number;
+  pursuitY: number;
+  /** Smallest Chebyshev distance to (pursuitX, pursuitY) reached so far this pursuit. */
+  pursuitBestDist: number;
+  /** Frames since pursuitBestDist last improved — the give-up clock. */
+  pursuitStaleFrames: number;
+  /** Frames remaining during which ice-cream scent is ignored, after giving up on an unreachable one. */
+  iceCreamCooldown: number;
+  /** Where "home" is for drifting: set on each settle; drifting stays within MERMAID_DRIFT_RANGE of it. */
+  homeX: number;
+  homeY: number;
+  /** Which way the current drift is heading. */
+  driftDir: 1 | -1;
+}
+
 export interface PetsState {
   poodles: Poodle[];
+  mermaids: Mermaid[];
   nextId: number;
   /** Frame counter used to stagger poodle footsteps; see STEP_INTERVAL. */
   stride: number;
@@ -44,6 +71,8 @@ export interface PetsState {
 
 /** At most three poodles; placing a fourth retires the oldest. */
 export const POODLE_CAP = 3;
+/** At most three mermaids; placing a fourth retires the oldest. */
+export const MERMAID_CAP = 3;
 
 /** Frames between footsteps. Low enough to feel responsive, high enough to read as a trot. */
 const STEP_INTERVAL = 4;
@@ -90,12 +119,13 @@ export const WANDER_RANGE = 10;
 const CONSUMED_TARGET_SLACK = 2;
 
 export function createPetsState(): PetsState {
-  return { poodles: [], nextId: 0, stride: 0 };
+  return { poodles: [], mermaids: [], nextId: 0, stride: 0 };
 }
 
-/** Sends every poodle home. `nextId` keeps counting so ids stay unique. */
+/** Sends every poodle and mermaid home. `nextId` keeps counting so ids stay unique. */
 export function clearPets(state: PetsState): void {
   state.poodles.length = 0;
+  state.mermaids.length = 0;
 }
 
 export function addPoodle(state: PetsState, x: number, y: number): void {
