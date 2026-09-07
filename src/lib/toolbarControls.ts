@@ -29,6 +29,7 @@ export const TOOLBAR_CONTROLS: readonly ToolbarControlSpec[] = [
   { id: 'tool-grass', group: 'elements', ariaLabel: 'Grass' },
   { id: 'tool-star', group: 'elements', ariaLabel: 'Star power' },
   { id: 'tool-gumdrop', group: 'elements', ariaLabel: 'Gumdrops' },
+  { id: 'tool-icecream', group: 'elements', ariaLabel: 'Ice cream' },
 
   { id: 'tool-rainbow', group: 'objects', ariaLabel: 'Rainbow' },
   { id: 'tool-unicorn', group: 'objects', ariaLabel: 'Unicorn' },

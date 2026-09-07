@@ -151,7 +151,7 @@
 
   // Which brush strokes count as "pouring" a material (as opposed to the eraser, which also
   // runs through applyBrush/applyBrushLine but isn't a pour) — see playPour's call sites below.
-  const POUR_TOOLS = new Set<Tool>(['sand', 'water', 'dirt', 'gumdrop', 'grass', 'star']);
+  const POUR_TOOLS = new Set<Tool>(['sand', 'water', 'dirt', 'gumdrop', 'grass', 'star', 'icecream']);
   function isPourTool(t: Tool): t is PourKind {
     return POUR_TOOLS.has(t);
   }

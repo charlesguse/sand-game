@@ -1,4 +1,16 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP, FLOWER, DIAMOND } from '../sim/types';
+import {
+  SAND,
+  WATER,
+  DIRT,
+  RAINBOW_SAND,
+  GRASS,
+  STAR_POWER,
+  FOG,
+  GUMDROP,
+  FLOWER,
+  DIAMOND,
+  ICE_CREAM,
+} from '../sim/types';
 
 export type Rgb = [number, number, number];
 
@@ -119,6 +131,18 @@ const DIAMOND_RAMP: Rgb[] = [
   [225, 246, 253],
 ];
 
+// Ice cream flavour ramp: a small fixed set of scoop colors, indexed by hue so a poured handful
+// reads as distinct flavours rather than a continuous rainbow spread — same shape as
+// GUMDROP_COLORS, distinguishable from it (creamier, more pastel than candy-bright).
+const ICE_CREAM_COLORS: Rgb[] = [
+  [255, 240, 225],
+  [250, 214, 200],
+  [255, 201, 214],
+  [230, 214, 255],
+  [255, 249, 214],
+  [214, 234, 220],
+];
+
 // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -148,5 +172,6 @@ export function colorFor(element: number, shade: number, hue: number, isCloud: b
   if (element === GUMDROP) return GUMDROP_COLORS[hue % GUMDROP_COLORS.length];
   if (element === FLOWER) return FLOWER_COLORS[hue % FLOWER_COLORS.length];
   if (element === DIAMOND) return DIAMOND_RAMP[shade % DIAMOND_RAMP.length];
+  if (element === ICE_CREAM) return ICE_CREAM_COLORS[hue % ICE_CREAM_COLORS.length];
   return [255, 255, 255];
 }

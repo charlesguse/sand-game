@@ -86,19 +86,19 @@ Single project. `src/sim/*` is the framework-free simulation core (vitest-only s
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [P] [US2] Test: painting `ICE_CREAM` via `applyBrush`/`applyBrushLine` at each brush size produces the expected cells, each with a hue set at paint time, in `tests/unit/sim/brush.test.ts` (or new `tests/unit/sim/iceCream.test.ts`) (FR-012)
-- [ ] T019 [P] [US2] Test: an `ICE_CREAM` cell poured above a pool falls and comes to rest cell-for-cell identically to a `GUMDROP` poured in the same spot (same `step()` outcomes over N frames); poured on dry land it simply rests and never moves again, never melts, never disappears on its own, in `tests/unit/sim/iceCream.test.ts` (FR-015)
-- [ ] T020 [P] [US2] Test: with `ICE_CREAM` cells present, sand/water/dirt/rainbow-sand/grass/star-power/fog/gumdrop/flower behaviour is byte-for-byte unchanged versus the existing suites — run `tests/unit/sim/{grid,step,brush,grass,flower,starPower,gumdrop}.test.ts` unmodified and confirm all still pass (FR-016, FR-034)
+- [X] T018 [P] [US2] Test: painting `ICE_CREAM` via `applyBrush`/`applyBrushLine` at each brush size produces the expected cells, each with a hue set at paint time, in `tests/unit/sim/brush.test.ts` (or new `tests/unit/sim/iceCream.test.ts`) (FR-012)
+- [X] T019 [P] [US2] Test: an `ICE_CREAM` cell poured above a pool falls and comes to rest cell-for-cell identically to a `GUMDROP` poured in the same spot (same `step()` outcomes over N frames); poured on dry land it simply rests and never moves again, never melts, never disappears on its own, in `tests/unit/sim/iceCream.test.ts` (FR-015)
+- [X] T020 [P] [US2] Test: with `ICE_CREAM` cells present, sand/water/dirt/rainbow-sand/grass/star-power/fog/gumdrop/flower behaviour is byte-for-byte unchanged versus the existing suites — run `tests/unit/sim/{grid,step,brush,grass,flower,starPower,gumdrop}.test.ts` unmodified and confirm all still pass (FR-016, FR-034)
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add the `ICE_CREAM` branch to `step()`'s per-cell dispatch in `src/sim/step.ts`, routing it through the existing `stepGumdrop()` verbatim (`element === GUMDROP || element === ICE_CREAM`) (depends on T001, T002; makes T019 pass)
-- [ ] T022 [US2] Add the `icecream` tool branch to `paintCell()` in `src/sim/brush.ts`: `setCell(grid, x, y, ICE_CREAM, shade)` plus `grid.hues[...] = randomHue()`, mirroring the existing gumdrop paint case (depends on T001; makes T018 pass)
-- [ ] T023 [US2] Add `ICE_CREAM_COLORS` ramp and a `colorFor()` branch in `src/lib/palette.ts`, same shape as `GUMDROP_COLORS`/`FLOWER_COLORS` (FR-014)
-- [ ] T024 [US2] Add the `tool-icecream` control (`group: 'elements'`, `ariaLabel: 'Ice cream'`) to `TOOLBAR_CONTROLS` in `src/lib/toolbarControls.ts` (FR-012, FR-030)
-- [ ] T025 [US2] Add the ice cream glyph/aria/selection case for `tool-icecream` in `src/lib/Toolbar.svelte`, using 🍦 (FR-031)
-- [ ] T026 [US2] Add an `'icecream'` `PourKind` entry and pitch to `POUR_PITCH` in `src/lib/sound.ts`, mirroring every other pourable element (research.md §10)
-- [ ] T027 [US2] Wire the `tool === 'icecream'` paint path into `src/lib/PlayArea.svelte`'s existing paint/pour call sites (brush stroke handling, pour sound trigger) alongside the existing gumdrop wiring (depends on T022, T024, T026)
+- [X] T021 [US2] Add the `ICE_CREAM` branch to `step()`'s per-cell dispatch in `src/sim/step.ts`, routing it through the existing `stepGumdrop()` verbatim (`element === GUMDROP || element === ICE_CREAM`) (depends on T001, T002; makes T019 pass)
+- [X] T022 [US2] Add the `icecream` tool branch to `paintCell()` in `src/sim/brush.ts`: `setCell(grid, x, y, ICE_CREAM, shade)` plus `grid.hues[...] = randomHue()`, mirroring the existing gumdrop paint case (depends on T001; makes T018 pass)
+- [X] T023 [US2] Add `ICE_CREAM_COLORS` ramp and a `colorFor()` branch in `src/lib/palette.ts`, same shape as `GUMDROP_COLORS`/`FLOWER_COLORS` (FR-014)
+- [X] T024 [US2] Add the `tool-icecream` control (`group: 'elements'`, `ariaLabel: 'Ice cream'`) to `TOOLBAR_CONTROLS` in `src/lib/toolbarControls.ts` (FR-012, FR-030)
+- [X] T025 [US2] Add the ice cream glyph/aria/selection case for `tool-icecream` in `src/lib/Toolbar.svelte`, using 🍦 (FR-031)
+- [X] T026 [US2] Add an `'icecream'` `PourKind` entry and pitch to `POUR_PITCH` in `src/lib/sound.ts`, mirroring every other pourable element (research.md §10)
+- [X] T027 [US2] Wire the `tool === 'icecream'` paint path into `src/lib/PlayArea.svelte`'s existing paint/pour call sites (brush stroke handling, pour sound trigger) alongside the existing gumdrop wiring (depends on T022, T024, T026)
 
 **Checkpoint**: Ice cream can be poured, falls/rests like a gumdrop, is hue-colored, and every existing element is unaffected — fully functional and testable independently of the mermaid's pursuit behaviour.
 
