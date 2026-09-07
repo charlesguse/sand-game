@@ -23,6 +23,7 @@
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
   import { createFlashMask, updateFlashMask } from './sparkle';
+  import { createStarField, updateStarField, drawStarField, type StarField } from './stars';
   import { randomShade } from '../sim/shade';
   import {
     createObjectsState,
@@ -147,6 +148,7 @@
   let grid: Grid;
   let imageData: ImageData;
   let flashMask: Uint8Array;
+  let starField: StarField;
   // One entry per active pointer (finger), each holding that pointer's last painted grid
   // position — lets every finger paint its own continuous stroke independently (Task 3).
   const strokes = new Map<number, { x: number; y: number }>();
@@ -303,6 +305,7 @@
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
     flashMask = createFlashMask(grid.width, grid.height);
+    starField = createStarField(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
 
@@ -485,6 +488,8 @@
       ctx.fillText(p.glyph, p.x, p.y);
     }
     ctx.globalAlpha = 1;
+
+    drawStarField(ctx, starField, lastFrameNow);
   }
 
   function updateUnicorns(now: number): void {
@@ -538,6 +543,7 @@
     sweepPokeReactions(now);
     tickParticles(particles, now);
     updateFlashMask(grid, flashMask);
+    updateStarField(grid, starField, now);
     render();
     requestAnimationFrame(frame);
   }
@@ -800,6 +806,7 @@
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
     flashMask = createFlashMask(grid.width, grid.height);
+    starField = createStarField(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
     tryRestore();
