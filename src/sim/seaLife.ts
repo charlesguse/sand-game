@@ -64,6 +64,18 @@ const FISH_TURN_COOLDOWN_MIN = 90;
 const FISH_TURN_COOLDOWN_MAX = 240;
 /** Radians/frame the cosmetic bob offset advances (research.md §7 — never touches x/y). */
 const BOB_SPEED = 0.12;
+/** Cells/frame a shark covers while cruising or chasing — faster than a fish's drift. */
+const SHARK_SPEED = 0.1;
+/** Frames a chase runs before ending regardless of progress (FR-019, research.md §6: "~5s"). */
+const SHARK_CHASE_DURATION = 300;
+/** Frames after a chase ends during which the shark only drifts, never re-targeting (FR-019). */
+const SHARK_CRUISE_COOLDOWN = 120;
+/** Per-frame chance a cruising shark (no target) turns around on its own, like a fish's whim. */
+const SHARK_RANDOM_TURN_CHANCE = 0.01;
+/** Distance within which a shark's approach sets a fish scattering (FR-018). */
+const SCATTER_TRIGGER_RANGE = 6;
+/** Frames a scattered fish keeps using the faster shark-avoiding movement rule (FR-018). */
+const SCATTER_DURATION = 24;
 
 function sweepBudgetFor(grid: Grid): number {
   return Math.max(1, Math.ceil((grid.width * grid.height) / SWEEP_TARGET_FRAMES));
@@ -191,6 +203,21 @@ function cellIsWater(grid: Grid, x: number, y: number): boolean {
   return grid.elements[y * grid.width + x] === WATER;
 }
 
+/**
+ * True if (x, y) is at least SHARK_MIN_SEPARATION from every live shark. The hard separation
+ * floor (FR-017) has to hold regardless of which side initiates the approach, so both the
+ * shark's own movement (research.md §6) and the fish's ordinary movement (below) reject a
+ * candidate cell that would violate it — a fish drifting toward a stationary-ish shark is
+ * exactly as much a violation as a shark closing in on a fish.
+ */
+function clearOfSharks(state: SeaLifeState, x: number, y: number): boolean {
+  for (const shark of state.sharks) {
+    if (shark.fadeTimer > 0) continue;
+    if (Math.hypot(shark.x - x, shark.y - y) < SHARK_MIN_SEPARATION) return false;
+  }
+  return true;
+}
+
 function cellXY(grid: Grid, index: number): { x: number; y: number } {
   return { x: index % grid.width, y: Math.floor(index / grid.width) };
 }
@@ -246,6 +273,22 @@ function spawnFish(grid: Grid, state: SeaLifeState, label: number): void {
     bobPhase: Math.random() * Math.PI * 2,
     turnCooldown: randomInt(FISH_TURN_COOLDOWN_MIN, FISH_TURN_COOLDOWN_MAX),
     scatterTimer: 0,
+    fadeTimer: 0,
+  });
+}
+
+function spawnShark(grid: Grid, state: SeaLifeState, label: number): void {
+  const index = pickSpawnIndex(grid, state.spawnSample[label], state.fish, SHARK_MIN_SEPARATION);
+  if (index === null) return;
+  const { x, y } = cellXY(grid, index);
+  state.sharks.push({
+    id: state.nextId++,
+    x,
+    y,
+    facing: Math.random() < 0.5 ? -1 : 1,
+    targetFishId: null,
+    chaseTimer: 0,
+    cruiseCooldown: 0,
     fadeTimer: 0,
   });
 }
@@ -335,6 +378,16 @@ function reconcilePopulations(grid: Grid, state: SeaLifeState): void {
     GLOBAL_FISH_CAP,
     spawnFish,
   );
+  reconcileKind(
+    grid,
+    state,
+    state.sharks,
+    SHARK_DESPAWN_THRESHOLD,
+    SHARK_SPAWN_THRESHOLD,
+    SHARK_PER_POOL_CAP,
+    GLOBAL_SHARK_CAP,
+    spawnShark,
+  );
 }
 
 /**
@@ -375,7 +428,11 @@ function randomizeDirection(grid: Grid, fish: Fish): void {
  * movement only ever commits into a candidate cell that is WATER right now, reversing rather
  * than passing through a wall or a pool's edge (the cell just left is guaranteed water).
  */
-function stepFishAlive(grid: Grid, fish: Fish): void {
+function fishCanEnter(grid: Grid, state: SeaLifeState, x: number, y: number): boolean {
+  return cellIsWater(grid, Math.round(x), Math.round(y)) && clearOfSharks(state, x, y);
+}
+
+function stepFishAlive(grid: Grid, state: SeaLifeState, fish: Fish): void {
   const cx = Math.round(fish.x);
   const cy = Math.round(fish.y);
   if (!cellIsWater(grid, cx, cy)) {
@@ -398,7 +455,7 @@ function stepFishAlive(grid: Grid, fish: Fish): void {
   const speed = fish.scatterTimer > 0 ? FISH_SPEED * FISH_SCATTER_SPEED_MULT : FISH_SPEED;
   let nx = fish.x + fish.dirX * speed;
   let ny = fish.y + fish.dirY * speed;
-  if (cellIsWater(grid, Math.round(nx), Math.round(ny))) {
+  if (fishCanEnter(grid, state, nx, ny)) {
     fish.x = nx;
     fish.y = ny;
     return;
@@ -408,16 +465,141 @@ function stepFishAlive(grid: Grid, fish: Fish): void {
   fish.dirY = (fish.dirY * -1) as -1 | 0 | 1;
   nx = fish.x + fish.dirX * speed;
   ny = fish.y + fish.dirY * speed;
-  if (cellIsWater(grid, Math.round(nx), Math.round(ny))) {
+  if (fishCanEnter(grid, state, nx, ny)) {
     fish.x = nx;
     fish.y = ny;
   }
 }
 
 /**
+ * Turns a nearby fish (and anything else close enough to the shark) away in a short burst
+ * (FR-018) — a fish already scattering just gets its timer refreshed, not re-triggered oddly.
+ */
+function scatterFishFrom(grid: Grid, fish: Fish, shark: Shark): void {
+  fish.scatterTimer = SCATTER_DURATION;
+  let dirX = Math.sign(fish.x - shark.x) as -1 | 0 | 1;
+  const dirY = Math.sign(fish.y - shark.y) as -1 | 0 | 1;
+  if (dirX === 0 && dirY === 0) dirX = fish.dirX !== 0 ? fish.dirX : 1;
+
+  if (dirX !== 0 && cellIsWater(grid, Math.round(fish.x) + dirX, Math.round(fish.y))) {
+    fish.dirX = dirX;
+    fish.dirY = 0;
+  } else if (dirY !== 0 && cellIsWater(grid, Math.round(fish.x), Math.round(fish.y) + dirY)) {
+    fish.dirX = 0;
+    fish.dirY = dirY;
+  }
+  // Otherwise leave direction as-is — the ordinary movement water-check next tick will turn it.
+}
+
+function applyScatter(grid: Grid, state: SeaLifeState, shark: Shark): void {
+  for (const fish of state.fish) {
+    if (fish.fadeTimer > 0) continue;
+    if (Math.hypot(fish.x - shark.x, fish.y - shark.y) < SCATTER_TRIGGER_RANGE) {
+      scatterFishFrom(grid, fish, shark);
+    }
+  }
+}
+
+/**
+ * Moves a shark one frame toward its target (if any) or cruising in its facing direction —
+ * a candidate move is rejected outright, not merely discouraged, if it would bring the shark
+ * within SHARK_MIN_SEPARATION of *any* live fish (research.md §6, FR-017's hard floor).
+ */
+function moveShark(grid: Grid, state: SeaLifeState, shark: Shark): void {
+  const target =
+    shark.targetFishId !== null
+      ? (state.fish.find((f) => f.id === shark.targetFishId && f.fadeTimer === 0) ?? null)
+      : null;
+
+  let dirX: number;
+  let dirY: number;
+  if (target) {
+    dirX = Math.sign(target.x - shark.x);
+    dirY = Math.sign(target.y - shark.y);
+    if (dirX === 0 && dirY === 0) return;
+  } else {
+    if (Math.random() < SHARK_RANDOM_TURN_CHANCE) shark.facing = shark.facing === 1 ? -1 : 1;
+    dirX = shark.facing;
+    dirY = 0;
+  }
+
+  const nx = shark.x + dirX * SHARK_SPEED;
+  const ny = shark.y + dirY * SHARK_SPEED;
+
+  if (!cellIsWater(grid, Math.round(nx), Math.round(ny))) {
+    if (!target) shark.facing = shark.facing === 1 ? -1 : 1;
+    return;
+  }
+  for (const fish of state.fish) {
+    if (fish.fadeTimer > 0) continue;
+    if (Math.hypot(fish.x - nx, fish.y - ny) < SHARK_MIN_SEPARATION) return;
+  }
+
+  shark.x = nx;
+  shark.y = ny;
+  if (dirX !== 0) shark.facing = dirX > 0 ? 1 : -1;
+}
+
+/**
+ * Advances one live (non-fading) shark by one frame: the same immediate own-cell water check as
+ * a fish, then chase AI (pick the globally nearest live fish, chase it for ~5s, then cruise
+ * before picking a new one — research.md §6) and movement, then the scatter reaction on any
+ * fish it closes on.
+ */
+function stepSharkAlive(grid: Grid, state: SeaLifeState, shark: Shark): void {
+  const cx = Math.round(shark.x);
+  const cy = Math.round(shark.y);
+  if (!cellIsWater(grid, cx, cy)) {
+    shark.fadeTimer = CREATURE_FADE_FRAMES;
+    return;
+  }
+
+  if (shark.cruiseCooldown > 0) shark.cruiseCooldown--;
+
+  if (shark.targetFishId !== null) {
+    const target = state.fish.find((f) => f.id === shark.targetFishId && f.fadeTimer === 0);
+    if (!target) {
+      shark.targetFishId = null;
+      shark.chaseTimer = 0;
+      shark.cruiseCooldown = SHARK_CRUISE_COOLDOWN;
+    } else {
+      shark.chaseTimer--;
+      if (shark.chaseTimer <= 0) {
+        shark.targetFishId = null;
+        shark.cruiseCooldown = SHARK_CRUISE_COOLDOWN;
+      }
+    }
+  }
+
+  if (
+    shark.targetFishId === null &&
+    shark.cruiseCooldown === 0 &&
+    state.fish.some((f) => f.fadeTimer === 0)
+  ) {
+    let best: Fish | null = null;
+    let bestDist = Infinity;
+    for (const fish of state.fish) {
+      if (fish.fadeTimer > 0) continue;
+      const dist = Math.hypot(fish.x - shark.x, fish.y - shark.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = fish;
+      }
+    }
+    if (best) {
+      shark.targetFishId = best.id;
+      shark.chaseTimer = SHARK_CHASE_DURATION;
+    }
+  }
+
+  moveShark(grid, state, shark);
+  applyScatter(grid, state, shark);
+}
+
+/**
  * One frame: ages out expired eraser cooldowns, advances the pool sweep (running reconciliation
- * and restarting the sweep whenever a pass completes), and — once user stories land — steps
- * every fish/shark's fade/movement/AI. Never writes to any `Grid` array (FR-012).
+ * and restarting the sweep whenever a pass completes), and steps every fish/shark's
+ * fade/movement/AI. Never writes to any `Grid` array (FR-012).
  */
 export function stepSeaLife(grid: Grid, state: SeaLifeState): void {
   for (let i = state.eraserCooldowns.length - 1; i >= 0; i--) {
@@ -438,6 +620,16 @@ export function stepSeaLife(grid: Grid, state: SeaLifeState): void {
       if (fish.fadeTimer <= 0) state.fish.splice(i, 1);
       continue;
     }
-    stepFishAlive(grid, fish);
+    stepFishAlive(grid, state, fish);
+  }
+
+  for (let i = state.sharks.length - 1; i >= 0; i--) {
+    const shark = state.sharks[i];
+    if (shark.fadeTimer > 0) {
+      shark.fadeTimer--;
+      if (shark.fadeTimer <= 0) state.sharks.splice(i, 1);
+      continue;
+    }
+    stepSharkAlive(grid, state, shark);
   }
 }

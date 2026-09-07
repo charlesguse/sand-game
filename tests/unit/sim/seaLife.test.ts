@@ -7,6 +7,7 @@ import {
   FISH_PER_POOL_CAP,
   GLOBAL_FISH_CAP,
   SWEEP_TARGET_FRAMES,
+  SHARK_MIN_SEPARATION,
 } from '../../../src/sim/seaLife';
 import { WATER, SAND, type Grid } from '../../../src/sim/types';
 
@@ -199,6 +200,104 @@ describe('User Story 1 — fish movement stays inside water', () => {
     setCell(grid, fx, fy, SAND, 0);
     stepSeaLife(grid, state);
     expect(fish.fadeTimer).toBeGreaterThan(0);
+  });
+});
+
+describe('User Story 2 — shark spawn thresholds', () => {
+  it('never spawns a shark in a pool between the fish and shark thresholds', () => {
+    const grid = createGrid(40, 40);
+    fillWaterRect(grid, 2, 2, 20, 15); // 300 cells: well above fish threshold, below shark's
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 10; i++) stepSeaLife(grid, state);
+    expect(state.sharks).toHaveLength(0);
+  });
+
+  it('spawns exactly one shark in a pool at or above the shark threshold, never two', () => {
+    const grid = createGrid(40, 30);
+    fillWaterRect(grid, 2, 2, 30, 25); // 750 cells, above SHARK_SPAWN_THRESHOLD (700)
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 20; i++) {
+      stepSeaLife(grid, state);
+      expect(state.sharks.length).toBeLessThanOrEqual(1);
+    }
+    expect(state.sharks).toHaveLength(1);
+  });
+});
+
+describe('User Story 2 — a shark plays a game of tag it can never win', () => {
+  function bigPoolGrid(): Grid {
+    const grid = createGrid(50, 40);
+    fillWaterRect(grid, 2, 2, 30, 30); // 900 cells: well above the shark threshold
+    return grid;
+  }
+
+  it('never loses a fish to the shark, and never lets the shark within the minimum separation', () => {
+    const grid = bigPoolGrid();
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+    expect(state.sharks.length).toBeGreaterThan(0);
+
+    let minObservedSeparation = Infinity;
+    let baselineFishCount = state.fish.length;
+    for (let i = 0; i < 3000; i++) {
+      stepSeaLife(grid, state);
+      baselineFishCount = Math.max(baselineFishCount, state.fish.length);
+      expect(state.fish.length).toBe(baselineFishCount);
+      for (const shark of state.sharks) {
+        for (const fish of state.fish) {
+          if (fish.fadeTimer > 0) continue;
+          const dist = Math.hypot(fish.x - shark.x, fish.y - shark.y);
+          minObservedSeparation = Math.min(minObservedSeparation, dist);
+        }
+      }
+    }
+    expect(minObservedSeparation).toBeGreaterThanOrEqual(SHARK_MIN_SEPARATION);
+  });
+
+  it('ends a chase within a bounded number of frames and picks up or drops its target', () => {
+    const grid = bigPoolGrid();
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.sharks.length).toBeGreaterThan(0);
+
+    const shark = state.sharks[0];
+    let sawClearOrChange = false;
+    let lastTarget = shark.targetFishId;
+    for (let i = 0; i < 2000; i++) {
+      stepSeaLife(grid, state);
+      if (shark.targetFishId !== lastTarget) {
+        sawClearOrChange = true;
+        break;
+      }
+      lastTarget = shark.targetFishId;
+    }
+    expect(sawClearOrChange).toBe(true);
+  });
+
+  it('drifts like a plain fish, never targeting anything, once every fish is gone', () => {
+    const grid = bigPoolGrid();
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.sharks.length).toBeGreaterThan(0);
+
+    state.fish.length = 0;
+    const shark = state.sharks[0];
+    // A short window well inside one sweep's cadence: the pool is still big enough to qualify
+    // for fish, so population reconciliation will legitimately repopulate it once the next
+    // sweep completes — this checks the shark's own no-target drift behavior in the meantime,
+    // not a sustained "fish can never exist again" condition.
+    expect(() => {
+      for (let i = 0; i < 15; i++) {
+        stepSeaLife(grid, state);
+        expect(shark.targetFishId).toBeNull();
+        if (state.sharks.length > 0) {
+          const cx = Math.round(state.sharks[0].x);
+          const cy = Math.round(state.sharks[0].y);
+          expect(grid.elements[cy * grid.width + cx]).toBe(WATER);
+        }
+      }
+    }).not.toThrow();
   });
 });
 

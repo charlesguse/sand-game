@@ -534,6 +534,15 @@
       ctx.fillText('🐠', 0, 0);
       ctx.restore();
     }
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE}px sans-serif`;
+    for (const shark of seaLifeState.sharks) {
+      ctx.save();
+      ctx.globalAlpha = shark.fadeTimer > 0 ? shark.fadeTimer / CREATURE_FADE_FRAMES : 1;
+      ctx.translate(shark.x, shark.y);
+      if (shark.facing < 0) ctx.scale(-1, 1);
+      ctx.fillText('🦈', 0, 0);
+      ctx.restore();
+    }
     ctx.globalAlpha = 1;
 
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
