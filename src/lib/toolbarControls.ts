@@ -35,6 +35,8 @@ export const TOOLBAR_CONTROLS: readonly ToolbarControlSpec[] = [
   { id: 'tool-palm', group: 'objects', ariaLabel: 'Palm tree' },
   { id: 'tool-poodle', group: 'objects', ariaLabel: 'Poodle' },
   { id: 'tool-flamingo', group: 'objects', ariaLabel: 'Flamingo' },
+  { id: 'tool-house', group: 'objects', ariaLabel: 'House' },
+  { id: 'tool-person', group: 'objects', ariaLabel: 'Person' },
   { id: 'tool-chest', group: 'objects', ariaLabel: 'Treasure chest' },
 
   { id: 'tool-eraser', group: 'actions', ariaLabel: 'Eraser' },

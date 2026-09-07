@@ -88,17 +88,17 @@ Single client-only project (no `backend/`/`frontend/` split) — `src/sim/`, `sr
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] In `src/lib/PlayArea.svelte`, extend `OBJECT_GLYPHS: Record<ObjectKind, string>` with `house: '🏠'` and `person: '🧑'` (not 🧍 — FR-005) — both hit the existing unanimated `ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy)` fallback in `drawObjectGlyph`, no new animation state (FR-004) (depends on T002; same file as T012/T013, apply after them)
-- [ ] T021 [US2] In `src/lib/toolbarControls.ts`, add `{ id: 'tool-house', group: 'objects', ariaLabel: 'House' }` and `{ id: 'tool-person', group: 'objects', ariaLabel: 'Person' }` to `TOOLBAR_CONTROLS` (same file as T010, apply after it)
-- [ ] T022 [US2] In `src/lib/Toolbar.svelte`, add `case 'tool-house': return '🏠';` / `case 'tool-person': return '🧑';` to `glyphFor`, `case 'tool-house': onSelectTool('house'); return;` / matching `'tool-person'` case to `handleClick`, and matching `tool === 'house'` / `'person'` cases to `isSelected` (depends on T021; same file as T011, apply after it)
+- [X] T020 [US2] In `src/lib/PlayArea.svelte`, extend `OBJECT_GLYPHS: Record<ObjectKind, string>` with `house: '🏠'` and `person: '🧑'` (not 🧍 — FR-005) — both hit the existing unanimated `ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy)` fallback in `drawObjectGlyph`, no new animation state (FR-004) (depends on T002; same file as T012/T013, apply after them)
+- [X] T021 [US2] In `src/lib/toolbarControls.ts`, add `{ id: 'tool-house', group: 'objects', ariaLabel: 'House' }` and `{ id: 'tool-person', group: 'objects', ariaLabel: 'Person' }` to `TOOLBAR_CONTROLS` (same file as T010, apply after it)
+- [X] T022 [US2] In `src/lib/Toolbar.svelte`, add `case 'tool-house': return '🏠';` / `case 'tool-person': return '🧑';` to `glyphFor`, `case 'tool-house': onSelectTool('house'); return;` / matching `'tool-person'` case to `handleClick`, and matching `tool === 'house'` / `'person'` cases to `isSelected` (depends on T021; same file as T011, apply after it)
 
 ### Tests for User Story 2
 
-- [ ] T023 [US2] In `tests/unit/sim/objects.test.ts`: place four houses, assert exactly three remain and the first-placed is gone while any existing person/chest lists are untouched (Scenario 2, SC-003); repeat the same shape for person and confirm chest's own cap-of-3 (already covered by T014) is unaffected by house/person placements (depends on T003; sequential with T014/T015, same file)
-- [ ] T024 [US2] In `tests/unit/sim/objects.test.ts`: place a house and a person, erase across both in one interpolated drag (`eraseObjectsInBrushLine`), assert both are fully removed with no leftover `OBJECT` cell anywhere in their former footprints (Scenario 3, SC-004) (depends on T003; sequential, same file)
-- [ ] T025 [US2] In `tests/unit/sim/objects.test.ts`: place all three new kinds plus existing kinds and some `DIAMOND` material, call `clearObjects`/`clearGrid`, assert the canvas is empty of every object and every element including diamonds (Scenario 4, FR-025) (depends on T003, T007; sequential, same file)
-- [ ] T026 [US2] In `tests/unit/sim/objects.test.ts`: place a house at the very edge of the canvas, assert it nudges fully on-canvas exactly like a rainbow does today (Scenario 1) (depends on T003; sequential, same file)
-- [ ] T027 [US2] In `tests/unit/shell/toolbarGlyphs.test.ts`: assert `Toolbar.svelte`'s source never contains `🧍` even though it does contain `🧑` (FR-005) (depends on T022)
+- [X] T023 [US2] In `tests/unit/sim/objects.test.ts`: place four houses, assert exactly three remain and the first-placed is gone while any existing person/chest lists are untouched (Scenario 2, SC-003); repeat the same shape for person and confirm chest's own cap-of-3 (already covered by T014) is unaffected by house/person placements (depends on T003; sequential with T014/T015, same file)
+- [X] T024 [US2] In `tests/unit/sim/objects.test.ts`: place a house and a person, erase across both in one interpolated drag (`eraseObjectsInBrushLine`), assert both are fully removed with no leftover `OBJECT` cell anywhere in their former footprints (Scenario 3, SC-004) (depends on T003; sequential, same file)
+- [X] T025 [US2] In `tests/unit/sim/objects.test.ts`: place all three new kinds plus existing kinds and some `DIAMOND` material, call `clearObjects`/`clearGrid`, assert the canvas is empty of every object and every element including diamonds (Scenario 4, FR-025) (depends on T003, T007; sequential, same file)
+- [X] T026 [US2] In `tests/unit/sim/objects.test.ts`: place a house at the very edge of the canvas, assert it nudges fully on-canvas exactly like a rainbow does today (Scenario 1) (depends on T003; sequential, same file)
+- [X] T027 [US2] In `tests/unit/shell/toolbarGlyphs.test.ts`: assert `Toolbar.svelte`'s source never contains `🧍` even though it does contain `🧑` (FR-005) (depends on T022)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — houses and people place, cap, evict, erase, and clear exactly like existing objects, with no regression to rainbow/unicorn/palm/flamingo or to the chest/diamond mechanic.
 

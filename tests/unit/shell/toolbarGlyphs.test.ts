@@ -47,3 +47,10 @@ describe('the treasure chest renders as a drawn shape, never a glyph (FR-007)', 
   });
 });
 
+describe('person is 🧑, never the gender-neutral standing-person glyph (FR-005)', () => {
+  it('contains 🧑 but never 🧍', () => {
+    expect(toolbar).toContain('🧑');
+    expect(toolbar).not.toContain('🧍');
+  });
+});
+

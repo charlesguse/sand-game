@@ -73,6 +73,10 @@
         return tool === 'poodle';
       case 'tool-flamingo':
         return tool === 'flamingo';
+      case 'tool-house':
+        return tool === 'house';
+      case 'tool-person':
+        return tool === 'person';
       case 'tool-chest':
         return tool === 'chest';
       case 'tool-eraser':
@@ -118,6 +122,10 @@
         return '🐩';
       case 'tool-flamingo':
         return '🦩';
+      case 'tool-house':
+        return '🏠';
+      case 'tool-person':
+        return '🧑';
       case 'tool-eraser':
         return '🧽';
       case 'action-clear':
@@ -182,6 +190,12 @@
         return;
       case 'tool-flamingo':
         onSelectTool('flamingo');
+        return;
+      case 'tool-house':
+        onSelectTool('house');
+        return;
+      case 'tool-person':
+        onSelectTool('person');
         return;
       case 'tool-chest':
         onSelectTool('chest');

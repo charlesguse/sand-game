@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, setGlitter, igniteStarPower, createFog, getElement, getGlitter } from '../../../src/sim/grid';
+import {
+  createGrid,
+  setCell,
+  setGlitter,
+  igniteStarPower,
+  createFog,
+  getElement,
+  getGlitter,
+  clearGrid as clearGridState,
+} from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
@@ -477,5 +486,99 @@ describe('objects — clearObjects', () => {
     expect(state.byKind.unicorn).toEqual([]);
     // grid is untouched by clearObjects — the OBJECT cell byte is still there.
     expect(getElement(grid, rainbowCell.x, rainbowCell.y)).toBe(OBJECT);
+  });
+});
+
+describe('objects — house/person join the placeable roster, purely decorative (US2, FR-001-FR-006)', () => {
+  it('a house at the grid edge nudges fully on-canvas exactly like a rainbow does today (Scenario 1)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'house', 0, 0);
+    const [house] = state.byKind.house;
+
+    expect(house.x).toBeGreaterThanOrEqual(0);
+    expect(house.y).toBeGreaterThanOrEqual(0);
+    expect(house.x + house.size).toBeLessThanOrEqual(grid.width);
+    expect(house.y + house.size).toBeLessThanOrEqual(grid.height);
+  });
+
+  it('the per-kind cap of 3 evicts the oldest house, leaving any person/chest lists untouched (Scenario 2, SC-003)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'chest', 20, 100);
+    placeObject(grid, state, 'person', 20, 140);
+
+    placeObject(grid, state, 'house', 20, 20);
+    placeObject(grid, state, 'house', 60, 20);
+    placeObject(grid, state, 'house', 100, 20);
+    const firstId = state.byKind.house[0].id;
+    placeObject(grid, state, 'house', 140, 20);
+
+    expect(state.byKind.house.length).toBe(3);
+    expect(state.byKind.house.some((o) => o.id === firstId)).toBe(false);
+    expect(state.byKind.chest.length).toBe(1);
+    expect(state.byKind.person.length).toBe(1);
+  });
+
+  it('the per-kind cap of 3 evicts the oldest person the same way', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'person', 20, 20);
+    placeObject(grid, state, 'person', 60, 20);
+    placeObject(grid, state, 'person', 100, 20);
+    const firstId = state.byKind.person[0].id;
+    placeObject(grid, state, 'person', 140, 20);
+
+    expect(state.byKind.person.length).toBe(3);
+    expect(state.byKind.person.some((o) => o.id === firstId)).toBe(false);
+  });
+
+  it('erasing across a house and a person in one interpolated drag removes both fully, with no leftover OBJECT cell (Scenario 3, SC-004)', () => {
+    const grid = createGrid(200, 60);
+    const state = createObjectsState();
+    placeObject(grid, state, 'house', 20, 20);
+    placeObject(grid, state, 'person', 80, 20);
+    const [house] = state.byKind.house;
+    const [person] = state.byKind.person;
+
+    eraseObjectsInBrushLine(grid, state, { x: 0, y: 30 }, { x: 199, y: 30 }, 1);
+
+    expect(state.byKind.house.length).toBe(0);
+    expect(state.byKind.person.length).toBe(0);
+    for (let py = house.y; py < house.y + house.size; py++) {
+      for (let px = house.x; px < house.x + house.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+    for (let py = person.y; py < person.y + person.size; py++) {
+      for (let px = person.x; px < person.x + person.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+  });
+
+  it('clearObjects/clearGrid empty the canvas of every kind including houses/people/chests and any diamonds (Scenario 4, FR-025)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+    placeObject(grid, state, 'unicorn', 60, 20);
+    placeObject(grid, state, 'palm', 100, 20);
+    placeObject(grid, state, 'flamingo', 140, 20);
+    placeObject(grid, state, 'house', 20, 80);
+    placeObject(grid, state, 'person', 60, 80);
+    placeObject(grid, state, 'chest', 100, 80);
+    setCell(grid, 5, 5, DIAMOND, 3);
+
+    clearObjects(state);
+    clearGridState(grid);
+
+    for (const kind of ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest'] as const) {
+      expect(state.byKind[kind]).toEqual([]);
+    }
+    for (let i = 0; i < grid.elements.length; i++) {
+      expect(grid.elements[i]).toBe(EMPTY);
+    }
   });
 });

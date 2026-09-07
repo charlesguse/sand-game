@@ -90,11 +90,17 @@
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
+  // 'chest' never reaches this map — drawObjectGlyph's chest branch returns before the
+  // OBJECT_GLYPHS lookup, since a chest has no Unicode glyph at all (FR-007). The empty string
+  // is here only so this Record stays complete over every ObjectKind.
   const OBJECT_GLYPHS: Record<ObjectKind, string> = {
     rainbow: '🌈',
     unicorn: '🦄',
     palm: '🌴',
     flamingo: '🦩',
+    house: '🏠',
+    person: '🧑',
+    chest: '',
   };
   const PALM_SWAY_RADIANS = 0.06;
   const PALM_SWAY_SPEED = 0.0011;
