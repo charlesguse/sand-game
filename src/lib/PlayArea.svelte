@@ -45,6 +45,7 @@
     pokePoodleAt,
     type PoodleState,
   } from '../sim/pets';
+  import { createSeaLifeState, type SeaLifeState } from '../sim/seaLife';
   import {
     createButterfliesState,
     stepButterflies,
@@ -156,6 +157,9 @@
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
   let grid: Grid;
+  // Sized to grid's dimensions, so (unlike objectsState/petsState) it can only be created once
+  // grid exists — see onMount, right after grid is created.
+  let seaLifeState: SeaLifeState;
   let imageData: ImageData;
   let flashMask: Uint8Array;
   let starField: StarField;
@@ -842,6 +846,7 @@
     ctx = canvas.getContext('2d')!;
     const field = measureField();
     grid = createGrid(field.gridWidth, field.gridHeight);
+    seaLifeState = createSeaLifeState(grid);
     canvas.width = grid.width;
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
