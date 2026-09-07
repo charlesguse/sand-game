@@ -28,6 +28,7 @@
     createObjectsState,
     placeObject,
     applyRainbowConversions,
+    applyChestConversions,
     isUnicornTouched,
     eraseObjectsInBrush,
     eraseObjectsInBrushLine,
@@ -61,6 +62,7 @@
     type SceneId,
   } from '../sim/types';
   import { colorFor } from './palette';
+  import { CHEST_SHAPE } from './chestShape';
   import {
     initSoundOnGesture,
     playPour,
@@ -340,6 +342,48 @@
       return;
     }
 
+    if (obj.kind === 'chest') {
+      // Scales CHEST_SHAPE's 0-36 unit box to the chest's footprint size — no ctx.fillText,
+      // no glyph: a treasure chest has no Unicode glyph at all (FR-007).
+      const scale = obj.size / 36;
+      ctx.save();
+      ctx.translate(obj.x, obj.y);
+      ctx.scale(scale, scale);
+      for (const part of CHEST_SHAPE) {
+        if (part.kind === 'rect' && part.rect) {
+          const { x, y, width, height, rx = 0 } = part.rect;
+          ctx.beginPath();
+          if (rx > 0 && typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, width, height, rx);
+          } else {
+            ctx.rect(x, y, width, height);
+          }
+          if (part.fill !== 'none') {
+            ctx.fillStyle = part.fill;
+            ctx.fill();
+          }
+          if (part.stroke) {
+            ctx.strokeStyle = part.stroke;
+            ctx.lineWidth = part.strokeWidth ?? 1;
+            ctx.stroke();
+          }
+        } else if (part.kind === 'path' && part.d) {
+          const path = new Path2D(part.d);
+          if (part.fill !== 'none') {
+            ctx.fillStyle = part.fill;
+            ctx.fill(path);
+          }
+          if (part.stroke) {
+            ctx.strokeStyle = part.stroke;
+            ctx.lineWidth = part.strokeWidth ?? 1;
+            ctx.stroke(path);
+          }
+        }
+      }
+      ctx.restore();
+      return;
+    }
+
     if (obj.kind !== 'palm') {
       ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy);
       return;
@@ -483,6 +527,7 @@
     step(grid);
     stepPets(grid, petsState, poodleTarget);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
+    applyChestConversions(grid, objectsState.byKind.chest);
     updateUnicorns(now);
     sweepPokeReactions(now);
     tickParticles(particles, now);

@@ -7,12 +7,14 @@ import {
   RAINBOW_SAND,
   OBJECT,
   FOG,
+  DIAMOND,
   type Grid,
   type ObjectKind,
   type ObjectsState,
   type PlacedObject,
 } from './types';
-import { randomHue } from './shade';
+import { randomHue, randomShade } from './shade';
+import { setGlitter } from './grid';
 
 export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest'];
 
@@ -41,6 +43,30 @@ export function applyRainbowConversions(grid: Grid, rainbows: PlacedObject[]): v
           if (element === FOG) grid.fogCloudCount--;
           grid.elements[i] = RAINBOW_SAND;
           grid.hues[i] = randomHue();
+        }
+      }
+    }
+  }
+}
+
+/** For each chest, converts any SAND/DIRT/WATER cell in its zone to DIAMOND with a fresh shade and glitter. Never touches FOG. Allocates nothing. */
+export function applyChestConversions(grid: Grid, chests: PlacedObject[]): void {
+  for (const chest of chests) {
+    const minX = Math.max(0, chest.x - 1);
+    const maxX = Math.min(grid.width - 1, chest.x + chest.size);
+    const minY = Math.max(0, chest.y - 1);
+    const maxY = Math.min(grid.height - 1, chest.y + chest.size);
+
+    for (let py = minY; py <= maxY; py++) {
+      const inFootprintRow = py >= chest.y && py < chest.y + chest.size;
+      for (let px = minX; px <= maxX; px++) {
+        if (inFootprintRow && px >= chest.x && px < chest.x + chest.size) continue;
+        const i = py * grid.width + px;
+        const element = grid.elements[i];
+        if (element === SAND || element === DIRT || element === WATER) {
+          grid.elements[i] = DIAMOND;
+          grid.shades[i] = randomShade();
+          setGlitter(grid, px, py, 1);
         }
       }
     }

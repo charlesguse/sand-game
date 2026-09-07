@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, igniteStarPower, createFog, getElement } from '../../../src/sim/grid';
+import { createGrid, setCell, setGlitter, igniteStarPower, createFog, getElement, getGlitter } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
+  applyChestConversions,
   createObjectsState,
   placeObject,
   removeObject,
@@ -17,9 +18,13 @@ import {
   WATER,
   DIRT,
   RAINBOW_SAND,
+  DIAMOND,
   OBJECT,
   GRASS,
+  FLOWER,
+  GUMDROP,
   STAR_POWER,
+  FOG,
   type PlacedObject,
 } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
@@ -30,6 +35,10 @@ function rainbowAt(x: number, y: number, size = 1, id = 0): PlacedObject {
 
 function unicornAt(x: number, y: number, size = 1, id = 0): PlacedObject {
   return { id, kind: 'unicorn', x, y, size };
+}
+
+function chestAt(x: number, y: number, size = 1, id = 0): PlacedObject {
+  return { id, kind: 'chest', x, y, size };
 }
 
 describe('objects — applyRainbowConversions', () => {
@@ -108,6 +117,110 @@ describe('objects — applyRainbowConversions', () => {
     expect(getElement(grid, 1, 1)).toBe(RAINBOW_SAND);
     expect(getElement(grid, 1, 2)).toBe(RAINBOW_SAND);
     expect(grid.fogCloudCount).toBe(0);
+  });
+});
+
+describe('objects — applyChestConversions (US1, FR-008, FR-009, FR-010, FR-012)', () => {
+  it('converts SAND/DIRT/WATER cells inside a chest zone to DIAMOND with a fresh shade and glitter', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, SAND, 5);
+    setCell(grid, 2, 1, DIRT, 5);
+    setCell(grid, 1, 2, WATER, 5);
+    const chest = chestAt(2, 2, 1);
+
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    expect(getGlitter(grid, 1, 1)).toBe(true);
+    expect(getElement(grid, 2, 1)).toBe(DIAMOND);
+    expect(getGlitter(grid, 2, 1)).toBe(true);
+    expect(getElement(grid, 1, 2)).toBe(DIAMOND);
+    expect(getGlitter(grid, 1, 2)).toBe(true);
+  });
+
+  it('leaves cells outside every chest zone untouched', () => {
+    const grid = createGrid(6, 6);
+    setCell(grid, 0, 0, SAND, 5);
+    const chest = chestAt(4, 4, 1);
+
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 0, 0)).toBe(SAND);
+  });
+
+  it('keeps converting endlessly across many synthetic re-seeded steps, with no capacity field anywhere on PlacedObject (SC-002)', () => {
+    const grid = createGrid(5, 5);
+    const chest = chestAt(2, 2, 1);
+
+    for (let n = 0; n < 20; n++) {
+      setCell(grid, 1, 1, SAND, 5);
+      applyChestConversions(grid, [chest]);
+      expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    }
+    expect(Object.keys(chest)).not.toContain('capacity');
+    expect(Object.keys(chest)).not.toContain('cooldown');
+    expect(Object.keys(chest)).not.toContain('count');
+  });
+
+  it('leaves an existing DIAMOND cell in the ring unchanged', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, DIAMOND, 5);
+    setGlitter(grid, 1, 1, 1);
+    const chest = chestAt(2, 2, 1);
+
+    applyChestConversions(grid, [chest]);
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    expect(grid.shades[1 * 5 + 1]).toBe(5);
+  });
+
+  it('never converts GRASS/FLOWER/GUMDROP/STAR_POWER/FOG in its zone, and never touches fogCloudCount (FR-009)', () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 1, 1, GRASS, 5);
+    setCell(grid, 2, 1, FLOWER, 0);
+    setCell(grid, 1, 2, GUMDROP, 0);
+    igniteStarPower(grid, 2, 2, false);
+    createFog(grid, 3, 3);
+    const chest = chestAt(3, 4, 1);
+    const before = grid.fogCloudCount;
+
+    applyChestConversions(grid, [chest, chestAt(2, 2, 1, 1), chestAt(1, 1, 1, 2)]);
+
+    expect(getElement(grid, 1, 1)).toBe(GRASS);
+    expect(getElement(grid, 2, 1)).toBe(FLOWER);
+    expect(getElement(grid, 1, 2)).toBe(GUMDROP);
+    expect(getElement(grid, 2, 2)).toBe(STAR_POWER);
+    expect(getElement(grid, 3, 3)).toBe(FOG);
+    expect(grid.fogCloudCount).toBe(before);
+  });
+
+  it('converts only the in-bounds part of its ring at the grid edge, with no out-of-bounds write', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 0, 0, SAND, 5);
+    const chest = chestAt(1, 1, 1);
+
+    expect(() => applyChestConversions(grid, [chest])).not.toThrow();
+    expect(getElement(grid, 0, 0)).toBe(DIAMOND);
+  });
+
+  it('a chest and a rainbow with overlapping rings resolve every overlap cell to RAINBOW_SAND, never DIAMOND, in frame()-order (FR-011)', () => {
+    const grid = createGrid(6, 6);
+    setCell(grid, 2, 2, SAND, 5);
+    const rainbow = rainbowAt(1, 1, 1, 0);
+    const chest = chestAt(3, 3, 1, 0);
+
+    for (let n = 0; n < 20; n++) {
+      setCell(grid, 2, 2, SAND, 5);
+      applyRainbowConversions(grid, [rainbow]);
+      applyChestConversions(grid, [chest]);
+      expect(getElement(grid, 2, 2)).toBe(RAINBOW_SAND);
+    }
+
+    // Re-running both calls once more against the settled RAINBOW_SAND cell produces no change.
+    applyRainbowConversions(grid, [rainbow]);
+    applyChestConversions(grid, [chest]);
+    expect(getElement(grid, 2, 2)).toBe(RAINBOW_SAND);
   });
 });
 

@@ -29,3 +29,21 @@ describe('the sand tool renders as a bucket on every platform', () => {
     }
   });
 });
+
+describe('the treasure chest renders as a drawn shape, never a glyph (FR-007)', () => {
+  it('renders the inline SVG chest icon', () => {
+    expect(toolbar).toContain('<ChestIcon');
+  });
+
+  it('still labels it for assistive tech', () => {
+    expect(toolbar).toMatch(/aria-label="Treasure chest"/);
+  });
+
+  it('has no substitute chest/treasure emoji anywhere', () => {
+    const substitutes = ['🎁', '📦', '💰', '🧰'];
+    for (const glyph of substitutes) {
+      expect(toolbar).not.toContain(glyph);
+    }
+  });
+});
+

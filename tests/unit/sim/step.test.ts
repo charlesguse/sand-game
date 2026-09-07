@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createGrid, setCell, setGlitter, getElement, getGlitter } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
-import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, OBJECT } from '../../../src/sim/types';
+import { EMPTY, SAND, WATER, DIRT, RAINBOW_SAND, DIAMOND, OBJECT } from '../../../src/sim/types';
 
 describe('step — pink sand', () => {
   it('falls one cell per step', () => {
@@ -381,6 +381,63 @@ describe('step — rainbow sand', () => {
     step(grid);
     expect(getElement(grid, 1, 0)).toBe(RAINBOW_SAND);
     expect(grid.hues[0 * 3 + 1]).toBe(42);
+  });
+});
+
+describe('step — diamond (US1, FR-014)', () => {
+  function scatterLayout(grid: ReturnType<typeof createGrid>, element: number): void {
+    const positions = [
+      [3, 0],
+      [4, 0],
+      [3, 1],
+      [7, 0],
+      [1, 2],
+    ];
+    for (const [x, y] of positions) setCell(grid, x, y, element, 5);
+  }
+
+  it('falls, slides, and rests under the identical rules as sand', () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.25);
+    try {
+      const sandGrid = createGrid(10, 10);
+      const diamondGrid = createGrid(10, 10);
+      scatterLayout(sandGrid, SAND);
+      scatterLayout(diamondGrid, DIAMOND);
+
+      for (let i = 0; i < 50; i++) {
+        step(sandGrid);
+        step(diamondGrid);
+      }
+
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 10; x++) {
+          const sandOccupied = getElement(sandGrid, x, y) !== EMPTY;
+          const diamondOccupied = getElement(diamondGrid, x, y) !== EMPTY;
+          expect(diamondOccupied).toBe(sandOccupied);
+        }
+      }
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it('sinks through water exactly like sand', () => {
+    const grid = createGrid(1, 2);
+    setCell(grid, 0, 0, DIAMOND, 5);
+    setCell(grid, 0, 1, WATER, 9);
+    step(grid);
+    expect(getElement(grid, 0, 0)).toBe(WATER);
+    expect(getElement(grid, 0, 1)).toBe(DIAMOND);
+  });
+
+  it('piles at the same angle of repose as sand', () => {
+    const grid = createGrid(3, 2);
+    setCell(grid, 1, 0, DIAMOND, 5);
+    setCell(grid, 0, 1, DIAMOND, 6);
+    setCell(grid, 1, 1, DIAMOND, 7);
+    setCell(grid, 2, 1, DIAMOND, 8);
+    step(grid);
+    expect(getElement(grid, 1, 0)).toBe(DIAMOND);
   });
 });
 

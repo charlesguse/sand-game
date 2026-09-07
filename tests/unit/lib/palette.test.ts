@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { colorFor, hslToRgb } from '../../../src/lib/palette';
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, EMPTY } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, EMPTY, DIAMOND } from '../../../src/sim/types';
 
 describe('colorFor — existing elements are unchanged by the extraction', () => {
   it('renders sand as the hot-pink ramp', () => {
@@ -32,6 +32,33 @@ describe('colorFor — existing elements are unchanged by the extraction', () =>
   it('gives grass and star power their own ramps', () => {
     expect(colorFor(GRASS, 0, 0, false)).not.toEqual(colorFor(SAND, 0, 0, false));
     expect(colorFor(STAR_POWER, 0, 0, false)).not.toEqual(colorFor(SAND, 0, 0, false));
+  });
+});
+
+describe('colorFor — DIAMOND is fixed-colour, shade-varied, not hue-varied (US1, FR-016)', () => {
+  it('depends only on shade — varying hue/isCloud produces no change', () => {
+    const base = colorFor(DIAMOND, 3, 0, false);
+    expect(colorFor(DIAMOND, 3, 128, false)).toEqual(base);
+    expect(colorFor(DIAMOND, 3, 0, true)).toEqual(base);
+    expect(colorFor(DIAMOND, 3, 255, true)).toEqual(base);
+  });
+
+  it('cycles through its ramp by wrapping the shade index', () => {
+    const first = colorFor(DIAMOND, 0, 0, false);
+    let rampLength = 1;
+    while (!(colorFor(DIAMOND, rampLength, 0, false)[0] === first[0] &&
+      colorFor(DIAMOND, rampLength, 0, false)[1] === first[1] &&
+      colorFor(DIAMOND, rampLength, 0, false)[2] === first[2])) {
+      rampLength++;
+      expect(rampLength).toBeLessThan(100); // sanity bound against an infinite loop on a bug
+    }
+    expect(colorFor(DIAMOND, rampLength, 0, false)).toEqual(first);
+    expect(colorFor(DIAMOND, 1, 0, false)).toEqual(colorFor(DIAMOND, rampLength + 1, 0, false));
+  });
+
+  it('is visually distinct from sand and gold (star power)', () => {
+    expect(colorFor(DIAMOND, 0, 0, false)).not.toEqual(colorFor(SAND, 0, 0, false));
+    expect(colorFor(DIAMOND, 0, 0, false)).not.toEqual(colorFor(STAR_POWER, 0, 0, false));
   });
 });
 

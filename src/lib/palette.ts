@@ -1,4 +1,4 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP, FLOWER } from '../sim/types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, FOG, GUMDROP, FLOWER, DIAMOND } from '../sim/types';
 
 export type Rgb = [number, number, number];
 
@@ -106,6 +106,19 @@ const FLOWER_COLORS: Rgb[] = [
   [255, 240, 170],
 ];
 
+// Diamond ramp: icy-blue/white shades, indexed by shades[i] % length — fixed-colour like
+// SAND/WATER/DIRT, not hue-varied, and visually distinct from PINK_RAMP/GOLD_RAMP.
+const DIAMOND_RAMP: Rgb[] = [
+  [240, 250, 255],
+  [220, 242, 255],
+  [195, 232, 250],
+  [165, 220, 245],
+  [130, 205, 240],
+  [100, 190, 235],
+  [190, 235, 250],
+  [225, 246, 253],
+];
+
 // Converts a 0-360 hue angle at fixed saturation/lightness to RGB, for a continuous rainbow spread.
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const c = (1 - Math.abs(2 * l - 1)) * s;
@@ -134,5 +147,6 @@ export function colorFor(element: number, shade: number, hue: number, isCloud: b
   if (element === FOG) return isCloud ? CLOUD_RAMP[shade % CLOUD_RAMP.length] : FOG_RAMP[shade % FOG_RAMP.length];
   if (element === GUMDROP) return GUMDROP_COLORS[hue % GUMDROP_COLORS.length];
   if (element === FLOWER) return FLOWER_COLORS[hue % FLOWER_COLORS.length];
+  if (element === DIAMOND) return DIAMOND_RAMP[shade % DIAMOND_RAMP.length];
   return [255, 255, 255];
 }
