@@ -129,9 +129,10 @@ Single client-only project (established 001–013): `src/`, `tests/unit/` at the
 
 **Purpose**: Confirm nothing outside this feature regressed, and hand off what only a human can verify.
 
-- [ ] T038 [P] Run `npm test` and confirm every existing test from specs 001–013 still passes unmodified (SC-010) alongside the new `tests/unit/sim/seaLife.test.ts` suite.
-- [ ] T039 [P] Run `npm run build`, confirm `dist/index.html` is the only emitted file, open it via `file://`, and confirm the toolbar is pixel-for-pixel unchanged from spec 013 — no new button, no layout shift (FR-008, SC-004).
+- [X] T038 [P] Run `npm test` and confirm every existing test from specs 001–013 still passes unmodified (SC-010) alongside the new `tests/unit/sim/seaLife.test.ts` suite.
+- [X] T039 [P] Run `npm run build`, confirm `dist/index.html` is the only emitted file, open it via `file://`, and confirm the toolbar is pixel-for-pixel unchanged from spec 013 — no new button, no layout shift (FR-008, SC-004).
 - [ ] T040 Perform the Manual Verification pass from `quickstart.md`/spec.md on both reference platforms (Fire 7 Kids tablet/Silk and desktop Chrome for Charlie; iPad Safari standalone for Max): 🐠/🦈 render as real emoji (not empty boxes); a chase reads as playful, not frightening (SC-009); frame rate holds with every cap filled (SC-005); rotating the device with a populated lake leaves nothing stranded or flickering and the undo history survives.
+  - **Left unchecked — needs a human on real hardware.** This run has no browser/device to eyeball emoji rendering, chase "feel," live frame rate, or rotation behavior on Fire 7 Kids tablet/Silk, desktop Chrome, or iPad Safari standalone. Everything automatable is done: `npm test` (708/708, all 001–013 suites unmodified-passing) and `npm run build` (single `dist/index.html`, no separate JS/CSS chunk, `🐠`/`🦈` present in the bundle, toolbar geometry/glyph tests untouched and green). 🐠 (Unicode 6.0) and 🦈 (Unicode 9.0) predate the Emoji-13.0/Segoe-UI-Emoji caution in `CLAUDE.md`'s glyph table, so no inline SVG fallback was built, per plan.md's call — but that call still wants eyeballing on both reference devices before shipping, not just trusting the Unicode version.
 
 ---
 
