@@ -9,7 +9,7 @@ export const STAR_POWER = 7;
 export const FOG = 8;
 export const GUMDROP = 9;
 export const FLOWER = 10;
-// ID 11 stays unclaimed — reserved by the concurrent mermaid/ice-cream feature.
+export const ICE_CREAM = 11; // Reserved; 12/13 belong to a concurrently-filed feature and MUST NOT be touched.
 export const DIAMOND = 12;
 
 export type Element =
@@ -24,6 +24,7 @@ export type Element =
   | typeof FOG
   | typeof GUMDROP
   | typeof FLOWER
+  | typeof ICE_CREAM
   | typeof DIAMOND;
 
 export interface Grid {
@@ -64,7 +65,9 @@ export type Tool =
   | 'gumdrop'
   | 'house'
   | 'person'
-  | 'chest';
+  | 'chest'
+  | 'mermaid'
+  | 'icecream';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
