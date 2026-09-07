@@ -52,8 +52,9 @@ reason to keep growing.
 the simulation, and assert that butterflies appear only once a flower exists,
 that their number follows the flower-count rule and never exceeds the cap,
 that each one stays inside the play field and near a flower or in transit
-between two, that their path wobbles rather than running straight, and that
-not one cell of the play field is modified by their presence.
+between two, that their path wobbles rather than running straight, that terrain of any kind
+under them neither deflects nor detains them, and that not one cell of the play
+field is modified by their presence.
 
 **Acceptance Scenarios**:
 
@@ -64,6 +65,7 @@ not one cell of the play field is modified by their presence.
 5. **Given** a butterfly in flight, **When** the simulation runs, **Then** it never falls, never sinks, never sits still on the ground, and is never dragged by water, wind, or any element behaviour — its motion is decorative only.
 6. **Given** butterflies anywhere on the field, **When** the simulation runs, **Then** grass still drinks and grows, flowers still bloom exactly as they do today, water still flows and evaporates, and no cell of the play field is changed by a butterfly.
 7. **Given** a butterfly on screen, **When** the child looks at it, **Then** it reads instantly as a friendly butterfly, with no reading required.
+8. **Given** a butterfly whose route to the next flower crosses a dune of sand, a wall of dirt, or a pond, **When** the simulation runs, **Then** it floats straight over the top of all of it without turning away, stopping, or getting caught in a pocket — the terrain is scenery underneath it, nothing more.
 
 ---
 
@@ -84,8 +86,9 @@ she walks every session, so butterflies come first.
 **Independent Test**: In a headless grid, place palm objects, run the
 simulation, and assert that a bird appears per palm up to the cap, that a
 perched bird's position sits on its palm, that it periodically hops or flies,
-that every flight ends perched on some palm, that it is never left mid-air
-with no palm to land on, and that no play-field cell is written.
+that every flight ends perched on some palm, that every point along a flight
+stays inside the play field, that it is never left mid-air with no palm to land
+on, and that no play-field cell is written.
 
 **Acceptance Scenarios**:
 
@@ -94,7 +97,7 @@ with no palm to land on, and that no play-field cell is written.
 3. **Given** two or three palms on the canvas, **When** the simulation runs, **Then** each palm gets its own bird, up to the global bird cap, and no palm ever holds two birds at once.
 4. **Given** a perched bird, **When** the child watches for a while, **Then** it occasionally hops a short step on its perch, so it never looks frozen or like a decal painted on the tree.
 5. **Given** two or more palms, **When** a bird takes off, **Then** it flies a short, gentle arc and lands perched on a palm — the same one or another one — and never lands in sand, water, or mid-air.
-6. **Given** a single palm, **When** its bird takes off, **Then** it makes a short loop and returns to that same palm.
+6. **Given** a single palm, **When** its bird takes off, **Then** it makes a short loop up and around, in full view the whole way, and returns to that same palm — it never disappears off an edge of the screen and comes back.
 7. **Given** birds anywhere on the field, **When** the simulation runs, **Then** palms sway and shiver when poked exactly as they do today, objects place and evict as they do today, and no cell of the play field is changed by a bird.
 8. **Given** a bird on screen, **When** the child looks at it, **Then** it reads instantly as a friendly little bird, with no reading required.
 
@@ -148,7 +151,8 @@ removed ones are gone, and that nothing throws.
 - **A butterfly in flight when its destination flower disappears** mid-crossing: it picks a different flower or leaves, and never freezes in place or heads for a spot with nothing there.
 - **Butterflies and heavy weather**: fog, cloud, rain and star power sweep across a butterfly's airspace with no effect on it and no effect on them.
 - **A palm placed on top of another palm's spot**, or the fourth palm evicting the oldest: bird counts follow the palms that actually exist, with no bird orphaned by the eviction.
-- **A palm that is placed high in the sky, half off the edge, or under water**: its bird still perches on it sensibly or the palm simply gets no bird — never a bird drawn outside the play field.
+- **A palm that is placed high in the sky, half off the edge, or under water**: its bird still perches on it sensibly or the palm simply gets no bird — never a bird drawn outside the play field, and a take-off from a palm near an edge still keeps its whole arc in view.
+- **A butterfly whose next flower sits inside a sealed pocket of sand or under a dirt lid**: it floats over the terrain to reach it as normal — there is no pathing to fail and no pocket that can trap it.
 - **A bird mid-flight when every palm is erased in the same stroke**: it leaves cleanly instead of circling forever.
 - **A poodle trotting or a poked palm shivering under a perched bird**: neither disturbs the other, and neither is removed.
 - **Grid re-derivation to a much smaller play field** where the old positions are out of bounds.
@@ -164,7 +168,7 @@ removed ones are gone, and that nothing throws.
 
 - **FR-001**: The toy MUST place butterflies near flowers on its own, with no button, tool, gesture or menu — the child never asks for butterflies and can never fail to get them.
 - **FR-002**: Butterflies MUST appear only while at least one flower exists in the play field, and MUST NOT appear on a canvas with no flowers. A flowerless canvas is correct behaviour, not a defect, and MUST show no placeholder, hint, or empty-state of any kind.
-- **FR-003**: The number of butterflies MUST grow with the number of flowers on the field and MUST be capped globally. Default calibration: **one butterfly per 4 flowers, rounded up, capped at 4 butterflies** on the whole field. [NEEDS CLARIFICATION: is one-per-4-flowers capped at 4 the right "a few flutter around" density, or should the first flower earn more than one butterfly / the cap be higher or lower?]
+- **FR-003**: The number of butterflies MUST grow with the number of flowers on the field and MUST be capped globally, at **one butterfly per 4 flowers, rounded up, capped at 4 butterflies** on the whole field — so the first flower earns exactly one butterfly and no garden, however large, is ever busier than four. The count is a fixed number of creatures, not a fraction of the field size, and is the same on every device.
 - **FR-004**: A newly qualifying garden MUST get its first butterfly within about a second of a flower appearing, so the arrival feels like a response to her watering.
 - **FR-005**: The population MUST NOT flicker: brief, momentary changes in flower count MUST NOT cause butterflies to appear and disappear repeatedly within a second or two.
 
@@ -173,7 +177,7 @@ removed ones are gone, and that nothing throws.
 - **FR-006**: Butterfly motion MUST be purely decorative and non-physical: no gravity, no falling, no resting on the ground, no being pushed by water, fog, wind, rain or any element behaviour.
 - **FR-007**: A butterfly MUST flutter around a chosen flower for a few seconds, then choose another flower — possibly across the canvas — and drift toward it, repeating for as long as flowers exist.
 - **FR-008**: A butterfly's path MUST wobble and curve rather than travel in a straight line, and MUST move at a pace the child's eye can follow — a float, not a dart and not a crawl.
-- **FR-009**: A butterfly MUST always be drawn inside the play field. [NEEDS CLARIFICATION: may a butterfly float across cells occupied by sand, dirt or grass — flying "over" the terrain as a decorative overlay — or must it stay in open air and turn away from anything solid? Default assumed: it flies over anything, since it is a non-physical overlay, but it never begins or ends a visit inside solid terrain.]
+- **FR-009**: A butterfly MUST always be drawn inside the play field, and within it MUST be free to float over any terrain — sand, dirt, grass, water, anything — as a decorative overlay. It MUST NOT path around, turn away from, or collide with solid cells, so it can never be trapped in a pocket of terrain or blocked from reaching a flower.
 - **FR-010**: If the flower a butterfly is travelling toward disappears, the butterfly MUST choose another flower or leave — it MUST never freeze, hover indefinitely over nothing, or head for an empty spot.
 
 **Birds appearing and perching**
@@ -182,7 +186,7 @@ removed ones are gone, and that nothing throws.
 - **FR-012**: Birds MUST appear only while at least one palm exists, MUST be at most **one bird per palm**, and MUST be capped globally at **3 birds** (the existing per-kind object cap). A palm-less canvas correctly shows no birds and no empty-state of any kind.
 - **FR-013**: A newly placed palm MUST get its bird within about a second.
 - **FR-014**: A perched bird MUST sit on its palm — visually on the tree, not floating beside it, not buried in it — and MUST hop a short step on its perch from time to time so it never reads as frozen.
-- **FR-015**: A bird MUST occasionally take a short flight and MUST always end that flight perched on a palm that exists: another palm when one is available, otherwise a loop back to its own. It MUST never land in sand, water, or open air, and MUST never leave the play field. [NEEDS CLARIFICATION: may a short flight take the bird briefly off the visible play field (out past an edge and back), or must every flight stay entirely on screen? Default assumed: entirely on screen, so she never watches her bird vanish.]
+- **FR-015**: A bird MUST occasionally take a short flight and MUST always end that flight perched on a palm that exists: another palm when one is available, otherwise a loop back to its own. It MUST never land in sand, water, or open air. Every flight MUST stay entirely inside the visible play field from take-off to landing — the "off and back" loop is a loop up and around within view, never out past an edge — so the child never watches her bird vanish off the screen.
 - **FR-016**: Bird flights MUST be short and gentle — a readable arc of a couple of seconds, not a dart and not a long migration.
 
 **Shared rules**
@@ -218,7 +222,7 @@ removed ones are gone, and that nothing throws.
 
 **Verification**
 
-- **FR-036**: Automated tests, running with no DOM and no browser, MUST cover: that no butterfly appears with zero flowers and one appears once a flower exists; the flower-count-to-butterfly-count rule and its global cap; that no bird appears with zero palms, that each palm gets exactly one bird, and the bird cap; that a perched bird's position lies on its palm and every flight ends perched on a live palm; that removing the last flower or a palm removes or relocates the right creatures and leaves none stranded; the eraser removal and its hold-off, including that the population does re-establish once the hold-off elapses; that clear-all empties the populations; that no play-field cell is written by the feature; and that re-derivation onto a different field shape leaves every creature in-bounds and correctly anchored.
+- **FR-036**: Automated tests, running with no DOM and no browser, MUST cover: that no butterfly appears with zero flowers and one appears once a flower exists; the flower-count-to-butterfly-count rule (one per 4 flowers, rounded up) and its global cap of 4; that a butterfly crosses terrain of any kind without being deflected or held up; that no bird appears with zero palms, that each palm gets exactly one bird, and the bird cap; that a perched bird's position lies on its palm, that every flight ends perched on a live palm, and that every sampled point of a flight is inside the play field; that removing the last flower or a palm removes or relocates the right creatures and leaves none stranded; the eraser removal and its hold-off, including that the population does re-establish once the hold-off elapses; that clear-all empties the populations; that no play-field cell is written by the feature; and that re-derivation onto a different field shape leaves every creature in-bounds and correctly anchored.
 - **FR-037**: Existing automated tests for flower growth (spec 007), palm objects, poodles, undo/redo, saving and the toolbar layout MUST continue to pass without modification.
 
 ### Key Entities
@@ -283,11 +287,23 @@ toolbar-glyph test and must be looked at on both columns:
 - **The eraser hold-off matches spec 014's ~3 seconds** so all ambient life in the
   toy behaves the same way under the eraser; if 014 lands first, this feature
   follows whatever value it shipped.
-- **The default numbers are a starting calibration**, chosen against the 270×160
-  default field: one butterfly per 4 flowers up to 4 butterflies, one bird per palm
-  up to 3 birds, ~3 second erase hold-off. They are fixed counts rather than a
-  fraction of the field, which keeps the rule simple to test; a retune on a device
-  is a retune, not a redesign. The butterfly density is the open question in FR-003.
+- **The numbers are confirmed, chosen against the 270×160 default field**: one
+  butterfly per 4 flowers up to 4 butterflies, one bird per palm up to 3 birds, ~3
+  second erase hold-off. They are fixed counts rather than a fraction of the field,
+  matching how spec 014 fixed its own thresholds: a simpler rule, simpler tests,
+  and no cross-device density parity to maintain. Holding the butterfly cap at 4
+  also keeps headroom on a Fire 7 that may be running spec 014's sea life at the
+  same time. A retune on a device is a retune, not a redesign.
+- **Butterflies fly over everything; there is no pathing.** Terrain is scenery
+  underneath a butterfly, never an obstacle: no avoidance, no collision, no
+  turning away (FR-009). A turn-away rule was considered and rejected — it buys a
+  visual difference she would not notice at a run, and risks a butterfly caught in
+  a pocket of terrain, which is exactly the "visibly broken" case the issue rules
+  out.
+- **Bird flights never leave the visible field.** The issue's "off and back" is
+  read as a loop up and around in view, not a trip past an edge (FR-015). Keeping
+  every creature on screen at all times means resize, rotation and erase-all-palms
+  have no off-field state that could be got wrong.
 - **Both glyphs predate the platform glyph-coverage caution** in `CLAUDE.md`
   (🦋 Unicode 9.0, 🐦 Unicode 1.0/6.0 era), so no inline SVG fallback is planned —
   but both are on the manual verification list above.

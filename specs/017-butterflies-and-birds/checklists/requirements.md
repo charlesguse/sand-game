@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,19 +31,19 @@
 
 ## Notes
 
-- Three `[NEEDS CLARIFICATION]` markers remain, deliberately, and are posted to
-  lifecycle issue #46 for the maintainer rather than blocking the draft. Each
-  carries a stated default so the spec is implementable as written if no answer
-  arrives:
-  1. **FR-003** — butterfly density: one butterfly per 4 flowers, capped at 4
-     globally. Scope/UX impact: how busy the garden looks.
-  2. **FR-009** — whether butterflies float over solid terrain (sand, dirt,
-     grass) as a decorative overlay, or must stay in open air and turn away from
-     anything solid. Default assumed: they fly over anything.
-  3. **FR-015** — whether a bird's short flight may briefly leave the visible
-     play field and return. Default assumed: flights stay entirely on screen.
-- Items marked incomplete require spec updates before `/speckit-clarify` or
-  `/speckit-plan`.
+- All three `[NEEDS CLARIFICATION]` markers are resolved by the maintainer's
+  answer on lifecycle issue #46, each confirming the default the draft carried:
+  1. **FR-003** — butterfly density stays one butterfly per 4 flowers, rounded
+     up, capped at 4 globally: "a few flutter around" without eating the Fire 7
+     performance budget that spec 014's sea life may also be drawing on, and a
+     fixed count rather than a field-relative one, as spec 014 chose.
+  2. **FR-009** — butterflies fly over any terrain with no pathing or avoidance;
+     a turn-away rule was rejected as a difference she would not notice that
+     risks trapping a butterfly in a pocket.
+  3. **FR-015** — every bird flight stays entirely inside the visible play field;
+     "off and back" is a loop up and around in view, leaving no off-field state
+     for resize, rotation or erase-all-palms to get wrong.
+- No items remain incomplete; the spec is ready for `/speckit-plan`.
 - Constitution check: no new toolbar control (Principle II / specs 012–013), no
   new runtime dependency (III), performance bar restated in FR-035 (IV), and
   headless vitest coverage specified in FR-036 with the eyeball list in Manual
