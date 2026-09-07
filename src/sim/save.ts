@@ -229,10 +229,15 @@ export function deserializeWorld(raw: string): SavedWorld | null {
     const rawByKind = wire.byKind as Record<string, unknown>;
     const byKind = {} as Record<ObjectKind, PlacedObject[]>;
     for (const kind of OBJECT_KINDS) {
+      // A missing key (every pre-upgrade save, for the new kinds this feature adds — and,
+      // retroactively, any payload predating OBJECT_KINDS entirely) reads as an empty list rather
+      // than rejecting the whole payload (FR-028). A key that IS present but isn't an array, or
+      // whose items don't match, still rejects — unchanged from before this feature.
       const list = rawByKind[kind];
-      if (!Array.isArray(list)) return null;
+      const rawList = list === undefined ? [] : list;
+      if (!Array.isArray(rawList)) return null;
       const objectsForKind: PlacedObject[] = [];
-      for (const item of list) {
+      for (const item of rawList) {
         if (!isPlacedObjectShape(item)) return null;
         objectsForKind.push({ id: item.id, kind: kind, x: item.x, y: item.y, size: item.size });
       }

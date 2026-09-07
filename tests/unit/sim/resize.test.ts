@@ -11,7 +11,7 @@ import {
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
 import { resizeGrid } from '../../../src/sim/resize';
 import { step } from '../../../src/sim/step';
-import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, FOG, EMPTY } from '../../../src/sim/types';
+import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, FOG, EMPTY, DIAMOND } from '../../../src/sim/types';
 
 const OLD_WIDTH = 100;
 const OLD_HEIGHT = 100;
@@ -166,6 +166,36 @@ describe('resizeGrid — object footprints, verified at the data level (FR-026, 
       for (let px = 0; px < grid.width; px++) {
         expect(getElement(grid, px, py)).not.toBe(OBJECT);
       }
+    }
+  });
+});
+
+describe('resizeGrid — diamond and the new object kinds carry across at the same offset (FR-029)', () => {
+  it('carries a DIAMOND cell (element + shade) at the same offset as SAND, dropping it cleanly when out of bounds', () => {
+    const oldGrid = seedGrid();
+    setCell(oldGrid, 30, 30, DIAMOND, 8);
+
+    const { grid, offsetX, offsetY } = resizeGrid(oldGrid, 60, 140);
+
+    expect(getElement(grid, 30 + offsetX, 30 + offsetY)).toBe(DIAMOND);
+    expect(grid.shades[(30 + offsetY) * grid.width + (30 + offsetX)]).toBe(8);
+  });
+
+  it('house/person/chest footprints keep their exact new position and size when they still fit, per the same caller-level repositioning contract as unicorn/rainbow/palm', () => {
+    const oldGrid = seedGrid();
+    const state = createObjectsState();
+    placeObject(oldGrid, state, 'house', 50, 85);
+    placeObject(oldGrid, state, 'person', 30, 85);
+    placeObject(oldGrid, state, 'chest', 70, 85);
+
+    const { offsetX, offsetY } = resizeGrid(oldGrid, 90, 120);
+
+    for (const kind of ['house', 'person', 'chest'] as const) {
+      const obj = state.byKind[kind][0];
+      const newX = obj.x + offsetX;
+      const newY = obj.y + offsetY;
+      const fits = newX >= 0 && newX + obj.size <= 90 && newY >= 0 && newY + obj.size <= 120;
+      expect(fits).toBe(true);
     }
   });
 });

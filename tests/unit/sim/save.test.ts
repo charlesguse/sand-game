@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid } from '../../../src/sim/grid';
+import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../../../src/sim/objects';
 import { createPetsState, addPoodle } from '../../../src/sim/pets';
 import { restoreWorldState } from '../../../src/sim/history';
-import { SAND, WATER, RAINBOW_SAND, GUMDROP, DIRT, OBJECT } from '../../../src/sim/types';
+import { step } from '../../../src/sim/step';
+import { SAND, WATER, RAINBOW_SAND, GUMDROP, DIRT, DIAMOND, OBJECT } from '../../../src/sim/types';
 import {
   SAVE_VERSION,
   serializeWorld,
@@ -154,6 +155,79 @@ describe('save — codec round trip (Task 1)', () => {
     for (const input of garbageInputs) {
       expect(() => deserializeWorld(input)).not.toThrow();
       expect(deserializeWorld(input)).toBeNull();
+    }
+  });
+});
+
+describe('save — a byKind key missing for an ObjectKind reads as empty rather than rejecting the payload (FR-028)', () => {
+  it('a payload missing the house/person/chest keys still deserializes, with those kinds empty', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const byKind = wire.byKind as Record<string, unknown>;
+    const { house, person, chest, ...rest } = byKind;
+    void house;
+    void person;
+    void chest;
+    const tampered = { ...wire, byKind: rest };
+
+    const saved = deserializeWorld(JSON.stringify(tampered));
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.state.byKind.house).toEqual([]);
+    expect(saved.state.byKind.person).toEqual([]);
+    expect(saved.state.byKind.chest).toEqual([]);
+    // Every other, still-present kind is unaffected.
+    for (const kind of OBJECT_KINDS) {
+      if (kind === 'house' || kind === 'person' || kind === 'chest') continue;
+      expect(saved.state.byKind[kind]).toEqual(objects.byKind[kind]);
+    }
+  });
+
+  it('a payload with an entirely empty byKind (simulating a genuinely pre-upgrade save) deserializes with every kind empty', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const tampered = { ...wire, byKind: {} };
+
+    const saved = deserializeWorld(JSON.stringify(tampered));
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    for (const kind of OBJECT_KINDS) {
+      expect(saved.state.byKind[kind]).toEqual([]);
+    }
+  });
+
+  it('a present-but-malformed byKind.house value still rejects the whole payload', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const byKind = wire.byKind as Record<string, unknown>;
+    const tampered = { ...wire, byKind: { ...byKind, house: 'not-an-array' } };
+
+    expect(deserializeWorld(JSON.stringify(tampered))).toBeNull();
+  });
+
+  it('a world with all three new kinds plus mid-fall diamonds round-trips cell-for-cell (FR-026)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    setCell(grid, 5, 5, DIAMOND, 3);
+    setCell(grid, 6, 5, DIAMOND, 9);
+    step(grid); // a diamond mid-fall
+    placeObject(grid, objects, 'house', 10, 10);
+    placeObject(grid, objects, 'person', 40, 10);
+    placeObject(grid, objects, 'chest', 10, 30);
+
+    const json = serializeWorld(grid, objects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+
+    expect(Array.from(saved.state.elements)).toEqual(Array.from(grid.elements));
+    expect(Array.from(saved.state.colorAux)).toEqual(Array.from(grid.shades));
+    for (const kind of ['house', 'person', 'chest'] as const) {
+      expect(saved.state.byKind[kind]).toEqual(objects.byKind[kind]);
     }
   });
 });

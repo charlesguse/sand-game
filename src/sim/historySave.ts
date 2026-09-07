@@ -192,10 +192,13 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
       const rawByKind = step.byKind as Record<string, unknown>;
       const byKind = {} as Record<ObjectKind, PlacedObject[]>;
       for (const kind of OBJECT_KINDS) {
+        // Identical FR-028 tolerance as save.ts's deserializeWorld: a missing key reads as an
+        // empty list; a present-but-malformed key still rejects the whole payload.
         const list = rawByKind[kind];
-        if (!Array.isArray(list)) return null;
+        const rawList = list === undefined ? [] : list;
+        if (!Array.isArray(rawList)) return null;
         const objectsForKind: PlacedObject[] = [];
-        for (const obj of list) {
+        for (const obj of rawList) {
           if (!isWireHistoryObjectShape(obj)) return null;
           objectsForKind.push({ id: obj.id, kind, x: obj.x, y: obj.y, size: obj.size });
         }
