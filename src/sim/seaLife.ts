@@ -54,6 +54,17 @@ export const SWEEP_TARGET_FRAMES = 45;
 /** Reservoir-sampled candidate cells kept per pool for spawn placement (research.md §3). */
 const SPAWN_SAMPLE_SIZE = 8;
 
+/** Frames a fading fish/shark takes to fully disappear once its fadeTimer starts. */
+export const CREATURE_FADE_FRAMES = 30;
+/** Cells/frame a drifting fish covers — a "steady glide" (FR-009), not a snap between cells. */
+const FISH_SPEED = 0.06;
+/** Multiplier applied to FISH_SPEED while a fish is scattering from a nearby shark (FR-018). */
+const FISH_SCATTER_SPEED_MULT = 2.2;
+const FISH_TURN_COOLDOWN_MIN = 90;
+const FISH_TURN_COOLDOWN_MAX = 240;
+/** Radians/frame the cosmetic bob offset advances (research.md §7 — never touches x/y). */
+const BOB_SPEED = 0.12;
+
 function sweepBudgetFor(grid: Grid): number {
   return Math.max(1, Math.ceil((grid.width * grid.height) / SWEEP_TARGET_FRAMES));
 }
@@ -175,13 +186,232 @@ function advanceSweep(grid: Grid, state: SeaLifeState): boolean {
   return state.sweepQueueHead >= state.sweepQueueTail && state.sweepCursor >= total;
 }
 
+function cellIsWater(grid: Grid, x: number, y: number): boolean {
+  if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
+  return grid.elements[y * grid.width + x] === WATER;
+}
+
+function cellXY(grid: Grid, index: number): { x: number; y: number } {
+  return { x: index % grid.width, y: Math.floor(index / grid.width) };
+}
+
+function randomInt(min: number, max: number): number {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function currentLabel(grid: Grid, state: SeaLifeState, x: number, y: number): number {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  if (cx < 0 || cx >= grid.width || cy < 0 || cy >= grid.height) return -1;
+  return state.poolId[cy * grid.width + cx];
+}
+
+function hasCooldownIn(grid: Grid, state: SeaLifeState, label: number): boolean {
+  for (const cooldown of state.eraserCooldowns) {
+    if (currentLabel(grid, state, cooldown.x, cooldown.y) === label) return true;
+  }
+  return false;
+}
+
+/**
+ * Picks a spawn cell from a pool's reservoir sample, preferring one at least `minDist` from
+ * every position in `avoid` (keeps a fresh fish from landing right on top of a shark and vice
+ * versa) — falls back to any sampled cell if none clear that distance.
+ */
+function pickSpawnIndex(
+  grid: Grid,
+  sample: number[] | undefined,
+  avoid: ReadonlyArray<{ x: number; y: number }>,
+  minDist: number,
+): number | null {
+  if (sample === undefined || sample.length === 0) return null;
+  const candidates = sample.filter((index) => {
+    const { x, y } = cellXY(grid, index);
+    return avoid.every((a) => Math.hypot(a.x - x, a.y - y) >= minDist);
+  });
+  const pool = candidates.length > 0 ? candidates : sample;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function spawnFish(grid: Grid, state: SeaLifeState, label: number): void {
+  const index = pickSpawnIndex(grid, state.spawnSample[label], state.sharks, SHARK_MIN_SEPARATION);
+  if (index === null) return;
+  const { x, y } = cellXY(grid, index);
+  state.fish.push({
+    id: state.nextId++,
+    x,
+    y,
+    dirX: Math.random() < 0.5 ? -1 : 1,
+    dirY: 0,
+    bobPhase: Math.random() * Math.PI * 2,
+    turnCooldown: randomInt(FISH_TURN_COOLDOWN_MIN, FISH_TURN_COOLDOWN_MAX),
+    scatterTimer: 0,
+    fadeTimer: 0,
+  });
+}
+
+type Spawner = (grid: Grid, state: SeaLifeState, label: number) => void;
+
+/**
+ * Shared spawn/despawn target computation for one kind (fish or sharks) against the sweep's
+ * freshly completed pool labeling: size-sorted (largest first), hysteresis-banded around the
+ * spawn/despawn thresholds, clamped by the per-pool and global caps, and held (never grown)
+ * for any pool a recent eraser removal still covers (research.md §4, §5).
+ */
+function reconcileKind<T extends { x: number; y: number; fadeTimer: number }>(
+  grid: Grid,
+  state: SeaLifeState,
+  creatures: T[],
+  despawnThreshold: number,
+  spawnThreshold: number,
+  perPoolCap: number,
+  globalCap: number,
+  spawn: Spawner,
+): void {
+  const byLabel = new Map<number, T[]>();
+  for (const creature of creatures) {
+    if (creature.fadeTimer > 0) continue;
+    const label = currentLabel(grid, state, creature.x, creature.y);
+    if (label === -1) continue;
+    let list = byLabel.get(label);
+    if (list === undefined) {
+      list = [];
+      byLabel.set(label, list);
+    }
+    list.push(creature);
+  }
+
+  const labels = new Set<number>(byLabel.keys());
+  for (let label = 0; label < state.sweepNextLabel; label++) {
+    if (state.poolSize[label] >= despawnThreshold) labels.add(label);
+  }
+  const sorted = Array.from(labels).sort((a, b) => state.poolSize[b] - state.poolSize[a]);
+
+  let remaining = globalCap;
+  const targets = new Map<number, number>();
+  for (const label of sorted) {
+    const size = state.poolSize[label];
+    const current = byLabel.get(label)?.length ?? 0;
+    let target: number;
+    if (size >= spawnThreshold) {
+      target = Math.min(Math.floor(size / spawnThreshold), perPoolCap);
+    } else if (size >= despawnThreshold) {
+      target = current; // hysteresis band: hold, absorbing a one-cell wobble at the threshold
+    } else {
+      target = 0;
+    }
+    if (hasCooldownIn(grid, state, label)) target = Math.min(target, current);
+    target = Math.min(target, remaining);
+    targets.set(label, target);
+    remaining -= target;
+  }
+
+  for (const [label, list] of byLabel) {
+    const target = targets.get(label) ?? 0;
+    if (list.length > target) {
+      const excess = list.length - target;
+      for (let k = 0; k < excess; k++) list[list.length - 1 - k].fadeTimer = CREATURE_FADE_FRAMES;
+    }
+  }
+
+  for (const [label, target] of targets) {
+    const current = byLabel.get(label)?.length ?? 0;
+    for (let k = current; k < target; k++) spawn(grid, state, label);
+  }
+}
+
 /**
  * Spawns/despawns fish and sharks against the sweep's freshly completed labeling
- * (research.md §4). Filled in by the fish and shark user stories; a completed sweep with no
- * creatures yet simply has nothing to do.
+ * (research.md §4).
  */
-function reconcilePopulations(_grid: Grid, _state: SeaLifeState): void {
-  // No-op until User Story 1 (fish) and User Story 2 (shark) add their reconciliation rules.
+function reconcilePopulations(grid: Grid, state: SeaLifeState): void {
+  reconcileKind(
+    grid,
+    state,
+    state.fish,
+    FISH_DESPAWN_THRESHOLD,
+    FISH_SPAWN_THRESHOLD,
+    FISH_PER_POOL_CAP,
+    GLOBAL_FISH_CAP,
+    spawnFish,
+  );
+}
+
+/**
+ * Picks a direction different from the fish's current one whenever a water-valid alternative
+ * exists (FR-010's "sometimes change direction for no reason at all") — favors horizontal drift
+ * since that's the common case, but falls back to any valid cardinal direction.
+ */
+function randomizeDirection(grid: Grid, fish: Fish): void {
+  const cx = Math.round(fish.x);
+  const cy = Math.round(fish.y);
+  const options: Array<[-1 | 0 | 1, -1 | 0 | 1]> =
+    Math.random() < 0.7
+      ? [
+          [1, 0],
+          [-1, 0],
+        ]
+      : [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+  const candidates = options
+    .filter(([dx, dy]) => dx !== fish.dirX || dy !== fish.dirY)
+    .sort(() => Math.random() - 0.5);
+  for (const [dx, dy] of candidates) {
+    if (cellIsWater(grid, cx + dx, cy + dy)) {
+      fish.dirX = dx;
+      fish.dirY = dy;
+      return;
+    }
+  }
+}
+
+/**
+ * Advances one live (non-fading) fish by one frame: an immediate safety check that its own cell
+ * is still water (starting a fade the instant it isn't, research.md §2), then bob/turn/glide —
+ * movement only ever commits into a candidate cell that is WATER right now, reversing rather
+ * than passing through a wall or a pool's edge (the cell just left is guaranteed water).
+ */
+function stepFishAlive(grid: Grid, fish: Fish): void {
+  const cx = Math.round(fish.x);
+  const cy = Math.round(fish.y);
+  if (!cellIsWater(grid, cx, cy)) {
+    fish.fadeTimer = CREATURE_FADE_FRAMES;
+    return;
+  }
+
+  fish.bobPhase = (fish.bobPhase + BOB_SPEED) % (Math.PI * 2);
+  if (fish.scatterTimer > 0) fish.scatterTimer--;
+
+  if (fish.turnCooldown > 0) {
+    fish.turnCooldown--;
+  } else {
+    randomizeDirection(grid, fish);
+    fish.turnCooldown = randomInt(FISH_TURN_COOLDOWN_MIN, FISH_TURN_COOLDOWN_MAX);
+  }
+
+  if (fish.dirX === 0 && fish.dirY === 0) return;
+
+  const speed = fish.scatterTimer > 0 ? FISH_SPEED * FISH_SCATTER_SPEED_MULT : FISH_SPEED;
+  let nx = fish.x + fish.dirX * speed;
+  let ny = fish.y + fish.dirY * speed;
+  if (cellIsWater(grid, Math.round(nx), Math.round(ny))) {
+    fish.x = nx;
+    fish.y = ny;
+    return;
+  }
+
+  fish.dirX = (fish.dirX * -1) as -1 | 0 | 1;
+  fish.dirY = (fish.dirY * -1) as -1 | 0 | 1;
+  nx = fish.x + fish.dirX * speed;
+  ny = fish.y + fish.dirY * speed;
+  if (cellIsWater(grid, Math.round(nx), Math.round(ny))) {
+    fish.x = nx;
+    fish.y = ny;
+  }
 }
 
 /**
@@ -199,5 +429,15 @@ export function stepSeaLife(grid: Grid, state: SeaLifeState): void {
   if (advanceSweep(grid, state)) {
     reconcilePopulations(grid, state);
     beginNewSweep(state);
+  }
+
+  for (let i = state.fish.length - 1; i >= 0; i--) {
+    const fish = state.fish[i];
+    if (fish.fadeTimer > 0) {
+      fish.fadeTimer--;
+      if (fish.fadeTimer <= 0) state.fish.splice(i, 1);
+      continue;
+    }
+    stepFishAlive(grid, fish);
   }
 }

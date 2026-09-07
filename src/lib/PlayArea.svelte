@@ -45,7 +45,13 @@
     pokePoodleAt,
     type PoodleState,
   } from '../sim/pets';
-  import { createSeaLifeState, type SeaLifeState } from '../sim/seaLife';
+  import {
+    createSeaLifeState,
+    resetSeaLifeState,
+    stepSeaLife,
+    CREATURE_FADE_FRAMES,
+    type SeaLifeState,
+  } from '../sim/seaLife';
   import {
     createButterfliesState,
     stepButterflies,
@@ -118,6 +124,7 @@
   const PALM_SWAY_SPEED = 0.0011;
   const FLAMINGO_BOB_SPEED = 0.0016;
   const FLAMINGO_BOB_PIXELS = 2.5;
+  const FISH_BOB_PIXELS = 1.5;
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
@@ -245,6 +252,9 @@
       // — otherwise a landscape-save opened in portrait strands poodles outside the grid where
       // they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
+      // Fish/sharks are never saved (FR-027) — re-derive them from the just-restored water
+      // instead of leaving whatever the fresh mount's createSeaLifeState produced (FR-028).
+      resetSeaLifeState(seaLifeState, grid);
 
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
@@ -515,6 +525,17 @@
       ctx.restore();
     }
 
+    for (const fish of seaLifeState.fish) {
+      const bob = Math.sin(fish.bobPhase) * FISH_BOB_PIXELS;
+      ctx.save();
+      ctx.globalAlpha = fish.fadeTimer > 0 ? fish.fadeTimer / CREATURE_FADE_FRAMES : 1;
+      ctx.translate(fish.x, fish.y + bob);
+      if (fish.dirX < 0) ctx.scale(-1, 1);
+      ctx.fillText('🐠', 0, 0);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -572,6 +593,7 @@
     stepPets(grid, petsState, poodleTarget);
     stepButterflies(grid, butterfliesState, now);
     stepBirds(objectsState.byKind.palm, birdsState, now);
+    stepSeaLife(grid, seaLifeState);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
     applyChestConversions(grid, objectsState.byKind.chest);
     updateUnicorns(now);
