@@ -41,9 +41,9 @@ Single client-only project (no `backend/`/`frontend/` split) — `src/sim/`, `sr
 
 **⚠️ CRITICAL**: No User Story 1 or User Story 2 work can begin until this phase is complete
 
-- [ ] T002 In `src/sim/types.ts`: add `export const DIAMOND = 12;` (ID 11 stays unclaimed — reserved by the concurrent mermaid/ice-cream feature) and extend the `Element` union with `typeof DIAMOND`; extend `ObjectKind` to `'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' | 'person' | 'chest'`; extend `Tool` to add `'house' | 'person' | 'chest'` (no `'diamond'` member — FR-017, no diamond tool) — per contracts/elements-and-objects.md
-- [ ] T003 In `src/sim/objects.ts`: extend `OBJECT_KINDS` to `['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest']` and `createObjectsState()`'s `byKind` seed to include `house: [], person: [], chest: []` (depends on T002)
-- [ ] T004 In `src/lib/PlayArea.svelte`'s `handlePointerDown`, extend the placement-tool condition (`tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo'`) to also match `tool === 'house' || tool === 'person' || tool === 'chest'`, per data-model.md's "Amended: `ObjectKind`" validation rule and contracts/toolbar-and-rendering.md (depends on T002, T003)
+- [X] T002 In `src/sim/types.ts`: add `export const DIAMOND = 12;` (ID 11 stays unclaimed — reserved by the concurrent mermaid/ice-cream feature) and extend the `Element` union with `typeof DIAMOND`; extend `ObjectKind` to `'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' | 'person' | 'chest'`; extend `Tool` to add `'house' | 'person' | 'chest'` (no `'diamond'` member — FR-017, no diamond tool) — per contracts/elements-and-objects.md
+- [X] T003 In `src/sim/objects.ts`: extend `OBJECT_KINDS` to `['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest']` and `createObjectsState()`'s `byKind` seed to include `house: [], person: [], chest: []` (depends on T002)
+- [X] T004 In `src/lib/PlayArea.svelte`'s `handlePointerDown`, extend the placement-tool condition (`tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo'`) to also match `tool === 'house' || tool === 'person' || tool === 'chest'`, per data-model.md's "Amended: `ObjectKind`" validation rule and contracts/toolbar-and-rendering.md (depends on T002, T003)
 
 **Checkpoint**: `ObjectKind`/`Tool`/`OBJECT_KINDS` extended and placement dispatch wired — User Story 1 and User Story 2 implementation can now begin.
 

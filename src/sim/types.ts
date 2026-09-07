@@ -9,6 +9,8 @@ export const STAR_POWER = 7;
 export const FOG = 8;
 export const GUMDROP = 9;
 export const FLOWER = 10;
+// ID 11 stays unclaimed — reserved by the concurrent mermaid/ice-cream feature.
+export const DIAMOND = 12;
 
 export type Element =
   | typeof EMPTY
@@ -21,7 +23,8 @@ export type Element =
   | typeof STAR_POWER
   | typeof FOG
   | typeof GUMDROP
-  | typeof FLOWER;
+  | typeof FLOWER
+  | typeof DIAMOND;
 
 export interface Grid {
   readonly width: number;
@@ -58,11 +61,14 @@ export type Tool =
   | 'flamingo'
   | 'eraser'
   | 'wand'
-  | 'gumdrop';
+  | 'gumdrop'
+  | 'house'
+  | 'person'
+  | 'chest';
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
-export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo';
+export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' | 'person' | 'chest';
 
 export interface PlacedObject {
   readonly id: number;

@@ -623,7 +623,15 @@
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo') {
+    if (
+      tool === 'rainbow' ||
+      tool === 'unicorn' ||
+      tool === 'palm' ||
+      tool === 'flamingo' ||
+      tool === 'house' ||
+      tool === 'person' ||
+      tool === 'chest'
+    ) {
       // Another finger may still be mid-paint (tool switched under it). Its action is pending in
       // history; beginAction below would silently overwrite that capture and swallow the paint
       // stroke's undo step. Settle all strokes first — placement ends the scribble, as it always
