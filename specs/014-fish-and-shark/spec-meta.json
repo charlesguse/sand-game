@@ -2,7 +2,7 @@
   "issue": 45,
   "spec_dir": "specs/014-fish-and-shark",
   "feature_num": "014",
-  "stage": "tasks",
-  "iteration": 0,
+  "stage": "implement",
+  "iteration": 1,
   "spec_branch": "spec/014-fish-and-shark"
 }
