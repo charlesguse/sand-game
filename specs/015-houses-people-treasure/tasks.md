@@ -29,7 +29,7 @@ Single client-only project (no `backend/`/`frontend/` split) — `src/sim/`, `sr
 
 **Purpose**: Confirm the pre-feature baseline before any change
 
-- [ ] T001 Run `npm install`, `npm test`, and `npm run build` from a clean checkout of the current branch to confirm the pre-feature baseline is green (all specs 001–014/016 tests pass, `dist/index.html` is the only build output) — no files modified in this task
+- [X] T001 Run `npm install`, `npm test`, and `npm run build` from a clean checkout of the current branch to confirm the pre-feature baseline is green (all specs 001–014/016 tests pass, `dist/index.html` is the only build output) — no files modified in this task
 
 **Checkpoint**: Baseline confirmed green — safe to start Foundational work.
 
