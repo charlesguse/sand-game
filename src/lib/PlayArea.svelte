@@ -49,6 +49,9 @@
     createSeaLifeState,
     resetSeaLifeState,
     stepSeaLife,
+    eraseSeaLifeInBrush,
+    eraseSeaLifeInBrushLine,
+    clearSeaLife,
     CREATURE_FADE_FRAMES,
     type SeaLifeState,
   } from '../sim/seaLife';
@@ -325,6 +328,7 @@
     repositionPoodles(petsState.poodles, newGrid, offsetX, offsetY);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    resetSeaLifeState(seaLifeState, newGrid);
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -651,10 +655,12 @@
         eraseObjectsInBrushLine(grid, objectsState, from, pos, radius);
         eraseButterfliesInBrushLine(butterfliesState, from, pos, radius, now);
         eraseBirdsInBrushLine(birdsState, from, pos, radius, now);
+        eraseSeaLifeInBrushLine(seaLifeState, from, pos, radius);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
         eraseButterfliesInBrush(butterfliesState, pos.x, pos.y, radius, now);
         eraseBirdsInBrush(birdsState, pos.x, pos.y, radius, now);
+        eraseSeaLifeInBrush(seaLifeState, pos.x, pos.y, radius);
       }
     }
     if (tool === 'wand') {
@@ -803,6 +809,7 @@
     clearPets(petsState);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    clearSeaLife(seaLifeState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     playSweep();
@@ -817,6 +824,7 @@
     clearPets(petsState);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    resetSeaLifeState(seaLifeState, grid);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     scheduleSave();
@@ -826,6 +834,7 @@
   export function undo(): void {
     endAllStrokes();
     history.undo(grid, objectsState);
+    resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     // Undo changes the world like any stroke does: without this, the persisted save can keep
     // the pre-undo picture until some later commit happens to schedule one.
@@ -836,6 +845,7 @@
   export function redo(): void {
     endAllStrokes();
     history.redo(grid, objectsState);
+    resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());

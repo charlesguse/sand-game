@@ -4,12 +4,17 @@ import {
   createSeaLifeState,
   resetSeaLifeState,
   stepSeaLife,
+  eraseSeaLifeInBrush,
+  clearSeaLife,
   FISH_PER_POOL_CAP,
   GLOBAL_FISH_CAP,
   SWEEP_TARGET_FRAMES,
   SHARK_MIN_SEPARATION,
+  ERASER_HOLD_OFF_FRAMES,
 } from '../../../src/sim/seaLife';
-import { WATER, SAND, type Grid } from '../../../src/sim/types';
+import { step } from '../../../src/sim/step';
+import { createPetsState, addPoodle, stepPets } from '../../../src/sim/pets';
+import { WATER, SAND, EMPTY, type Grid } from '../../../src/sim/types';
 
 /** Fills a rectangular region of grid with WATER. */
 function fillWaterRect(grid: Grid, x: number, y: number, w: number, h: number): void {
@@ -298,6 +303,148 @@ describe('User Story 2 — a shark plays a game of tag it can never win', () => 
         }
       }
     }).not.toThrow();
+  });
+});
+
+describe('User Story 3 — pool split and merge', () => {
+  it('splitting a pool in two lets each fragment settle to its own population', () => {
+    const grid = createGrid(60, 40);
+    fillWaterRect(grid, 5, 5, 30, 10); // 300 cells: one big pool
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+
+    // A sand wall straight through the middle splits it into two ~150-cell pools.
+    for (let y = 5; y < 15; y++) setCell(grid, 20, y, SAND, 0);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+
+    const leftCount = state.fish.filter((f) => f.x < 20).length;
+    const rightCount = state.fish.filter((f) => f.x > 20).length;
+    expect(leftCount).toBeGreaterThan(0);
+    expect(rightCount).toBeGreaterThan(0);
+    expect(leftCount + rightCount).toBe(state.fish.length);
+    for (const fish of state.fish) {
+      expect(grid.elements[Math.round(fish.y) * grid.width + Math.round(fish.x)]).toBe(WATER);
+    }
+  });
+
+  it('merging two pools lets the combined lake populate to its combined size', () => {
+    const grid = createGrid(60, 40);
+    fillWaterRect(grid, 5, 5, 8, 10); // 80 cells, below threshold alone
+    fillWaterRect(grid, 14, 5, 8, 10); // another 80 cells, below threshold alone
+    for (let y = 5; y < 15; y++) setCell(grid, 13, y, SAND, 0); // keeps them apart for now
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish).toHaveLength(0);
+
+    for (let y = 5; y < 15; y++) setCell(grid, 13, y, WATER, 0); // now one 170-cell pool
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+  });
+});
+
+describe('User Story 3 — eraser hold-off', () => {
+  it('removes a fish immediately and holds its pool off until the cooldown expires', () => {
+    const grid = createGrid(60, 40);
+    fillWaterRect(grid, 5, 5, 20, 15); // 300 cells
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    const before = state.fish.length;
+    expect(before).toBeGreaterThan(0);
+
+    const fish = state.fish[0];
+    eraseSeaLifeInBrush(state, fish.x, fish.y, 1);
+    expect(state.fish.length).toBe(before - 1);
+    expect(state.eraserCooldowns.length).toBeGreaterThan(0);
+
+    // Held off for most of the cooldown: this pool's count must not climb back up yet.
+    for (let i = 0; i < ERASER_HOLD_OFF_FRAMES - 30; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeLessThanOrEqual(before - 1);
+
+    // Once the cooldown expires, the pool repopulates under the ordinary rule on its own.
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThanOrEqual(before - 1);
+  });
+});
+
+describe('User Story 3 — clearing sea life', () => {
+  it('empties fish/sharks/eraserCooldowns, and a subsequent sweep over an emptied grid spawns nothing', () => {
+    const grid = createGrid(60, 40);
+    fillWaterRect(grid, 5, 5, 30, 30); // 900 cells: fish + shark
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+    expect(state.sharks.length).toBeGreaterThan(0);
+
+    clearSeaLife(state);
+    expect(state.fish).toHaveLength(0);
+    expect(state.sharks).toHaveLength(0);
+    expect(state.eraserCooldowns).toHaveLength(0);
+
+    // Mirrors clearAll(), which clears the grid alongside sea life.
+    for (let y = 5; y < 35; y++) {
+      for (let x = 5; x < 35; x++) setCell(grid, x, y, EMPTY, 0);
+    }
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish).toHaveLength(0);
+    expect(state.sharks).toHaveLength(0);
+  });
+});
+
+describe('User Story 3 — re-derivation onto a resized grid', () => {
+  it('resettles populations from the new water within about one sweep, never out of bounds or off water', () => {
+    const oldGrid = createGrid(60, 40);
+    fillWaterRect(oldGrid, 5, 5, 20, 15);
+    const state = createSeaLifeState(oldGrid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(oldGrid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+
+    const newGrid = createGrid(90, 60);
+    fillWaterRect(newGrid, 10, 10, 20, 15);
+    resetSeaLifeState(state, newGrid);
+    expect(state.fish).toHaveLength(0);
+
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 2; i++) {
+      stepSeaLife(newGrid, state);
+      for (const fish of state.fish) {
+        const cx = Math.round(fish.x);
+        const cy = Math.round(fish.y);
+        expect(cx).toBeGreaterThanOrEqual(0);
+        expect(cx).toBeLessThan(newGrid.width);
+        expect(cy).toBeGreaterThanOrEqual(0);
+        expect(cy).toBeLessThan(newGrid.height);
+        expect(newGrid.elements[cy * newGrid.width + cx]).toBe(WATER);
+      }
+    }
+    expect(state.fish.length).toBeGreaterThan(0);
+  });
+});
+
+describe('User Story 3 — coexists with the rest of the simulation', () => {
+  it('does not disturb, or get disturbed by, step()/stepPets() running alongside it', () => {
+    const grid = createGrid(60, 40);
+    for (let y = 30; y < 40; y++) {
+      for (let x = 0; x < 60; x++) setCell(grid, x, y, SAND, 0);
+    }
+    fillWaterRect(grid, 5, 5, 20, 15);
+    const seaLife = createSeaLifeState(grid);
+    const pets = createPetsState();
+    addPoodle(pets, 10, 10);
+
+    expect(() => {
+      for (let i = 0; i < 1000; i++) {
+        step(grid);
+        stepPets(grid, pets, null);
+        stepSeaLife(grid, seaLife);
+      }
+    }).not.toThrow();
+
+    for (const fish of seaLife.fish) {
+      if (fish.fadeTimer > 0) continue;
+      const cx = Math.round(fish.x);
+      const cy = Math.round(fish.y);
+      expect(grid.elements[cy * grid.width + cx]).toBe(WATER);
+    }
   });
 });
 

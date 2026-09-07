@@ -596,6 +596,64 @@ function stepSharkAlive(grid: Grid, state: SeaLifeState, shark: Shark): void {
   applyScatter(grid, state, shark);
 }
 
+/** Removes every fish/shark within radius of (cx, cy) immediately, pushing one eraser cooldown per removal. */
+export function eraseSeaLifeInBrush(state: SeaLifeState, cx: number, cy: number, radius: number): void {
+  for (let i = state.fish.length - 1; i >= 0; i--) {
+    const fish = state.fish[i];
+    if (Math.hypot(fish.x - cx, fish.y - cy) <= radius) {
+      state.eraserCooldowns.push({ x: fish.x, y: fish.y, framesRemaining: ERASER_HOLD_OFF_FRAMES });
+      state.fish.splice(i, 1);
+    }
+  }
+  for (let i = state.sharks.length - 1; i >= 0; i--) {
+    const shark = state.sharks[i];
+    if (Math.hypot(shark.x - cx, shark.y - cy) <= radius) {
+      state.eraserCooldowns.push({ x: shark.x, y: shark.y, framesRemaining: ERASER_HOLD_OFF_FRAMES });
+      state.sharks.splice(i, 1);
+    }
+  }
+}
+
+/** Bresenham-interpolated repetition of eraseSeaLifeInBrush along a drag, mirroring eraseObjectsInBrushLine. */
+export function eraseSeaLifeInBrushLine(
+  state: SeaLifeState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  radius: number,
+): void {
+  let x0 = Math.round(from.x);
+  let y0 = Math.round(from.y);
+  const x1 = Math.round(to.x);
+  const y1 = Math.round(to.y);
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  for (;;) {
+    eraseSeaLifeInBrush(state, x0, y0, radius);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
+/** Empties fish, sharks, and eraserCooldowns in place. Leaves the sweep buffers untouched. */
+export function clearSeaLife(state: SeaLifeState): void {
+  state.fish.length = 0;
+  state.sharks.length = 0;
+  state.eraserCooldowns.length = 0;
+}
+
 /**
  * One frame: ages out expired eraser cooldowns, advances the pool sweep (running reconciliation
  * and restarting the sweep whenever a pass completes), and steps every fish/shark's
