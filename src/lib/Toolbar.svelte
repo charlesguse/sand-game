@@ -79,6 +79,8 @@
         return tool === 'person';
       case 'tool-chest':
         return tool === 'chest';
+      case 'tool-mermaid':
+        return tool === 'mermaid';
       case 'tool-eraser':
         return tool === 'eraser';
       case 'tool-wand':
@@ -126,6 +128,8 @@
         return '🏠';
       case 'tool-person':
         return '🧑';
+      case 'tool-mermaid':
+        return '🧜';
       case 'tool-eraser':
         return '🧽';
       case 'action-clear':
@@ -199,6 +203,9 @@
         return;
       case 'tool-chest':
         onSelectTool('chest');
+        return;
+      case 'tool-mermaid':
+        onSelectTool('mermaid');
         return;
       case 'tool-eraser':
         onSelectTool('eraser');

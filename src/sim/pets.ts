@@ -511,7 +511,283 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
   }
 }
 
+/** Frames between swim steps — an unhurried, gentle drift, slower-paced than the poodle's trot. */
+const MERMAID_SWIM_INTERVAL = 6;
+/** Bounded square-window scan (mirrors nearestGumdropX's shape) for the nearest WATER cell when placing her. */
+const MERMAID_PLACEMENT_SEARCH_RADIUS = 30;
+/** Bounded neighbourhood scanned each frame while buried, looking for an escape cell. */
+const MERMAID_FREE_RADIUS = 6;
+/** Cosmetic hold once freed — mirrors DIG_DURATION's cadence so escaping still reads as an event, not a teleport. */
+const MERMAID_FREE_DURATION = 12;
+/** How far from home a drift may roam, in cells. */
+export const MERMAID_DRIFT_RANGE = 10;
+/** Frames spent doing a trick after being poked. */
+export const MERMAID_TRICK_DURATION = 36;
+
+/**
+ * Nearest WATER cell within a bounded square window around (x, y), or null if none — the
+ * placement-time snap used by addMermaid. Mirrors nearestGumdropX's shape (bounded scan, no
+ * allocation) but searches both axes since a mermaid's target is a cell, not a column.
+ */
+function nearestWaterCell(grid: Grid, x: number, y: number): { x: number; y: number } | null {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  let bestX = -1;
+  let bestY = -1;
+  let bestDist = Infinity;
+  let tieCount = 0;
+
+  const minX = Math.max(0, cx - MERMAID_PLACEMENT_SEARCH_RADIUS);
+  const maxX = Math.min(grid.width - 1, cx + MERMAID_PLACEMENT_SEARCH_RADIUS);
+  const minY = Math.max(0, cy - MERMAID_PLACEMENT_SEARCH_RADIUS);
+  const maxY = Math.min(grid.height - 1, cy + MERMAID_PLACEMENT_SEARCH_RADIUS);
+
+  for (let yy = minY; yy <= maxY; yy++) {
+    for (let xx = minX; xx <= maxX; xx++) {
+      if (grid.elements[yy * grid.width + xx] !== WATER) continue;
+      const dist = Math.max(Math.abs(xx - cx), Math.abs(yy - cy));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = xx;
+        bestY = yy;
+        tieCount = 1;
+      } else if (dist === bestDist) {
+        tieCount++;
+        if (Math.random() < 1 / tieCount) {
+          bestX = xx;
+          bestY = yy;
+        }
+      }
+    }
+  }
+  return bestDist === Infinity ? null : { x: bestX, y: bestY };
+}
+
+/**
+ * Nearest non-solid cell within a bounded square neighbourhood around (cx, cy), excluding (cx,
+ * cy) itself, or null if the whole neighbourhood is solid. Used to find an escape cell when a
+ * mermaid is buried (research.md §4) — bounded, allocation-free, re-scanned every frame she stays
+ * buried rather than cached, so it always reflects the current grid.
+ */
+function nearestNonSolidCell(grid: Grid, cx: number, cy: number, radius: number): { x: number; y: number } | null {
+  let bestX = -1;
+  let bestY = -1;
+  let bestDist = Infinity;
+  let tieCount = 0;
+
+  const minX = Math.max(0, cx - radius);
+  const maxX = Math.min(grid.width - 1, cx + radius);
+  const minY = Math.max(0, cy - radius);
+  const maxY = Math.min(grid.height - 1, cy + radius);
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (x === cx && y === cy) continue;
+      if (cellIsSolid(grid, x, y)) continue;
+      const dist = Math.max(Math.abs(x - cx), Math.abs(y - cy));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = x;
+        bestY = y;
+        tieCount = 1;
+      } else if (dist === bestDist) {
+        tieCount++;
+        if (Math.random() < 1 / tieCount) {
+          bestX = x;
+          bestY = y;
+        }
+      }
+    }
+  }
+  return bestDist === Infinity ? null : { x: bestX, y: bestY };
+}
+
+/**
+ * The WATER neighbour (of up to 8, dx/dy in {-1,0,1} excluding (0,0)) closest — Chebyshev
+ * distance, ties broken uniformly at random via reservoir sampling — to (targetX, targetY).
+ * Allocation-free (constitution Principle IV): no candidate array, just running best/tie-count.
+ * Mirrors research.md §1's "greedy neighbour stepping, not pathfinding" decision.
+ */
+function bestWaterNeighbour(
+  grid: Grid,
+  cx: number,
+  cy: number,
+  targetX: number,
+  targetY: number,
+): { x: number; y: number } | null {
+  let bestX = -1;
+  let bestY = -1;
+  let bestDist = Infinity;
+  let tieCount = 0;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (!cellIsWater(grid, nx, ny)) continue;
+      const dist = Math.max(Math.abs(nx - targetX), Math.abs(ny - targetY));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = nx;
+        bestY = ny;
+        tieCount = 1;
+      } else if (dist === bestDist) {
+        tieCount++;
+        if (Math.random() < 1 / tieCount) {
+          bestX = nx;
+          bestY = ny;
+        }
+      }
+    }
+  }
+  return bestDist === Infinity ? null : { x: bestX, y: bestY };
+}
+
+/** At most once every MERMAID_SWIM_INTERVAL frames (per mermaid, staggered by id), steps onto whichever WATER neighbour is closest to (targetX, targetY). No-op if she has no WATER neighbour at all. */
+function swimToward(grid: Grid, mermaid: Mermaid, targetX: number, targetY: number, stride: number): void {
+  if (mermaid.id % MERMAID_SWIM_INTERVAL !== stride % MERMAID_SWIM_INTERVAL) return;
+  const next = bestWaterNeighbour(grid, Math.round(mermaid.x), Math.round(mermaid.y), targetX, targetY);
+  if (next === null) return;
+  if (next.x !== mermaid.x) mermaid.facing = next.x > mermaid.x ? 1 : -1;
+  mermaid.x = next.x;
+  mermaid.y = next.y;
+}
+
+/**
+ * One gentle drift step: no target to chase, so she ambles along her drift direction within
+ * MERMAID_DRIFT_RANGE of home, turning around at the leash (mirrors wanderStep's shape) — with no
+ * boredom delay (research.md §3): a mermaid drifts from frame one, she never just stands still.
+ */
+function driftStep(grid: Grid, mermaid: Mermaid, stride: number): void {
+  if (Math.random() < 0.02) mermaid.driftDir = mermaid.driftDir === 1 ? -1 : 1;
+  if (Math.abs(mermaid.x - mermaid.homeX) >= MERMAID_DRIFT_RANGE) {
+    mermaid.driftDir = mermaid.x > mermaid.homeX ? -1 : 1;
+  }
+  const targetX = Math.max(0, Math.min(grid.width - 1, mermaid.homeX + mermaid.driftDir * MERMAID_DRIFT_RANGE));
+  mermaid.state = 'drifting';
+  swimToward(grid, mermaid, targetX, mermaid.y, stride);
+}
+
+/** At most three mermaids at once; placing a fourth retires the oldest, mirroring addPoodle. */
+export function addMermaid(grid: Grid, state: PetsState, x: number, y: number): void {
+  if (state.mermaids.length >= MERMAID_CAP) state.mermaids.shift();
+  const water = nearestWaterCell(grid, x, y);
+  const placeX = water !== null ? water.x : Math.round(x);
+  const placeY = water !== null ? water.y : groundBelow(grid, x, y);
+  state.mermaids.push({
+    id: state.nextId++,
+    x: placeX,
+    y: placeY,
+    facing: 1,
+    state: water !== null ? 'drifting' : 'resting',
+    timer: 0,
+    pursuitX: -1,
+    pursuitY: -1,
+    pursuitBestDist: Infinity,
+    pursuitStaleFrames: 0,
+    iceCreamCooldown: 0,
+    homeX: placeX,
+    homeY: placeY,
+    driftDir: 1,
+  });
+}
+
+/**
+ * Pokes the nearest mermaid within POKE_RADIUS of (x, y): if there is one and its timer is free
+ * (not eating/freeing/mid-trick), she does a trick. Returns true iff a trick started. Mirrors
+ * pokePoodleAt exactly — a mermaid never follows a finger, so this is the only touch interaction
+ * she has (FR-011).
+ */
+export function pokeMermaidAt(pets: PetsState, x: number, y: number): boolean {
+  let nearest: Mermaid | null = null;
+  let bestDist = Infinity;
+  for (const mermaid of pets.mermaids) {
+    const dist = Math.hypot(mermaid.x - x, mermaid.y - y);
+    if (dist <= POKE_RADIUS && dist < bestDist) {
+      bestDist = dist;
+      nearest = mermaid;
+    }
+  }
+  if (nearest === null || nearest.timer > 0) return false;
+  nearest.state = 'tricking';
+  nearest.timer = MERMAID_TRICK_DURATION;
+  return true;
+}
+
+/** Advances one mermaid by one frame. Allocation-free. */
+function stepMermaid(grid: Grid, mermaid: Mermaid, stride: number): void {
+  if (mermaid.timer > 0) {
+    mermaid.timer--;
+    if (mermaid.timer === 0) {
+      const ownWater = cellIsWater(grid, Math.round(mermaid.x), Math.round(mermaid.y));
+      mermaid.state = ownWater ? 'drifting' : 'resting';
+      mermaid.homeX = mermaid.x;
+      mermaid.homeY = mermaid.y;
+    }
+    return;
+  }
+
+  const ownX = Math.round(mermaid.x);
+  const ownY = Math.round(mermaid.y);
+
+  if (cellIsSolid(grid, ownX, ownY)) {
+    // Buried: no gravity relationship exists to guide "up", so search-and-relocate rather than
+    // dig (research.md §4). Re-attempted every frame she stays buried, in case the grid changes.
+    mermaid.state = 'freeing';
+    const free = nearestNonSolidCell(grid, ownX, ownY, MERMAID_FREE_RADIUS);
+    if (free !== null) {
+      mermaid.x = free.x;
+      mermaid.y = free.y;
+      mermaid.timer = MERMAID_FREE_DURATION;
+      mermaid.pursuitX = -1;
+      mermaid.pursuitY = -1;
+      mermaid.pursuitBestDist = Infinity;
+      mermaid.pursuitStaleFrames = 0;
+    }
+    return;
+  }
+
+  if (mermaid.state === 'resting') {
+    // Placed with no water anywhere, or settled after one drained out from under her: rests here
+    // (unchanged) until water reaches her cell, at which point she starts swimming (FR-008).
+    if (cellIsWater(grid, ownX, ownY)) {
+      mermaid.state = 'drifting';
+      mermaid.homeX = mermaid.x;
+      mermaid.homeY = mermaid.y;
+    }
+    return;
+  }
+
+  if (!cellIsWater(grid, ownX, ownY)) {
+    // Her own cell stopped being water (the pool receded/drained). Try to recover onto an
+    // adjacent water cell immediately; if none exists anywhere nearby, settle onto solid ground
+    // below rather than leaving her stranded mid-air (Edge Cases: "water drains from under her").
+    const recover = bestWaterNeighbour(grid, ownX, ownY, ownX, ownY);
+    if (recover !== null) {
+      mermaid.x = recover.x;
+      mermaid.y = recover.y;
+      return;
+    }
+    mermaid.x = ownX;
+    mermaid.y = groundBelow(grid, ownX, ownY);
+    mermaid.state = 'resting';
+    mermaid.pursuitX = -1;
+    mermaid.pursuitY = -1;
+    mermaid.pursuitBestDist = Infinity;
+    mermaid.pursuitStaleFrames = 0;
+    return;
+  }
+
+  driftStep(grid, mermaid, stride);
+}
+
+export function stepMermaids(grid: Grid, state: PetsState): void {
+  for (const mermaid of state.mermaids) stepMermaid(grid, mermaid, state.stride);
+}
+
 export function stepPets(grid: Grid, pets: PetsState, target: { x: number; y: number } | null): void {
   pets.stride++;
   for (const poodle of pets.poodles) stepPoodle(grid, poodle, target, pets.stride);
+  stepMermaids(grid, pets);
 }

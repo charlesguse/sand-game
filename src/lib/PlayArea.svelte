@@ -39,10 +39,12 @@
   import {
     createPetsState,
     addPoodle,
+    addMermaid,
     stepPets,
     clearPets,
     repositionPoodles,
     pokePoodleAt,
+    pokeMermaidAt,
     type PoodleState,
   } from '../sim/pets';
   import {
@@ -549,6 +551,18 @@
     }
     ctx.globalAlpha = 1;
 
+    for (const mermaid of petsState.mermaids) {
+      if (mermaid.state === 'eating' || mermaid.state === 'tricking') {
+        spawnBurst(particles, mermaid.x, mermaid.y, lastFrameNow, 4);
+      }
+
+      ctx.save();
+      ctx.translate(mermaid.x, mermaid.y);
+      if (mermaid.facing === -1) ctx.scale(-1, 1);
+      ctx.fillText('🧜', 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -736,6 +750,10 @@
         playTrill();
         return;
       }
+      if (pokeMermaidAt(petsState, pos.x, pos.y)) {
+        playTrill();
+        return;
+      }
       const poked = objectAtPoint(pos);
       if (poked !== null) {
         const now = performance.now();
@@ -754,6 +772,11 @@
     }
     if (tool === 'poodle') {
       addPoodle(petsState, pos.x, pos.y);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (tool === 'mermaid') {
+      addMermaid(grid, petsState, pos.x, pos.y);
       canvas.setPointerCapture(event.pointerId);
       return;
     }
