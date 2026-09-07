@@ -2,7 +2,7 @@
   "issue": 46,
   "spec_dir": "specs/017-butterflies-and-birds",
   "feature_num": "017",
-  "stage": "spec",
+  "stage": "plan",
   "iteration": 0,
-  "spec_branch": null
+  "spec_branch": "spec/017-butterflies-and-birds"
 }
