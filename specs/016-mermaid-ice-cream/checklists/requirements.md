@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,15 +31,16 @@
 
 ## Notes
 
-- Two [NEEDS CLARIFICATION] markers remain, both deliberate and both posted back
-  to lifecycle issue #44 for the maintainer to answer:
-  - **FR-011** — whether the mermaid reacts to the child's touch (swims toward a
-    tap in her water, and/or does a trick when poked) the way the poodle does, or
-    ignores touch and only drifts and chases ice cream.
-  - **FR-015** — how ice cream behaves in the world and in water (falls and rests
-    like a gumdrop / floats to the surface so it is always reachable / falls but
-    melts in water). This one shapes whether ice cream poured over a pool is
-    reachable at all, which is why it was not defaulted silently.
+- No [NEEDS CLARIFICATION] markers remain. Both were answered by the maintainer
+  on lifecycle issue #44 and are now folded into the spec:
+  - **FR-011** — **poke only**. A tap directly on the mermaid makes her do a
+    happy trick (reusing the existing poke feedback, so no new sound); taps
+    anywhere else never summon her, because the child's finger is also the
+    paintbrush. Covered by US1 acceptance scenarios 8–10 and FR-033.
+  - **FR-015** — **exactly like a gumdrop**. Ice cream falls and rests as a
+    solid; it never floats and never melts. Ice cream on dry land is decoration
+    until the child pours water to it, not a failure state. Covered by US2
+    acceptance scenarios 6–7 and FR-033.
 - Everything else the issue flagged as open (mermaid cap, whether she is confined
   to her spawning pool, the toolbar cost of two new controls, and whether ice
   cream is hue-coloured) is **decided** in the spec and recorded under
@@ -48,5 +49,4 @@
   because the lifecycle issue makes adding to those two exact places a hard
   requirement — a bug of this shape has shipped once already. This is a
   deliberate, minimal exception to "no implementation details".
-- Items marked incomplete require spec updates before `/speckit-clarify` or
-  `/speckit-plan`.
+- Every item is now checked; no open questions block `/speckit-plan`.

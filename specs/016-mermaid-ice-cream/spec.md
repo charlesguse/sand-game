@@ -71,7 +71,9 @@ hopping out onto the sand, never sinking through the bottom, never freezing in
 place. She can place a second and a third. If she taps the mermaid button and
 taps somewhere with no water, nothing breaks: the mermaid either finds the water
 just next to where she tapped, or waits calmly on the ground until the child
-pours water on her, and then starts swimming.
+pours water on her, and then starts swimming. Tapping the mermaid herself makes
+her do a happy little trick; tapping anywhere else just paints, so pouring water
+never yanks her across the pool.
 
 **Why this priority**: This is the thing she asked for. A mermaid that swims in
 a pool is a complete, delightful toy on its own even before ice cream exists,
@@ -81,8 +83,9 @@ and everything else in this spec depends on her existing and behaving well.
 for a few hundred frames in a plain unit test, and assert she is always in a
 water cell, always inside the pool she started in, and that her position changes
 over time. Repeat with no water at all, with a pool one cell wide, and with the
-pool drained mid-run. Whether the drifting *feels* lovely is a maintainer eyeball
-check on a real device.
+pool drained mid-run. Poke her cell and assert she enters her trick state; poke a
+water cell away from her and assert her heading is unchanged. Whether the
+drifting *feels* lovely is a maintainer eyeball check on a real device.
 
 **Acceptance Scenarios**:
 
@@ -109,6 +112,16 @@ check on a real device.
 7. **Given** a mermaid swimming in a pool, **When** the water drains away
    entirely, **Then** she comes to rest on whatever is below her and resumes
    swimming when water returns.
+8. **Given** a mermaid drifting in a pool, **When** the child taps directly on
+   her with any tool but the eraser, **Then** she does a brief happy trick, the
+   toy gives the poke feedback it already gives for a poked poodle, and that tap
+   paints and places nothing.
+9. **Given** a mermaid drifting in a pool, **When** the child taps or drags
+   anywhere else — including elsewhere in her own water, and including pouring
+   more water — **Then** she is not summoned: she keeps drifting or keeps
+   pursuing whatever she was pursuing, and the tap paints as normal.
+10. **Given** a mermaid who is eating or mid-trick, **When** the child pokes her,
+    **Then** the poke is ignored and she finishes what she was doing.
 
 ---
 
@@ -124,8 +137,9 @@ pouring colourful ice cream is fun by itself.
 
 **Independent Test**: Paint ice cream onto a grid at each brush size in a unit
 test and assert the expected cells hold ice cream, that their flavour colours
-survive a round trip through save/restore and undo/redo, and that no other
-element's behaviour changed.
+survive a round trip through save/restore and undo/redo, that a poured cell falls
+and comes to rest cell-for-cell the way a gumdrop poured in the same place does,
+and that no other element's behaviour changed.
 
 **Acceptance Scenarios**:
 
@@ -144,6 +158,14 @@ element's behaviour changed.
 5. **Given** ice cream on the canvas, **When** the child pours sand, water, dirt,
    grass, star power, gumdrops, or uses the wand, **Then** all of those elements
    behave exactly as they do today.
+6. **Given** ice cream poured above a pool, **When** frames pass, **Then** it
+   falls and comes to rest in the water exactly as a gumdrop would — it does not
+   float to the surface — and it stays there un-melted until a mermaid eats it or
+   the child erases it.
+7. **Given** ice cream poured on dry land far from any water, **When** many
+   frames pass, **Then** it simply rests there as decoration: it does not melt,
+   does not move, and nothing about the toy looks broken for it being
+   unreachable.
 
 ---
 
@@ -243,8 +265,14 @@ cream cells/colours before and after.
   gracefully; she settles.
 - **Ice cream poured directly onto her own cell**: she eats it rather than
   ignoring it or having it silently vanish.
-- **Ice cream that ends up out of reach forever** (on a mountain top, in a sealed
-  pocket): she gives up on it and it simply stays there as decoration.
+- **Ice cream that ends up out of reach** (on dry land, on a mountain top, in a
+  sealed pocket): she gives up on it and it simply stays there as decoration,
+  un-melted, until the child pours water to it or erases it.
+- **A poke that lands on a mermaid mid-pursuit**: she does her trick and then
+  resumes the pursuit; the poke never becomes a paint stroke or a new
+  destination.
+- **A poke with the eraser selected**: erases her, exactly as FR-024 requires —
+  the eraser is never a poke.
 - **Three mermaids and three poodles at once, on the largest grid the toy uses**:
   the sim stays smooth.
 - **Two new toolbar buttons on the smallest supported phone**: every control
@@ -291,10 +319,17 @@ cream cells/colours before and after.
 - **FR-010**: Every per-frame search a mermaid performs MUST be bounded by a
   fixed window that does not grow with canvas size, and the mermaid step MUST NOT
   allocate on the hot path.
-- **FR-011**: A mermaid MUST respond to the child's touch by
-  [NEEDS CLARIFICATION: does the mermaid react to taps the way the poodle does —
-  swimming toward a tap that lands in her water, and/or doing a happy trick when
-  poked — or does she ignore touch entirely and only drift and chase ice cream?]
+- **FR-011**: A mermaid MUST react to a **direct poke only**. A tap that lands on
+  the mermaid herself MUST make her do a brief happy trick — the same shape of
+  reaction, and the same feedback the toy already gives when a poodle or a placed
+  object is poked, so **no new sound is introduced** (FR-023) — and that tap MUST
+  NOT also paint, place, or move anything. A tap anywhere else MUST NOT summon
+  her: she MUST NOT swim toward taps, including taps that land in her own water,
+  so ordinary painting can never drag her around. Ice cream is the only way the
+  child steers her. A poke that arrives while she is already busy (eating, or
+  mid-trick) MUST be ignored rather than interrupting her, matching the poodle's
+  rule. The eraser MUST remain an exception: a tap on her with the eraser erases
+  her (FR-024) instead of poking her.
 
 #### Ice cream
 
@@ -311,15 +346,15 @@ cream cells/colours before and after.
   the history tests. This is stated explicitly because the alternative —
   a single fixed colour, for which neither addition would be needed — was
   considered and rejected in favour of flavour variety (see Assumptions).
-- **FR-015**: Ice cream's behaviour in the world (whether it falls, rests, sinks,
-  floats, or dissolves, and what it does on contact with water) MUST be:
-  [NEEDS CLARIFICATION: gumdrops fall and rest as solids, which means ice cream
-  poured over a pool would sink to the bottom and ice cream poured on land would
-  be permanently unreachable to a mermaid. Should ice cream (a) behave exactly
-  like a gumdrop — fall and rest as a solid, reachable only where it lands in or
-  beside water; (b) float, rising to the top of any water it enters so it is
-  always reachable by a swimming mermaid; or (c) fall like a gumdrop but slowly
-  melt away in water if no mermaid eats it?]
+- **FR-015**: Ice cream MUST behave in the world **exactly like a gumdrop**: it
+  falls and rests as a solid wherever it lands, reusing the existing gumdrop rule
+  rather than introducing new physics. Ice cream that lands in water settles in
+  that water, where a swimming mermaid can reach it. Ice cream that lands on dry
+  land rests there as decoration until the child pours water to it — that is not
+  a failure state and MUST NOT be treated as one. Ice cream MUST NOT float or
+  rise to the surface, and MUST NOT melt, dissolve, or disappear on its own:
+  nothing the child made vanishes without her doing it. No new movement rule and
+  no per-cell timer is added.
 - **FR-016**: Ice cream MUST NOT change the behaviour of any existing element.
   Sand, water, dirt, rainbow sand, grass, star power, fog, gumdrops, and flowers
   MUST behave exactly as they do today, and poodles MUST continue to chase
@@ -386,8 +421,9 @@ cream cells/colours before and after.
 - **FR-033**: The feature MUST ship plain unit tests, with no DOM or browser
   harness, covering at minimum: the swim-and-eat rule, the give-up/cooldown rule,
   the confined-to-connected-water rule, the no-water and buried graceful-rest
-  rules, the save/restore round trip, the undo/redo round trip (colour included),
-  and the re-derivation remap.
+  rules, the poke-does-a-trick / tap-elsewhere-does-not-summon rule, the
+  ice-cream-falls-and-rests-like-a-gumdrop rule, the save/restore round trip, the
+  undo/redo round trip (colour included), and the re-derivation remap.
 - **FR-034**: The whole existing test suite MUST continue to pass; no existing
   sand, water, poodle, or gumdrop test may be weakened to accommodate this
   feature.
@@ -395,14 +431,15 @@ cream cells/colours before and after.
 ### Key Entities
 
 - **Mermaid**: a pet, not a grid element. Has a position, a facing, a current
-  activity (drifting, swimming toward something, eating, resting out of water),
-  the target she is pursuing, and the bookkeeping needed to give up on a target
-  and to cool down afterward. Capped at 3. Saved as a position; restored into a
-  fresh pet with default activity.
+  activity (drifting, swimming toward something, eating, doing a trick after a
+  poke, resting out of water), the target she is pursuing, and the bookkeeping
+  needed to give up on a target and to cool down afterward. Capped at 3. Saved as
+  a position; restored into a fresh pet with default activity.
 - **Ice cream**: a grid element with ID 11 and a flavour colour, poured with the
-  brush. Consumed (cell emptied) when a mermaid eats it. Participates in
-  save/restore, undo/redo, erase, clear-all, and grid remapping exactly like the
-  other paintable elements.
+  brush. Falls and rests as a solid like a gumdrop; never floats and never melts.
+  Consumed (cell emptied) when a mermaid eats it. Participates in save/restore,
+  undo/redo, erase, clear-all, and grid remapping exactly like the other
+  paintable elements.
 - **Pool / connected water**: not a stored object — the run of water cells a
   mermaid can currently swim through. It changes shape constantly as the child
   pours and erases, and defines the boundary of where she may go.
@@ -455,10 +492,18 @@ cream cells/colours before and after.
   they are mandatory, not optional.
 - **Placement snapping**: tapping near water places her in the water. The search
   is a bounded window around the tap so placement cost is constant.
-- **No new sounds**: per the issue.
-- **No melting by default**: unless the answer to FR-015 says otherwise, ice
-  cream persists until eaten or erased, like gumdrops — nothing she made
-  disappears on its own.
+- **No new sounds**: per the issue. The poke trick in FR-011 reuses the feedback
+  the toy already gives for a poked pet, so it adds no sound of its own.
+- **Ice cream falls like a gumdrop** *(resolved on #44)*: of the three options
+  put to the maintainer — gumdrop physics, floating, or melting — gumdrop physics
+  was chosen. It reuses a proven, tested rule verbatim instead of inventing the
+  sim's first floating element for one item, and melting was declined because
+  something the child made disappearing on its own cuts against the toy's no-loss
+  feel. Ice cream resting on dry land is decoration, not a failure state.
+- **Poke, not summon** *(resolved on #44)*: of full poodle parity, poke-only, and
+  no touch response, poke-only was chosen. The child's finger is also the
+  paintbrush, so a follow-the-tap rule would have her yanked around by ordinary
+  water-pouring; poke-only keeps her pettable without fighting the brush.
 - **Eraser reach for a mermaid** matches whatever radius the eraser already uses
   for a poodle rather than introducing a second rule.
 - **Save format**: the saved world gains a mermaid list alongside the existing
