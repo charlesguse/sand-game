@@ -213,7 +213,9 @@ material or covered by an object footprint, and never more than the cap.
   like any other material and objects remap like existing objects; nothing is
   lost that the existing remap would have kept.
 - **The toolbar at its smallest guaranteed screen**: three new controls do not fit
-  (FR-031); resolving that is a maintainer decision, not an implementation trick.
+  at 320×568 (FR-031), so that row leaves the guaranteed table with its reasoning
+  recorded (FR-031a). The new smallest guarantee is 375×667, where the new count
+  still fits; nothing else about the check moves (FR-031b).
 
 ## Requirements *(mandatory)*
 
@@ -301,13 +303,12 @@ material or covered by an object footprint, and never more than the cap.
 
 - **FR-019**: Stars MUST ship as **ambient decoration**, not as a toolbar control
   and not as a placeable object. **Named tradeoff**: a star control would be a
-  fourth new control on a toolbar that already cannot fit the three this feature
-  adds at the smallest guaranteed viewport (FR-031); ambient stars cost zero
-  toolbar budget and follow the flowers precedent the constitution sets.
-  [NEEDS CLARIFICATION: confirm ambient stars, or ship a placeable star object
-  with its own toolbar control instead? A control makes stars something she
-  chooses and something that saves/undoes with her picture, at the cost of a
-  fourth control on a toolbar that is already over budget at 320×568.]
+  fourth new control on a toolbar already squeezed by the three this feature adds
+  (FR-031); ambient stars cost zero toolbar budget and follow the flowers
+  precedent the constitution sets. The cost of that choice is that stars are
+  never something she chooses and never part of what saves or undoes with her
+  picture (FR-021). Confirmed by the maintainer on lifecycle issue #47:
+  ambient sky twinkle, no toolbar control.
 - **FR-020**: A star twinkle MUST appear only in **empty sky** — a canvas cell
   holding no material and covered by no object footprint — in the upper region of
   the canvas. It MUST NOT cover, replace, dim, or displace anything she has drawn.
@@ -318,8 +319,7 @@ material or covered by an object footprint, and never more than the cap.
   `STAR_POWER` material and its element ID — those belong to the star-power and
   weather features (specs 008–009), and reusing either would conflate two
   unrelated things. As ambient decoration under FR-019, stars need **no** new
-  element ID at all, so reserved ID 13 stays unused; it is claimed only if the
-  clarification in FR-019 turns stars into a placed thing.
+  element ID at all, so reserved ID 13 stays unclaimed by this feature.
 - **FR-023**: The number of live twinkles MUST be capped and the effect MUST NOT
   allocate per frame, so the sky costs a fixed, small amount of the frame budget
   (Constitution Principle IV).
@@ -365,15 +365,25 @@ material or covered by an object footprint, and never more than the cap.
   five rows, and the drawing region then falls below the 65% portrait area floor.
   (At 320×568 the count today is feasible at 23 and already recorded as infeasible
   at 25; 26 and 28 both land in the infeasible band. Every other row of the table
-  still fits.) Per spec 012 FR-012 this MUST surface as a build-time failure of
-  the existing automated check with the shortfall named — never as a quietly
-  widened band, a control below 44 pixels, or a hidden control — and per FR-012c
-  its resolution is an explicit maintainer decision.
-  [NEEDS CLARIFICATION: how should the 320×568 shortfall be resolved? Options:
-  (a) drop 320×568 from the guaranteed table with the reasoning recorded — spec
-  012 FR-012c explicitly sanctions this and notes no device either maintainer
-  ships to is smaller than the 375×667 iPhone SE 3; (b) merge or drop an existing
-  control to pay for the new ones; (c) ship fewer than three new placeables.]
+  still fits.)
+- **FR-031a**: The 320×568 shortfall MUST be resolved by **dropping the 320×568
+  row from the guaranteed viewport table**, which spec 012 FR-012c names as an
+  acceptable maintainer resolution. The reasoning MUST be recorded alongside the
+  table where a future reader will find it: no device either maintainer ships to
+  is smaller than the 375×667 iPhone SE 3 — upstream verifies on an Amazon Fire 7
+  tablet and desktop Chrome, the fork verifies on an iPad — so 320×568 was a
+  guarantee offered for no real device, and 375×667 still fits the new count with
+  headroom. Merging or dropping an existing control would take away something she
+  already uses, and widening the band or relaxing a floor would reopen the exact
+  squeeze spec 012 was filed to fix; neither is taken.
+- **FR-031b**: Dropping the row MUST be the *only* concession. Every remaining
+  row of the guaranteed viewport table MUST still pass at the real shipped count
+  (26, and 28 with fullscreen and photo sharing) with every control at or above
+  44 pixels and the drawing-region floors intact. The check MUST NOT be made to
+  pass by quietly widening the band, shrinking a control below 44 pixels, or
+  hiding a control (spec 012 FR-012c); if a remaining row ever fails, that MUST
+  surface as a build-time failure naming the shortfall (spec 012 FR-012b) and is
+  again a maintainer decision, not an implementation trick.
 - **FR-032**: The new controls MUST be declared in the same single source of truth
   the toolbar renders from and the automated check reads, so the check stresses
   the real, shipped count with no hand-maintained constant (spec 012 FR-013).
@@ -450,9 +460,10 @@ material or covered by an object footprint, and never more than the cap.
 - **SC-011**: Every existing object and element behaviour covered by today's test
   suite still passes unchanged.
 - **SC-012**: The toolbar's automated check runs against the real shipped control
-  count and either passes at every guaranteed viewport or fails naming the
-  viewport, arrangement, thickness required and thickness available — never
-  passes by hiding, shrinking below 44 pixels, or widening the band.
+  count and passes at every viewport in the guaranteed table — which after
+  FR-031a starts at 375×667 rather than 320×568 — or else fails naming the
+  viewport, arrangement, thickness required and thickness available; it never
+  passes by hiding a control, shrinking below 44 pixels, or widening the band.
 
 ## Assumptions
 
@@ -471,9 +482,12 @@ material or covered by an object footprint, and never more than the cap.
 - **Diamonds are a fixed colour, not hue-varied** (FR-016) — rainbow sand already
   owns the many-colours look, and a fixed colour keeps the known hue-persistence
   trap entirely out of this change.
-- **Stars are ambient and stateless**, so they need no element ID, no save format
-  change, and no toolbar slot; reserved ID 13 is left unclaimed unless the FR-019
-  clarification says otherwise.
+- **Stars are ambient and stateless** (confirmed on issue #47), so they need no
+  element ID, no save format change, and no toolbar slot; reserved ID 13 is left
+  unclaimed by this feature.
+- **The 320×568 guaranteed viewport is retired by this feature** (confirmed on
+  issue #47) rather than paid for by merging, dropping, or shrinking a control.
+  The guaranteed table's smallest row becomes 375×667.
 - **The "sky" for stars is the upper region of the canvas**, defined by empty
   cells rather than by any weather or time-of-day state, so the effect does not
   couple to the star-power/weather feature.

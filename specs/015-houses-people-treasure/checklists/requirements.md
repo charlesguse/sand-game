@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,13 +31,19 @@
 
 ## Notes
 
-- **Two [NEEDS CLARIFICATION] markers remain** (FR-019 stars: ambient vs. a
-  toolbar control; FR-031: how to resolve the 320×568 toolbar shortfall). Both
-  are genuine maintainer decisions with materially different scope, and both are
-  posted to lifecycle issue #47 rather than blocking the draft. The spec states a
-  working default for each (ambient stars; the shortfall surfaced as the existing
-  build-time failure), so it is complete and implementable under those defaults
-  if the answers simply confirm them.
+- **Both clarifications are resolved** on lifecycle issue #47; no
+  [NEEDS CLARIFICATION] markers remain.
+  1. **Stars (FR-019)** — ambient sky twinkle confirmed, no toolbar control. The
+     spec's working default stood, so FR-019/FR-021/FR-022 needed no scope
+     change; reserved element ID 13 stays unclaimed.
+  2. **Toolbar shortfall (FR-031)** — resolved by dropping the 320×568 row from
+     spec 012's guaranteed viewport table, the escape valve spec 012 FR-012c
+     explicitly sanctions, with the reasoning recorded (no device either
+     maintainer ships to is smaller than the 375×667 iPhone SE 3). Captured as
+     new **FR-031a** (drop the row, record why) and **FR-031b** (that is the only
+     concession — every remaining row still passes at the real shipped count, no
+     widened band, no sub-44px control, no hidden control). SC-012 and the
+     smallest-screen edge case were updated to match.
 
 - **Deliberate identifier references.** The spec names a small number of concrete
   identifiers — grid-element ID 12 for diamonds, ID 11 left to the concurrent
@@ -58,9 +64,10 @@
      requires missing kind lists to read as empty instead.
   2. **FR-031 (toolbar budget)** — the three new controls take the shipped count
      from 23 to 26 (28 with fullscreen and photo), which by spec 012's own sizing
-     rule is infeasible at the 320×568 row of the guaranteed viewport table. This
-     is a hard build-time gate by design, so the feature cannot merge without a
-     maintainer decision on it.
+     rule is infeasible at the 320×568 row of the guaranteed viewport table. The
+     maintainer decision this required has now been made (FR-031a: retire that
+     row), but planning should note that the feature also **narrows a shipped
+     guarantee** — a reviewer should agree to that, not just to the new objects.
 
 - **FR-035 records a required constitution amendment** (diamonds and the three
   objects join the Product Constraints lists; the "no custom artwork assets"
