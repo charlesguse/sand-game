@@ -2,7 +2,8 @@
   "issue": 46,
   "spec_dir": "specs/017-butterflies-and-birds",
   "feature_num": "017",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 1,
-  "spec_branch": "spec/017-butterflies-and-birds"
+  "spec_branch": "spec/017-butterflies-and-birds",
+  "pending_re_review_from": []
 }
