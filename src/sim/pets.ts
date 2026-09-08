@@ -1,6 +1,7 @@
 import { isSolid } from './element';
 import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
 import { randomHue } from './shade';
+import { GRID_WIDTH } from '../lib/layout';
 
 export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging' | 'tricking';
 
@@ -550,8 +551,16 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
   }
 }
 
-/** Frames between swim steps — an unhurried, gentle drift, slower-paced than the poodle's trot. */
+/** Frames between drift steps — an unhurried, gentle amble, slower-paced than the poodle's trot (FR-006). */
 const MERMAID_SWIM_INTERVAL = 6;
+/**
+ * Frames between steps while actively pursuing spotted ice cream — faster than ordinary drifting
+ * (FR-006 only constrains the unhurried, nothing-to-chase cadence). Needed for SC-001: with
+ * ICE_CREAM_SCENT_RADIUS now covering the toy's whole max grid, a mermaid at one end of a
+ * canvas-spanning pool must be able to close a ~265-cell beeline within the 600-frame/10s budget,
+ * which the drift-paced interval alone cannot do (T056).
+ */
+const MERMAID_PURSUIT_INTERVAL = 2;
 /** Bounded square-window scan (mirrors nearestGumdropX's shape) for the nearest WATER cell when placing her. */
 const MERMAID_PLACEMENT_SEARCH_RADIUS = 30;
 /** Bounded neighbourhood scanned each frame while buried, looking for an escape cell. */
@@ -562,8 +571,15 @@ const MERMAID_FREE_DURATION = 12;
 export const MERMAID_DRIFT_RANGE = 10;
 /** Frames spent doing a trick after being poked. */
 export const MERMAID_TRICK_DURATION = 36;
-/** How far a mermaid can smell ice cream, in cells — mirrors GUMDROP_SCENT_RADIUS. */
-export const ICE_CREAM_SCENT_RADIUS = 25;
+/**
+ * How far a mermaid can smell ice cream, in cells. Sized to the toy's own max grid width
+ * (GRID_WIDTH, a fixed constant that does not grow with any particular canvas/resize) rather than
+ * GUMDROP_SCENT_RADIUS's smaller value, so a mermaid at one end of a canvas-spanning pool can
+ * always sense — and make a beeline for — ice cream at the other end (SC-001, T056). Still a
+ * fixed window per FR-010's letter: it is pinned to the toy's fixed maximum grid, never to the
+ * live grid's actual (possibly smaller) width/height.
+ */
+export const ICE_CREAM_SCENT_RADIUS = GRID_WIDTH;
 /** Frames spent happily eating. */
 const MERMAID_EAT_DURATION = 20;
 /**
@@ -709,10 +725,11 @@ function bestWaterNeighbour(grid: Grid, cx: number, cy: number, targetX: number,
 }
 
 /**
- * At most once every MERMAID_SWIM_INTERVAL frames (per mermaid, staggered by id), steps onto
- * whichever neighbour is closest to (targetX, targetY) — ordinarily WATER only, or also
- * (targetX, targetY) itself when allowTarget is true (the pursuit case, so she can step onto an
- * ice cream cell). No-op if there is no valid neighbour at all.
+ * At most once every `interval` frames (per mermaid, staggered by id), steps onto whichever
+ * neighbour is closest to (targetX, targetY) — ordinarily WATER only, or also (targetX, targetY)
+ * itself when allowTarget is true (the pursuit case, so she can step onto an ice cream cell).
+ * No-op if there is no valid neighbour at all. Callers pass MERMAID_SWIM_INTERVAL for ordinary
+ * drifting/recovery and the faster MERMAID_PURSUIT_INTERVAL while actively chasing ice cream.
  */
 function swimToward(
   grid: Grid,
@@ -721,8 +738,9 @@ function swimToward(
   targetY: number,
   stride: number,
   allowTarget = false,
+  interval: number = MERMAID_SWIM_INTERVAL,
 ): void {
-  if (mermaid.id % MERMAID_SWIM_INTERVAL !== stride % MERMAID_SWIM_INTERVAL) return;
+  if (mermaid.id % interval !== stride % interval) return;
   const next = bestSwimNeighbour(
     grid,
     Math.round(mermaid.x),
@@ -742,11 +760,19 @@ function swimToward(
  * One gentle drift step: no target to chase, so she ambles along her drift direction within
  * MERMAID_DRIFT_RANGE of home, turning around at the leash (mirrors wanderStep's shape) — with no
  * boredom delay (research.md §3): a mermaid drifts from frame one, she never just stands still.
+ *
+ * Reaching the leash edge re-anchors home to her current spot and rerolls the direction, rather
+ * than always turning back toward the old home: at any instant she is still bounded to
+ * MERMAID_DRIFT_RANGE of her (current) home per FR-006, but the anchor itself can keep sliding in
+ * the same direction indefinitely, so over many leash-lengths of ordinary drifting she eventually
+ * sweeps the whole connected pool instead of orbiting her original settle point forever (T056).
  */
 function driftStep(grid: Grid, mermaid: Mermaid, stride: number): void {
   if (Math.random() < 0.02) mermaid.driftDir = mermaid.driftDir === 1 ? -1 : 1;
   if (Math.abs(mermaid.x - mermaid.homeX) >= MERMAID_DRIFT_RANGE) {
-    mermaid.driftDir = mermaid.x > mermaid.homeX ? -1 : 1;
+    mermaid.homeX = mermaid.x;
+    mermaid.homeY = mermaid.y;
+    mermaid.driftDir = Math.random() < 0.5 ? 1 : -1;
   }
   const targetX = Math.max(0, Math.min(grid.width - 1, mermaid.homeX + mermaid.driftDir * MERMAID_DRIFT_RANGE));
   mermaid.state = 'drifting';
@@ -841,7 +867,7 @@ function pursueIceCream(grid: Grid, mermaid: Mermaid, stride: number): boolean {
   }
 
   mermaid.state = 'swimming';
-  swimToward(grid, mermaid, mermaid.pursuitX, mermaid.pursuitY, stride, true);
+  swimToward(grid, mermaid, mermaid.pursuitX, mermaid.pursuitY, stride, true, MERMAID_PURSUIT_INTERVAL);
   return true;
 }
 

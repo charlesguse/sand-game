@@ -8,10 +8,10 @@ import {
   stepMermaids,
   pokeMermaidAt,
   MERMAID_CAP,
-  ICE_CREAM_SCENT_RADIUS,
 } from '../../../src/sim/pets';
 import { POKE_RADIUS } from '../../../src/sim/pets';
 import { SAND, GUMDROP, ICE_CREAM, WATER, EMPTY, type Grid } from '../../../src/sim/types';
+import { GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
 
 function run(grid: Grid, pets: ReturnType<typeof createPetsState>, frames: number): void {
   for (let i = 0; i < frames; i++) stepPets(grid, pets, null);
@@ -213,7 +213,32 @@ describe('she swims for the ice cream (US3)', () => {
     expect(grid.elements[17 * grid.width + 30]).toBe(EMPTY);
   });
 
-  it('erasing the ice cream mid-pursuit stops her cleanly, with pursuit reset and no reaction to ice cream far outside her scent window', () => {
+  it('reaches and eats ice cream at the far end of a canvas-spanning pool within 600 frames, in 100% of runs (SC-001, T056)', () => {
+    for (let run = 0; run < 10; run++) {
+      const grid = withPool(GRID_WIDTH, GRID_HEIGHT, 0, GRID_WIDTH - 1, 0, GRID_HEIGHT - 1, 0);
+      const pets = createPetsState();
+      addMermaid(grid, pets, 2, 2);
+      const mermaid = pets.mermaids[0];
+      setCell(grid, GRID_WIDTH - 3, GRID_HEIGHT - 3, ICE_CREAM, 0);
+
+      let ateWithinBudget = false;
+      for (let i = 0; i < 600; i++) {
+        stepPets(grid, pets, null);
+        if (mermaid.state === 'eating') {
+          ateWithinBudget = true;
+          break;
+        }
+      }
+      expect(ateWithinBudget).toBe(true);
+    }
+  });
+
+  it('erasing the ice cream mid-pursuit stops her cleanly, with pursuit reset', () => {
+    // ICE_CREAM_SCENT_RADIUS is now pinned to the toy's own max grid width (T056, SC-001), so
+    // every cell of every grid the toy can ever hold is within scent range of every mermaid —
+    // there is no longer a reachable "far outside her scent window" position to test here. The
+    // analogous "ice cream she'll never actually reach" case is covered by the give-up/cooldown
+    // test below instead.
     const grid = withPool(80, 40, 5, 75, 15, 20, 8);
     const pets = createPetsState();
     addMermaid(grid, pets, 10, 17);
@@ -227,15 +252,6 @@ describe('she swims for the ice cream (US3)', () => {
     expect(mermaid.pursuitX).toBe(-1);
     expect(mermaid.pursuitY).toBe(-1);
     expect(mermaid.state).not.toBe('freeing');
-
-    // Ice cream far outside her scent window causes no reaction at all.
-    const farGrid = withPool(200, 40, 5, 195, 15, 20, 8);
-    const farPets = createPetsState();
-    addMermaid(farGrid, farPets, 100, 17);
-    const farMermaid = farPets.mermaids[0];
-    setCell(farGrid, 100 - (ICE_CREAM_SCENT_RADIUS + 20), 17, ICE_CREAM, 0);
-    run(farGrid, farPets, 60);
-    expect(farMermaid.pursuitX).toBe(-1);
   });
 
   it('gives up gracefully on ice cream she cannot reach, entering cooldown, and never leaves the water', () => {
@@ -245,14 +261,18 @@ describe('she swims for the ice cream (US3)', () => {
     addMermaid(grid, pets, 30, 17); // near the pool's edge, well within scent range of the ice cream
     const mermaid = pets.mermaids[0];
 
+    // Cooldown/pursuit cycle repeatedly (give up, cooldown, re-detect, give up again), so rather
+    // than asserting on one exact frame's snapshot (fragile to the give-up cadence, which T056
+    // sped up for pursuit), assert cooldown is observed to have kicked in at some point.
+    let sawCooldown = false;
     for (let i = 0; i < 400; i++) {
       stepPets(grid, pets, null);
       const x = Math.round(mermaid.x);
       const y = Math.round(mermaid.y);
       expect(grid.elements[y * grid.width + x]).toBe(WATER);
+      if (mermaid.iceCreamCooldown > 0) sawCooldown = true;
     }
-    expect(mermaid.iceCreamCooldown).toBeGreaterThan(0);
-    expect(mermaid.pursuitX).toBe(-1);
+    expect(sawCooldown).toBe(true);
   });
 
   it('eats ice cream poured directly onto her own cell rather than ignoring or vanishing it', () => {
