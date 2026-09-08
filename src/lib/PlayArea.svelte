@@ -488,6 +488,11 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    // drawStarField (end of this function) leaves fillStyle as a translucent white twinkle
+    // color; color-emoji glyphs ignore a fillStyle's hue but still honor its alpha, so without
+    // resetting to opaque here every glyph drawn below would inherit that fade in and out with
+    // the twinkle instead of rendering at full strength.
+    ctx.fillStyle = '#000';
     for (const kind of OBJECT_KINDS) {
       for (const obj of objectsState.byKind[kind]) drawObjectGlyph(obj);
     }
