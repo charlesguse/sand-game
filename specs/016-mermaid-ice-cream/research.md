@@ -100,17 +100,26 @@ structurally identical to "gumdrop search but for water."
 
 **Decision**: The plan's "Toolbar cost" section reports the *actual* current
 `shippedToolbarControls(...).length` values read from
-`src/lib/toolbarControls.ts` (23/25) rather than the spec's FR-030 text
+`src/lib/toolbarControls.ts` (26/28) rather than the spec's FR-030 text
 ("from 24 to 26").
 
 **Rationale**: `tests/unit/lib/layout.test.ts` computes `BASE_CONTROLS`/
 `FULL_CONTROLS` directly from `shippedToolbarControls(...).length` — "never a
 hand-maintained literal" per spec 013's SC-009 — so that dynamically-derived
 number, not the issue author's recollection, is what the merge gate actually
-enforces. The discrepancy (23/25 today vs. the issue's "24") doesn't change
-what has to ship: two new unconditional controls, taking the pair to 25/27.
+enforces. The discrepancy (26/28 today vs. the issue's "24") doesn't change
+what has to ship: two new unconditional controls, taking the pair to 28/30.
 Flagged in the issue comment as a decision made without being able to ask,
 since it's a factual correction to the spec's own stated numbers.
+
+**Correction (Phase 9 convergence)**: The 26/28 baseline above was itself
+computed before "Houses, People, And Treasure" (`tool-house`, `tool-person`,
+`tool-chest`, three `objects` controls) landed at this branch's fork point.
+Directly invoking `shippedToolbarControls(false, false).length` /
+`shippedToolbarControls(true, true).length` against the current
+`src/lib/toolbarControls.ts` (with this feature's two controls included)
+returns 28/30, not 25/27 — so the true pre-feature baseline was 26/28, and
+this feature's two additions land it at the current, correct 28/30.
 
 ## 7. No shared `Pet`/`Pursuer` abstraction between Poodle and Mermaid
 

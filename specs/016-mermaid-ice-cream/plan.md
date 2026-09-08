@@ -101,21 +101,22 @@ No violations requiring justification. Complexity Tracking table is empty.
 `src/lib/toolbarControls.ts`'s `TOOLBAR_CONTROLS` list is the single source
 of truth `tests/unit/lib/layout.test.ts` already reads via
 `shippedToolbarControls(...).length` rather than a hand-maintained literal
-(SC-009 in spec 013). Counting it directly today: 6 `elements` + 5 `objects`
-+ 4 `actions` + 2 `history` + 1 conditional `screen` + 1 conditional `photo`
-+ 3 `scenes` + 3 `sizes` = **25** with both conditionals shown (`FULL_CONTROLS`
-in that test file), **23** with neither (`BASE_CONTROLS`). The spec's own
-FR-030 text ("from 24 to 26") is the issue author's approximate recollection,
-not the codebase's actual current count — see research.md's "Toolbar count
-baseline" decision. Adding one unconditional `elements` control
-(`tool-icecream`) and one unconditional `objects` control (`tool-mermaid`)
-takes those two numbers to **27** and **25** respectively. Because the layout
-system sizes itself from `shippedToolbarControls(...).length` at runtime
-(never a literal), this is a pure count bump with no new sizing mechanism —
-exactly what FR-030 asks for — and `layout.test.ts`'s representative-viewport
-sweep (`CONTROL_COUNTS = [BASE_CONTROLS, FULL_CONTROLS]`) automatically
-re-runs against the new numbers with no test-file edit required beyond
-whatever `KNOWN_INFEASIBLE` entries (if any) the tasks stage discovers at 25/27.
+(SC-009 in spec 013). Counting it directly against this branch's fork point
+(which already includes "Houses, People, And Treasure"'s `tool-house`,
+`tool-person`, and `tool-chest`): 6 `elements` + 8 `objects` + 4 `actions`
++ 2 `history` + 1 conditional `screen` + 1 conditional `photo` + 3 `scenes`
++ 3 `sizes` = **28** with both conditionals shown (`FULL_CONTROLS` in that
+test file), **26** with neither (`BASE_CONTROLS`). The spec's own FR-030 text
+("from 24 to 26") is the issue author's approximate recollection, not the
+codebase's actual current count — see research.md's "Toolbar count baseline"
+decision. Adding one unconditional `elements` control (`tool-icecream`) and
+one unconditional `objects` control (`tool-mermaid`) takes those two numbers
+to **30** and **28** respectively. Because the layout system sizes itself
+from `shippedToolbarControls(...).length` at runtime (never a literal), this
+is a pure count bump with no new sizing mechanism — exactly what FR-030 asks
+for — and `layout.test.ts`'s representative-viewport sweep
+(`CONTROL_COUNTS = [BASE_CONTROLS, FULL_CONTROLS]`) automatically re-runs
+against the new numbers with no test-file edit required.
 
 ## Project Structure
 
@@ -172,7 +173,7 @@ tests/unit/
 │   ├── save.test.ts              # mermaid + ice-cream round-trip; pre-feature save compatibility
 │   ├── historySave.test.ts       # same, for the persisted-history payload
 │   └── resize.test.ts             # mermaid remap (clamp, never dropped)
-└── lib/layout.test.ts            # unchanged file, but now exercises 25/27-control counts
+└── lib/layout.test.ts            # unchanged file, but now exercises 28/30-control counts
 ```
 
 **Structure Decision**: Single project, no new top-level directories. Every
