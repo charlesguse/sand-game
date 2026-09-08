@@ -46,6 +46,14 @@
     type PoodleState,
   } from '../sim/pets';
   import {
+    createButterfliesState,
+    stepButterflies,
+    eraseButterfliesInBrush,
+    eraseButterfliesInBrushLine,
+    clearButterflies,
+  } from '../sim/butterflies';
+  import { createBirdsState, stepBirds, eraseBirdsInBrush, eraseBirdsInBrushLine, clearBirds } from '../sim/birds';
+  import {
     type Particle,
     PARTICLE_LIFETIME_MS,
     spawnBurst,
@@ -87,6 +95,8 @@
 
   const objectsState = createObjectsState();
   const petsState = createPetsState();
+  const butterfliesState = createButterfliesState();
+  const birdsState = createBirdsState();
   let poodleTarget: { x: number; y: number } | null = null;
   const history = new HistoryManager();
   const particles: Particle[] = [];
@@ -299,6 +309,8 @@
       objectsState.byKind[kind] = repositionObjects(objectsState.byKind[kind], newGrid, offsetX, offsetY);
     }
     repositionPoodles(petsState.poodles, newGrid, offsetX, offsetY);
+    clearButterflies(butterfliesState);
+    clearBirds(birdsState);
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -482,6 +494,23 @@
       ctx.restore();
     }
 
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE / 2}px sans-serif`;
+    for (const butterfly of butterfliesState.butterflies) {
+      ctx.save();
+      ctx.translate(butterfly.x, butterfly.y);
+      if (butterfly.facing === -1) ctx.scale(-1, 1);
+      ctx.fillText('🦋', 0, 0);
+      ctx.restore();
+    }
+
+    for (const bird of birdsState.byPalmId.values()) {
+      ctx.save();
+      ctx.translate(bird.x, bird.y);
+      if (bird.facing === -1) ctx.scale(-1, 1);
+      ctx.fillText('🐦', 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -537,6 +566,8 @@
     lastFrameNow = now;
     step(grid);
     stepPets(grid, petsState, poodleTarget);
+    stepButterflies(grid, butterfliesState, now);
+    stepBirds(objectsState.byKind.palm, birdsState, now);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
     applyChestConversions(grid, objectsState.byKind.chest);
     updateUnicorns(now);
@@ -580,10 +611,15 @@
     const radius = BRUSH_RADII[brushSize];
     const shade = randomShade();
     if (tool === 'eraser') {
+      const now = performance.now();
       if (from) {
         eraseObjectsInBrushLine(grid, objectsState, from, pos, radius);
+        eraseButterfliesInBrushLine(butterfliesState, from, pos, radius, now);
+        eraseBirdsInBrushLine(birdsState, from, pos, radius, now);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
+        eraseButterfliesInBrush(butterfliesState, pos.x, pos.y, radius, now);
+        eraseBirdsInBrush(birdsState, pos.x, pos.y, radius, now);
       }
     }
     if (tool === 'wand') {
@@ -730,6 +766,8 @@
     clearGridState(grid);
     clearObjects(objectsState);
     clearPets(petsState);
+    clearButterflies(butterfliesState);
+    clearBirds(birdsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     playSweep();
@@ -742,6 +780,8 @@
     history.beginAction(grid, objectsState);
     loadSceneState(sceneId, grid, objectsState);
     clearPets(petsState);
+    clearButterflies(butterfliesState);
+    clearBirds(birdsState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     scheduleSave();
