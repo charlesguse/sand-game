@@ -183,6 +183,15 @@ Single project. `src/sim/*` is the framework-free simulation core (vitest-only s
 
 ---
 
+## Phase 9: Convergence
+
+**Purpose**: Remediate a documentation/dead-code accuracy gap found by directly computing `shippedToolbarControls(...).length` against what plan.md and research.md claim, and by checking `tests/unit/lib/layout.test.ts`'s infeasibility scaffolding against `VIEWPORT_TABLE`'s real labels. No functional or test-coverage gap: the build is green and all 772 existing tests pass; this phase is purely about the plan/research/test-comment text no longer matching the codebase they describe.
+
+- [ ] T059 Correct plan.md's "Toolbar cost (FR-030), named explicitly" section and research.md §6 ("Toolbar count baseline"): both state `shippedToolbarControls(...).length` is 23/25 pre-feature and 25/27 landed, but directly invoking `shippedToolbarControls(false, false).length` / `shippedToolbarControls(true, true).length` against the current `src/lib/toolbarControls.ts` returns **28/30**, not 25/27 — the arithmetic never accounted for the "Houses, People, And Treasure" feature's 3 object controls (`tool-house`, `tool-person`, `tool-chest`), which are already present at this branch's fork point (commit 99faa7c, the merge-base with `origin/main`). Update both documents to name the real current counts so FR-030's "This cost MUST be named explicitly in the plan" is actually satisfied (contradicts: FR-030)
+- [ ] T060 Fix or remove the stale `KNOWN_INFEASIBLE` set and its explanatory comment in `tests/unit/lib/layout.test.ts`: it reads `new Set(['small phone:25', 'small phone:27'])`, but `VIEWPORT_TABLE` has no viewport labeled `'small phone'` (real labels include `'iPhone SE 3 portrait'`, `'phone portrait'`, `'large phone portrait'`, etc.) and the real `CONTROL_COUNTS` are `28`/`30`, not `25`/`27` — every string this guard checks for is unreachable, making the two `if (CONTROL_COUNTS.every(...)) continue;` guards and their 15-line comment dead code describing a state of the world that doesn't exist. The full suite already passes with 0 skips and 0 failures at the real counts (verified directly), so there is no live infeasibility to preserve — either delete the dead scaffolding or, if a real viewport is found to still need it, correct the label/counts to match (contradicts: FR-030)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
