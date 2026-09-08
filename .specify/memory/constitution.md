@@ -54,16 +54,33 @@ state what to eyeball. Do not add browser-automation test infrastructure.
 ## Product Constraints
 
 - **Elements** (keep the set small): pink sand, pink water, purple "magic
-  dirt", grass, star power, fog, gumdrops 🍬, and flowers 🌼 — plus an eraser,
-  a magic wand, and a clear-all. Flowers are the one sanctioned addition of
-  this generation: they cannot be drawn — mature watered grass grows them —
-  which is exactly why they exist without growing the toolbar. New element
-  types require a spec.
-- **Objects and pets**: rainbow 🌈, unicorn 🦄, palm 🌴, and flamingo 🦩
-  emoji objects, and up to three poodle 🐩 pets who trot to her finger, chase
-  gumdrops, shake off water, wander when bored, and do a trick when poked.
-  All render as real emoji glyphs drawn on/over the canvas — no custom
-  artwork assets.
+  dirt", grass, star power, fog, gumdrops 🍬, flowers 🌼, ice cream 🍦, and
+  diamonds 💎 — plus an eraser, a magic wand, and a clear-all. Flowers cannot
+  be drawn — mature watered grass grows them; diamonds likewise cannot be
+  drawn — only a treasure chest produces them, from sand, dirt, or water
+  poured near it — so neither grows the toolbar. New element types require a
+  spec.
+- **Objects and pets**: rainbow 🌈, unicorn 🦄, palm 🌴, flamingo 🦩, house
+  🏠, person 🧑, and treasure-chest emoji objects (the chest continuously
+  turns sand/dirt/water poured near it into diamonds), plus up to three
+  poodle 🐩 pets who trot to her finger, chase gumdrops, shake off water,
+  wander when bored, and do a trick when poked, and up to three mermaid 🧜
+  pets who swim within her water, seek out and eat ice cream, and do a trick
+  when poked directly (never summoned by an ordinary paint stroke, since her
+  finger is also the brush). Objects and pets render as real emoji glyphs
+  drawn on/over the canvas wherever Unicode has one; the treasure chest does
+  not (no Unicode glyph exists for it), so it is the one sanctioned
+  exception — its toolbar control and its on-canvas figure are a shape drawn
+  in code (`src/lib/chestShape.ts`), never an asset file and never a
+  substitute glyph.
+- **Ambient life**: fish 🐠 and a rarer shark 🦈 appear on their own in big
+  enough pools of water and drift/play there; butterflies 🦋 appear near her
+  flowers and birds 🐦 perch on her palms; faint twinkles appear over empty
+  sky (distinct from star power, specs 008–009). None of these are placed,
+  saved, or toolbar-controlled — they are re-derived each time from whatever
+  water, flowers, and palms already exist, the same "exists without growing
+  the toolbar" precedent flowers set. New ambient life follows this pattern
+  before it earns a button.
 - **Sound** is synthesized in code only (WebAudio oscillators — no audio
   files, per Principle I), always mutable via the 🔊/🔇 button, and never
   load-bearing: the game is fully playable silent, and stays silently
@@ -88,6 +105,15 @@ state what to eyeball. Do not add browser-automation test infrastructure.
   discarded, keeping only states that remap losslessly. FR-022 is amended
   accordingly; do not "fix" this back to a wipe.
 
+- **Save/undo formats tolerate missing keys**: spec 015 found that adding new
+  object-kind lists to the saved-world and persisted-history formats made
+  both readers reject the *entire* payload if any one kind list was absent —
+  meaning the first launch after a feature ships would silently discard
+  everything she had built from an older save. A missing list now reads as
+  empty rather than invalid. Any future format addition (a new object kind, a
+  new per-cell array, a new pet roster) MUST follow this pattern: absence of
+  the new field means "none of this yet," never "corrupt."
+
 ## Development Workflow
 
 - Features flow through the Wing Commander pipeline: issue → spec →
@@ -107,4 +133,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.1.1 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-08-29
+**Version**: 1.2.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-09-08
