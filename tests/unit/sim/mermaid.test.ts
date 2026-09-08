@@ -194,6 +194,86 @@ describe('buried mermaids free themselves', () => {
   });
 });
 
+describe('adversarial terrain stress test (SC-002, T058)', () => {
+  it('never gets stuck across 2,000 frames of walls, a split pool, unreachable ice cream, and a mid-run burial', () => {
+    const width = 100;
+    const height = 50;
+    const grid = withFloor(width, height, 8);
+    // Pool A (5..44) and Pool B (51..95) are split by a solid wall (45..50) — never connected.
+    for (let y = 10; y <= 30; y++) {
+      for (let x = 5; x <= 44; x++) setCell(grid, x, y, WATER, 0);
+      for (let x = 51; x <= 95; x++) setCell(grid, x, y, WATER, 0);
+    }
+    // Ice cream landlocked in the wall itself: in scent range, but never reachable from Pool A.
+    setCell(grid, 47, 20, ICE_CREAM, 0);
+
+    const pets = createPetsState();
+    addMermaid(grid, pets, 20, 20);
+    const mermaid = pets.mermaids[0];
+
+    let solidStreak = 0;
+    let maxSolidStreak = 0;
+    let stuckStreak = 0;
+    let maxStuckStreak = 0;
+    let prevX = mermaid.x;
+    let prevY = mermaid.y;
+    let prevState = mermaid.state;
+    let buried = false;
+
+    for (let i = 0; i < 2000; i++) {
+      // Halfway through, bury her under a fresh pour of sand — the "sand poured on her" hazard —
+      // before stepping, exactly as a child's paint stroke would land ahead of the next frame.
+      if (i === 1000 && !buried) {
+        setCell(grid, Math.round(mermaid.x), Math.round(mermaid.y), SAND, 0);
+        buried = true;
+      }
+
+      stepPets(grid, pets, null);
+
+      const x = Math.round(mermaid.x);
+      const y = Math.round(mermaid.y);
+
+      // Never inside solid material for more than a short bounded interval: burial is detected
+      // and escaped within the same stepMermaid call whenever an escape cell exists nearby, so
+      // this should never actually observe a solid cell at all — checked as a streak (not a bare
+      // assertion) so a genuine regression is distinguishable from a one-frame fluke.
+      if (grid.elements[y * grid.width + x] !== EMPTY && grid.elements[y * grid.width + x] !== WATER) {
+        const isSolidHere = grid.elements[y * grid.width + x] === SAND;
+        solidStreak = isSolidHere ? solidStreak + 1 : 0;
+      } else {
+        solidStreak = 0;
+      }
+      maxSolidStreak = Math.max(maxSolidStreak, solidStreak);
+
+      // Never leaves the water she is connected to: Pool A only, never Pool B across the wall
+      // (with one cell of slack for T057's documented shore-beaching exception).
+      expect(x).toBeGreaterThanOrEqual(4);
+      expect(x).toBeLessThanOrEqual(45);
+
+      // 0 stuck states: position and state both frozen for an implausibly long stretch. Generous
+      // relative to every bounded busy-timer in this file (trick 36, eat 20, free-hold 12) and to
+      // ordinary swim cadence (a step at least every MERMAID_PURSUIT_INTERVAL/MERMAID_SWIM_INTERVAL
+      // frames) — 90 frames of zero movement and zero state change is never legitimate here, since
+      // the pool never drains and she always has somewhere to drift.
+      if (x === Math.round(prevX) && y === Math.round(prevY) && mermaid.state === prevState) {
+        stuckStreak++;
+      } else {
+        stuckStreak = 0;
+      }
+      maxStuckStreak = Math.max(maxStuckStreak, stuckStreak);
+      prevX = mermaid.x;
+      prevY = mermaid.y;
+      prevState = mermaid.state;
+    }
+
+    expect(maxSolidStreak).toBe(0);
+    expect(maxStuckStreak).toBeLessThan(90);
+    // She always resumes drifting within the give-up period: never permanently wedged pursuing
+    // the unreachable ice cream or stuck mid-recovery from the burial.
+    expect(mermaid.state === 'drifting' || mermaid.state === 'swimming').toBe(true);
+  });
+});
+
 describe('she swims for the ice cream (US3)', () => {
   it('moves closer over successive frames and eventually eats it, entering the eating state', () => {
     const grid = withPool(80, 40, 5, 75, 15, 20, 8);

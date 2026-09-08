@@ -635,12 +635,24 @@ function nearestWaterCell(grid: Grid, x: number, y: number): { x: number; y: num
  * cy) itself, or null if the whole neighbourhood is solid. Used to find an escape cell when a
  * mermaid is buried (research.md §4) — bounded, allocation-free, re-scanned every frame she stays
  * buried rather than cached, so it always reflects the current grid.
+ *
+ * Prefers WATER over any other non-solid cell (tracked as a separate running best in the same
+ * pass, no second scan): a mermaid buried near the edge of her pool, right beside both open water
+ * and a dry gap of equal distance, must not have a coin-flip chance of escaping onto the dry gap
+ * and being stranded there forever if it can never receive water (T058 — this was a real,
+ * reproducible stuck state, not just a hypothetical one). Non-water is still the fallback when no
+ * water at all is in reach, matching FR-009's "water or free cell" and FR-008's no-water-nearby
+ * resting behaviour.
  */
 function nearestNonSolidCell(grid: Grid, cx: number, cy: number, radius: number): { x: number; y: number } | null {
   let bestX = -1;
   let bestY = -1;
   let bestDist = Infinity;
   let tieCount = 0;
+  let bestWaterX = -1;
+  let bestWaterY = -1;
+  let bestWaterDist = Infinity;
+  let waterTieCount = 0;
 
   const minX = Math.max(0, cx - radius);
   const maxX = Math.min(grid.width - 1, cx + radius);
@@ -664,8 +676,22 @@ function nearestNonSolidCell(grid: Grid, cx: number, cy: number, radius: number)
           bestY = y;
         }
       }
+      if (!cellIsWater(grid, x, y)) continue;
+      if (dist < bestWaterDist) {
+        bestWaterDist = dist;
+        bestWaterX = x;
+        bestWaterY = y;
+        waterTieCount = 1;
+      } else if (dist === bestWaterDist) {
+        waterTieCount++;
+        if (Math.random() < 1 / waterTieCount) {
+          bestWaterX = x;
+          bestWaterY = y;
+        }
+      }
     }
   }
+  if (bestWaterDist !== Infinity) return { x: bestWaterX, y: bestWaterY };
   return bestDist === Infinity ? null : { x: bestX, y: bestY };
 }
 

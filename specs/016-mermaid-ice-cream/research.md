@@ -295,3 +295,22 @@ correctly given up on per FR-019/FR-020) behave less generously. Per the
 constitution's kid-first rule against failure states, a mermaid stretching
 one extra cell onto the sand to reach dessert reads as delightful rather
 than broken, so this is accepted rather than "fixed."
+
+## 15. Burial escape prefers water over any free cell (T058)
+
+**Decision**: `nearestNonSolidCell` (the buried-mermaid escape search) now prefers the nearest
+non-solid **WATER** cell, falling back to the nearest non-solid cell of any kind only when no
+water at all is within `MERMAID_FREE_RADIUS`.
+
+**Rationale**: The combined adversarial-terrain stress test added for T058 (walls, a split pool,
+unreachable ice cream, and a mid-run burial, run together for 2,000 frames) reproduced a genuine
+stuck state that no single-hazard test had caught: a mermaid buried right at her pool's edge, with
+open water and an equally-close dry gap (e.g. the empty space above a solid wall separating two
+pools) both within the escape radius, could randomly relocate onto the dry gap instead of back
+into water — the original search only minimized distance, treating water and non-water free cells
+identically. Landing on a gap that will never receive water leaves her permanently `resting`
+there forever (FR-008's resting-until-water-reaches-her-cell rule has no path back for a cell nothing will ever paint), which is exactly the kind of stuck state SC-002 rules out. Preferring
+water when any is in reach keeps her within her connected pool in the overwhelmingly common case
+(she was in water before being buried, so nearby water usually still exists) while still honoring
+FR-009's "water or free cell" fallback for the genuine no-water-nearby case research.md §4 already
+covers.
