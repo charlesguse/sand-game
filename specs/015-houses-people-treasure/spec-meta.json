@@ -2,7 +2,8 @@
   "issue": 47,
   "spec_dir": "specs/015-houses-people-treasure",
   "feature_num": "015",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 1,
-  "spec_branch": "spec/015-houses-people-treasure"
+  "spec_branch": "spec/015-houses-people-treasure",
+  "pending_re_review_from": []
 }
