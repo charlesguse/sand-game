@@ -54,3 +54,17 @@ describe('person is 🧑, never the gender-neutral standing-person glyph (FR-005
   });
 });
 
+describe('the mermaid and ice cream tools use pre-Emoji-13.0 glyphs (FR-031)', () => {
+  it('ships the single-codepoint mermaid glyph (🧜, Emoji 5.0) rather than a newer replacement', () => {
+    expect(toolbar).toContain('🧜');
+  });
+
+  it('never ships a gendered ZWJ mermaid/merman variant (FR-003)', () => {
+    expect(toolbar).not.toContain('🧜‍♀');
+    expect(toolbar).not.toContain('🧜‍♂');
+  });
+
+  it('ships the ice cream glyph (🍦, Emoji 1.0) rather than a newer replacement', () => {
+    expect(toolbar).toContain('🍦');
+  });
+});
