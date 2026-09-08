@@ -138,8 +138,8 @@ Single client-only project (established 001–013): `src/`, `tests/unit/` at the
 
 ## Phase 7: Convergence
 
-- [ ] T041 Add a test to `tests/unit/sim/seaLife.test.ts` that drains a pool by directly removing its WATER cells (not via sand or the eraser) below `FISH_DESPAWN_THRESHOLD`, and asserts its fish fade within about one sweep and are never rendered outside water in the meantime, per FR-022 (partial)
-- [ ] T042 Add a test to `tests/unit/sim/seaLife.test.ts` that shrinks a shark-qualifying pool to a size still at/above `FISH_SPAWN_THRESHOLD` but below `SHARK_DESPAWN_THRESHOLD`, and asserts the shark fades while the fish population is retained under the ordinary fish rule, per US3/AC2 (partial)
+- [X] T041 Add a test to `tests/unit/sim/seaLife.test.ts` that drains a pool by directly removing its WATER cells (not via sand or the eraser) below `FISH_DESPAWN_THRESHOLD`, and asserts its fish fade within about one sweep and are never rendered outside water in the meantime, per FR-022 (partial)
+- [X] T042 Add a test to `tests/unit/sim/seaLife.test.ts` that shrinks a shark-qualifying pool to a size still at/above `FISH_SPAWN_THRESHOLD` but below `SHARK_DESPAWN_THRESHOLD`, and asserts the shark fades while the fish population is retained under the ordinary fish rule, per US3/AC2 (partial)
 
 ---
 

@@ -11,6 +11,7 @@ import {
   SWEEP_TARGET_FRAMES,
   SHARK_MIN_SEPARATION,
   ERASER_HOLD_OFF_FRAMES,
+  CREATURE_FADE_FRAMES,
 } from '../../../src/sim/seaLife';
 import { step } from '../../../src/sim/step';
 import { createPetsState, addPoodle, stepPets } from '../../../src/sim/pets';
@@ -478,5 +479,81 @@ describe('User Story 1 — never mutates the grid', () => {
     for (let i = 0; i < 2000; i++) stepSeaLife(grid, state);
     expect(state.fish.length).toBeGreaterThan(0);
     expect(snapshot()).toEqual(before);
+  });
+});
+
+describe('Convergence — draining a pool directly, not via sand or the eraser', () => {
+  it('fades fish within about one sweep once the pool drops below the despawn threshold, never rendering off water first', () => {
+    const grid = createGrid(60, 40);
+    fillWaterRect(grid, 5, 5, 13, 10); // 130 cells, spawns exactly one fish
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBeGreaterThan(0);
+
+    const fish = state.fish[0];
+    const fx = Math.round(fish.x);
+    const fy = Math.round(fish.y);
+
+    // Drain the pool directly to EMPTY (no sand, no eraser) down to a small pocket around the
+    // fish's current cell — well below FISH_DESPAWN_THRESHOLD (110) — so the only route to a
+    // fade is reconciliation noticing the shrunken pool, not the immediate own-cell check.
+    for (let y = 5; y < 15; y++) {
+      for (let x = 5; x < 18; x++) {
+        if (Math.abs(x - fx) <= 2 && Math.abs(y - fy) <= 2) continue;
+        setCell(grid, x, y, EMPTY, 0);
+      }
+    }
+
+    let sawFading = false;
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 2; i++) {
+      stepSeaLife(grid, state);
+      for (const f of state.fish) {
+        if (f.fadeTimer > 0) {
+          sawFading = true;
+          continue;
+        }
+        const cx = Math.round(f.x);
+        const cy = Math.round(f.y);
+        expect(grid.elements[cy * grid.width + cx]).toBe(WATER);
+      }
+    }
+    expect(sawFading).toBe(true);
+
+    for (let i = 0; i < CREATURE_FADE_FRAMES + SWEEP_TARGET_FRAMES; i++) stepSeaLife(grid, state);
+    expect(state.fish).toHaveLength(0);
+  });
+});
+
+describe('Convergence — shrinking a shark-qualifying pool below the shark threshold', () => {
+  it('fades the shark while the fish population is retained under the ordinary fish rule', () => {
+    const grid = createGrid(50, 40);
+    fillWaterRect(grid, 2, 2, 30, 25); // 750 cells, above SHARK_SPAWN_THRESHOLD (700)
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 5; i++) stepSeaLife(grid, state);
+    expect(state.sharks.length).toBe(1);
+    expect(state.fish.length).toBeGreaterThan(0);
+
+    // Shrink to a 12x25 = 300-cell pool: still above FISH_SPAWN_THRESHOLD (120), but below
+    // SHARK_DESPAWN_THRESHOLD (690) — the shark should fade while fish keep following the
+    // ordinary per-pool-size rule (floor(300/120) = 2), never dropping to zero alongside it.
+    for (let y = 2; y < 27; y++) {
+      for (let x = 14; x < 32; x++) setCell(grid, x, y, EMPTY, 0);
+    }
+
+    // Let the shark fade and the fish population settle to the new pool's ordinary target —
+    // some fish caught inside the drained cells may fade individually along the way, but the
+    // pool itself keeps following the ordinary fish rule rather than being zeroed by the
+    // shark's despawn.
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 2 + CREATURE_FADE_FRAMES + SWEEP_TARGET_FRAMES * 3; i++) {
+      stepSeaLife(grid, state);
+    }
+
+    expect(state.sharks).toHaveLength(0);
+    expect(state.fish.length).toBe(2);
+    for (const fish of state.fish) {
+      const cx = Math.round(fish.x);
+      const cy = Math.round(fish.y);
+      expect(grid.elements[cy * grid.width + cx]).toBe(WATER);
+    }
   });
 });
