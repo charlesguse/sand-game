@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, clearGrid as clearGridState, igniteStarPower, createFog, getElement } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
+import { usesHueColor } from '../../../src/sim/element';
 import { applyBrush } from '../../../src/sim/brush';
 import { applyWand } from '../../../src/sim/wand';
 import {
@@ -22,6 +23,7 @@ import {
   FOG,
   GUMDROP,
   FLOWER,
+  DIAMOND,
   type Grid,
   type SceneId,
 } from '../../../src/sim/types';
@@ -262,6 +264,84 @@ describe('history — every element/visible property round trip (US1, FR-024)', 
     restoreWorldState(grid, objects, state);
 
     expect(visibleSnapshot(grid, objects)).toEqual(before);
+  });
+});
+
+describe('history — house/person/chest and diamonds round-trip through capture/restore (US2/US1, FR-026, FR-027, FR-029, FR-016)', () => {
+  it('a world with all three new object kinds and diamond material round-trips cell-for-cell through captureWorldState/restoreWorldState', () => {
+    const grid = createGrid(120, 120);
+    const objects = createObjectsState();
+    setCell(grid, 5, 5, DIAMOND, 3);
+    setCell(grid, 6, 5, DIAMOND, 9);
+    placeObject(grid, objects, 'house', 40, 40);
+    placeObject(grid, objects, 'person', 80, 40);
+    placeObject(grid, objects, 'chest', 40, 80);
+
+    const state = captureWorldState(grid, objects);
+    const before = visibleSnapshot(grid, objects);
+
+    clearGridState(grid);
+    clearObjects(objects);
+    restoreWorldState(grid, objects, state);
+
+    expect(getElement(grid, 5, 5)).toBe(DIAMOND);
+    expect(getElement(grid, 6, 5)).toBe(DIAMOND);
+    expect(objects.byKind.house.length).toBe(1);
+    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.chest.length).toBe(1);
+    expect(visibleSnapshot(grid, objects)).toEqual(before);
+  });
+
+  it('undo/redo round-trips a house/person/chest placement and a diamond conversion together', () => {
+    const grid = createGrid(80, 80);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    const before = visibleSnapshot(grid, objects);
+    placeObject(grid, objects, 'house', 20, 20);
+    placeObject(grid, objects, 'person', 60, 20);
+    placeObject(grid, objects, 'chest', 20, 60);
+    setCell(grid, 2, 2, DIAMOND, 4);
+    history.commitAction(grid, objects);
+
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(visibleSnapshot(grid, objects)).toEqual(before);
+    expect(history.redo(grid, objects)).toBe(true);
+    expect(objects.byKind.house.length).toBe(1);
+    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.chest.length).toBe(1);
+    expect(getElement(grid, 2, 2)).toBe(DIAMOND);
+  });
+
+  it('remaps house/person/chest objects and a diamond cell to new grid dimensions (FR-029)', () => {
+    const grid = createGrid(100, 100);
+    const objects = createObjectsState();
+    setCell(grid, 4, 4, DIAMOND, 6);
+    placeObject(grid, objects, 'house', 50, 50);
+    const originalHouse = objects.byKind.house[0];
+    const state = captureWorldState(grid, objects);
+
+    const offsetX = 3;
+    const offsetY = 3;
+    const remapped = remapWorldState(state, 100, 100, 110, 110, offsetX, offsetY);
+
+    const newGrid = createGrid(110, 110);
+    const newObjects = createObjectsState();
+    restoreWorldState(newGrid, newObjects, remapped);
+
+    expect(getElement(newGrid, 4 + offsetX, 4 + offsetY)).toBe(DIAMOND);
+    expect(newGrid.shades[(4 + offsetY) * 110 + (4 + offsetX)]).toBe(6);
+    expect(newObjects.byKind.house.length).toBe(1);
+    expect(newObjects.byKind.house[0].x).toBe(originalHouse.x + offsetX);
+    expect(newObjects.byKind.house[0].y).toBe(originalHouse.y + offsetY);
+  });
+
+  it("usesHueColor's true cases remain exactly RAINBOW_SAND/GUMDROP/FLOWER — DIAMOND is deliberately excluded (FR-016)", () => {
+    expect(usesHueColor(RAINBOW_SAND)).toBe(true);
+    expect(usesHueColor(GUMDROP)).toBe(true);
+    expect(usesHueColor(FLOWER)).toBe(true);
+    expect(usesHueColor(DIAMOND)).toBe(false);
   });
 });
 

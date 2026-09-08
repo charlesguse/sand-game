@@ -25,8 +25,10 @@ interface ViewportCase {
 }
 
 // SC-001's full representative viewport table (research.md §10).
+// The 'small phone' (320x568) row that used to sit here is deliberately dropped (FR-031a):
+// spec 015 adds three toolbar controls (26/28, was 23/25), and no device either maintainer
+// verifies on is smaller than 375x667 (iPhone SE 3), which remains the table's smallest row.
 const VIEWPORT_TABLE: ViewportCase[] = [
-  { label: 'small phone', width: 320, height: 568 },
   { label: 'iPhone SE 3 portrait', width: 375, height: 667 },
   { label: 'iPhone SE 3 landscape', width: 667, height: 375 },
   { label: 'phone portrait', width: 390, height: 844 },
@@ -150,23 +152,10 @@ describe('layout — representative viewport table (FR-001, FR-003, FR-005, FR-0
   });
 });
 
-// computeToolbarLayout folds spec 006's phone-scoped area-fill floor into its own fits/shrink
-// search (FR-014, FR-015 — one function, one search, both floors), so on a phone-sized viewport
-// `fits` can legitimately be false even though the 40% axis cap alone would have been clearable:
-// 44px touch targets at 4px pitch, wrapping the *full* (fullscreen+photo-included) control set,
-// cannot both stay under TOOLBAR_BAND_MAX_SHARE *and* leave computePlayField's 65% portrait
-// fill floor intact at the smallest table viewport — a genuine, provable infeasibility of the
-// combination (44px floor, 4px pitch floor, 0.4 axis cap, 0.65 area floor, real control count),
-// not a bug in the search. FR-012 exists exactly for this: a control set that cannot satisfy the
-// floors is a reported build-time shortfall, never a silently-violated floor.
-const KNOWN_INFEASIBLE = new Set(['small phone:25']);
-
 describe('computeToolbarLayout — axis floor holds universally, both control sets (FR-002, FR-006, FR-015)', () => {
   for (const viewport of VIEWPORT_TABLE) {
     describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
       for (const controlCount of CONTROL_COUNTS) {
-        if (KNOWN_INFEASIBLE.has(`${viewport.label}:${controlCount}`)) continue;
-
         it(`keeps the drawing region at >= 60% of the constrained axis (${controlCount} controls)`, () => {
           const toolbar = computeToolbarLayout(
             viewport.width,
@@ -198,8 +187,6 @@ describe('computeToolbarLayout — phone-sized area-fill floors hold alongside t
   for (const viewport of VIEWPORT_TABLE.filter((v) => isPhoneSized(v.width, v.height))) {
     describe(`${viewport.label} (${viewport.width}x${viewport.height})`, () => {
       for (const controlCount of CONTROL_COUNTS) {
-        if (KNOWN_INFEASIBLE.has(`${viewport.label}:${controlCount}`)) continue;
-
         it(`covers the whole-viewport-area fill floor (${controlCount} controls)`, () => {
           const region = drawingRegionFor(viewport, controlCount);
           const field = computePlayField(region.width, region.height, true);
@@ -211,27 +198,6 @@ describe('computeToolbarLayout — phone-sized area-fill floors hold alongside t
       }
     });
   }
-});
-
-describe('computeToolbarLayout — the one known-infeasible combination reports fits: false, not a silently-violated floor (FR-012, FR-012b)', () => {
-  it('small phone (320x568) with both feature-detected controls shown cannot clear both floors', () => {
-    const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
-    const toolbar = computeToolbarLayout(
-      smallest.width,
-      smallest.height,
-      FULL_CONTROLS,
-      legacyArrangement(smallest.width, smallest.height),
-    );
-    const constrainedAxisLength = toolbar.arrangement === 'rail' ? smallest.width : smallest.height;
-    const cap = TOOLBAR_BAND_MAX_SHARE * constrainedAxisLength;
-
-    // The tightest legal arrangement (44px controls, 4px pitch) does clear the bare 40% axis
-    // cap on its own...
-    expect(toolbar.requiredThickness).toBeLessThanOrEqual(cap);
-    // ...but still doesn't leave computePlayField's 65% area-fill floor intact, so the search
-    // correctly refuses to report a false fits: true.
-    expect(toolbar.fits).toBe(false);
-  });
 });
 
 describe('computeToolbarLayout — desktop non-regression, no active shrinking (FR-016, SC-007)', () => {
@@ -310,7 +276,7 @@ describe('computeToolbarLayout — the guarantee reacts to a changed control cou
 
 describe('computeToolbarLayout — a control set that cannot fit is reported, not silently accepted (FR-012, FR-012b, SC-012)', () => {
   it('reports fits: false with the exact shortfall at the smallest table viewport', () => {
-    const smallest = VIEWPORT_TABLE.find((v) => v.label === 'small phone')!;
+    const smallest = VIEWPORT_TABLE.find((v) => v.label === 'iPhone SE 3 portrait')!;
     const toolbar = computeToolbarLayout(
       smallest.width,
       smallest.height,
@@ -366,7 +332,7 @@ function clientToGrid(
 }
 
 describe('clientToGrid — touch-to-cell coordinate mapping (FR-012)', () => {
-  const SCALE_CASES = ['phone portrait', 'small phone', 'laptop', 'extreme aspect ratio'];
+  const SCALE_CASES = ['phone portrait', 'iPhone SE 3 portrait', 'laptop', 'extreme aspect ratio'];
 
   for (const label of SCALE_CASES) {
     const viewport = VIEWPORT_TABLE.find((v) => v.label === label)!;

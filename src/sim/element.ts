@@ -1,7 +1,7 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, GUMDROP, FLOWER } from './types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, GUMDROP, FLOWER, DIAMOND } from './types';
 
 export function isPowder(e: number): boolean {
-  return e === SAND || e === DIRT || e === RAINBOW_SAND;
+  return e === SAND || e === DIRT || e === RAINBOW_SAND || e === DIAMOND;
 }
 
 export function isLiquid(e: number): boolean {

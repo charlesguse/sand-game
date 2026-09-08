@@ -4,6 +4,7 @@
   import { MIN_TOUCH_TARGET, RESIZE_SETTLE_MS, computeToolbarLayout, readArrangement } from './layout';
   import { shippedToolbarControls } from './toolbarControls';
   import BucketIcon from './BucketIcon.svelte';
+  import ChestIcon from './ChestIcon.svelte';
 
   interface Props {
     tool: Tool;
@@ -72,6 +73,12 @@
         return tool === 'poodle';
       case 'tool-flamingo':
         return tool === 'flamingo';
+      case 'tool-house':
+        return tool === 'house';
+      case 'tool-person':
+        return tool === 'person';
+      case 'tool-chest':
+        return tool === 'chest';
       case 'tool-eraser':
         return tool === 'eraser';
       case 'tool-wand':
@@ -115,6 +122,10 @@
         return '🐩';
       case 'tool-flamingo':
         return '🦩';
+      case 'tool-house':
+        return '🏠';
+      case 'tool-person':
+        return '🧑';
       case 'tool-eraser':
         return '🧽';
       case 'action-clear':
@@ -179,6 +190,15 @@
         return;
       case 'tool-flamingo':
         onSelectTool('flamingo');
+        return;
+      case 'tool-house':
+        onSelectTool('house');
+        return;
+      case 'tool-person':
+        onSelectTool('person');
+        return;
+      case 'tool-chest':
+        onSelectTool('chest');
         return;
       case 'tool-eraser':
         onSelectTool('eraser');
@@ -280,6 +300,16 @@
         onclick={() => onSelectTool('sand')}
       >
         <BucketIcon />
+      </button>
+    {:else if control.id === 'tool-chest'}
+      <button
+        class="control"
+        data-group={control.group}
+        class:selected={tool === 'chest'}
+        aria-label="Treasure chest"
+        onclick={() => onSelectTool('chest')}
+      >
+        <ChestIcon />
       </button>
     {:else}
       <button

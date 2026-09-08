@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { createGrid, setCell, igniteStarPower, createFog, getElement } from '../../../src/sim/grid';
+import {
+  createGrid,
+  setCell,
+  setGlitter,
+  igniteStarPower,
+  createFog,
+  getElement,
+  getGlitter,
+  clearGrid as clearGridState,
+} from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import {
   applyRainbowConversions,
+  applyChestConversions,
   createObjectsState,
   placeObject,
   removeObject,
@@ -17,9 +27,13 @@ import {
   WATER,
   DIRT,
   RAINBOW_SAND,
+  DIAMOND,
   OBJECT,
   GRASS,
+  FLOWER,
+  GUMDROP,
   STAR_POWER,
+  FOG,
   type PlacedObject,
 } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
@@ -30,6 +44,10 @@ function rainbowAt(x: number, y: number, size = 1, id = 0): PlacedObject {
 
 function unicornAt(x: number, y: number, size = 1, id = 0): PlacedObject {
   return { id, kind: 'unicorn', x, y, size };
+}
+
+function chestAt(x: number, y: number, size = 1, id = 0): PlacedObject {
+  return { id, kind: 'chest', x, y, size };
 }
 
 describe('objects — applyRainbowConversions', () => {
@@ -108,6 +126,110 @@ describe('objects — applyRainbowConversions', () => {
     expect(getElement(grid, 1, 1)).toBe(RAINBOW_SAND);
     expect(getElement(grid, 1, 2)).toBe(RAINBOW_SAND);
     expect(grid.fogCloudCount).toBe(0);
+  });
+});
+
+describe('objects — applyChestConversions (US1, FR-008, FR-009, FR-010, FR-012)', () => {
+  it('converts SAND/DIRT/WATER cells inside a chest zone to DIAMOND with a fresh shade and glitter', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, SAND, 5);
+    setCell(grid, 2, 1, DIRT, 5);
+    setCell(grid, 1, 2, WATER, 5);
+    const chest = chestAt(2, 2, 1);
+
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    expect(getGlitter(grid, 1, 1)).toBe(true);
+    expect(getElement(grid, 2, 1)).toBe(DIAMOND);
+    expect(getGlitter(grid, 2, 1)).toBe(true);
+    expect(getElement(grid, 1, 2)).toBe(DIAMOND);
+    expect(getGlitter(grid, 1, 2)).toBe(true);
+  });
+
+  it('leaves cells outside every chest zone untouched', () => {
+    const grid = createGrid(6, 6);
+    setCell(grid, 0, 0, SAND, 5);
+    const chest = chestAt(4, 4, 1);
+
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 0, 0)).toBe(SAND);
+  });
+
+  it('keeps converting endlessly across many synthetic re-seeded steps, with no capacity field anywhere on PlacedObject (SC-002)', () => {
+    const grid = createGrid(5, 5);
+    const chest = chestAt(2, 2, 1);
+
+    for (let n = 0; n < 20; n++) {
+      setCell(grid, 1, 1, SAND, 5);
+      applyChestConversions(grid, [chest]);
+      expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    }
+    expect(Object.keys(chest)).not.toContain('capacity');
+    expect(Object.keys(chest)).not.toContain('cooldown');
+    expect(Object.keys(chest)).not.toContain('count');
+  });
+
+  it('leaves an existing DIAMOND cell in the ring unchanged', () => {
+    const grid = createGrid(5, 5);
+    setCell(grid, 1, 1, DIAMOND, 5);
+    setGlitter(grid, 1, 1, 1);
+    const chest = chestAt(2, 2, 1);
+
+    applyChestConversions(grid, [chest]);
+    applyChestConversions(grid, [chest]);
+
+    expect(getElement(grid, 1, 1)).toBe(DIAMOND);
+    expect(grid.shades[1 * 5 + 1]).toBe(5);
+  });
+
+  it('never converts GRASS/FLOWER/GUMDROP/STAR_POWER/FOG in its zone, and never touches fogCloudCount (FR-009)', () => {
+    const grid = createGrid(10, 10);
+    setCell(grid, 1, 1, GRASS, 5);
+    setCell(grid, 2, 1, FLOWER, 0);
+    setCell(grid, 1, 2, GUMDROP, 0);
+    igniteStarPower(grid, 2, 2, false);
+    createFog(grid, 3, 3);
+    const chest = chestAt(3, 4, 1);
+    const before = grid.fogCloudCount;
+
+    applyChestConversions(grid, [chest, chestAt(2, 2, 1, 1), chestAt(1, 1, 1, 2)]);
+
+    expect(getElement(grid, 1, 1)).toBe(GRASS);
+    expect(getElement(grid, 2, 1)).toBe(FLOWER);
+    expect(getElement(grid, 1, 2)).toBe(GUMDROP);
+    expect(getElement(grid, 2, 2)).toBe(STAR_POWER);
+    expect(getElement(grid, 3, 3)).toBe(FOG);
+    expect(grid.fogCloudCount).toBe(before);
+  });
+
+  it('converts only the in-bounds part of its ring at the grid edge, with no out-of-bounds write', () => {
+    const grid = createGrid(3, 3);
+    setCell(grid, 0, 0, SAND, 5);
+    const chest = chestAt(1, 1, 1);
+
+    expect(() => applyChestConversions(grid, [chest])).not.toThrow();
+    expect(getElement(grid, 0, 0)).toBe(DIAMOND);
+  });
+
+  it('a chest and a rainbow with overlapping rings resolve every overlap cell to RAINBOW_SAND, never DIAMOND, in frame()-order (FR-011)', () => {
+    const grid = createGrid(6, 6);
+    setCell(grid, 2, 2, SAND, 5);
+    const rainbow = rainbowAt(1, 1, 1, 0);
+    const chest = chestAt(3, 3, 1, 0);
+
+    for (let n = 0; n < 20; n++) {
+      setCell(grid, 2, 2, SAND, 5);
+      applyRainbowConversions(grid, [rainbow]);
+      applyChestConversions(grid, [chest]);
+      expect(getElement(grid, 2, 2)).toBe(RAINBOW_SAND);
+    }
+
+    // Re-running both calls once more against the settled RAINBOW_SAND cell produces no change.
+    applyRainbowConversions(grid, [rainbow]);
+    applyChestConversions(grid, [chest]);
+    expect(getElement(grid, 2, 2)).toBe(RAINBOW_SAND);
   });
 });
 
@@ -364,5 +486,99 @@ describe('objects — clearObjects', () => {
     expect(state.byKind.unicorn).toEqual([]);
     // grid is untouched by clearObjects — the OBJECT cell byte is still there.
     expect(getElement(grid, rainbowCell.x, rainbowCell.y)).toBe(OBJECT);
+  });
+});
+
+describe('objects — house/person join the placeable roster, purely decorative (US2, FR-001-FR-006)', () => {
+  it('a house at the grid edge nudges fully on-canvas exactly like a rainbow does today (Scenario 1)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'house', 0, 0);
+    const [house] = state.byKind.house;
+
+    expect(house.x).toBeGreaterThanOrEqual(0);
+    expect(house.y).toBeGreaterThanOrEqual(0);
+    expect(house.x + house.size).toBeLessThanOrEqual(grid.width);
+    expect(house.y + house.size).toBeLessThanOrEqual(grid.height);
+  });
+
+  it('the per-kind cap of 3 evicts the oldest house, leaving any person/chest lists untouched (Scenario 2, SC-003)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'chest', 20, 100);
+    placeObject(grid, state, 'person', 20, 140);
+
+    placeObject(grid, state, 'house', 20, 20);
+    placeObject(grid, state, 'house', 60, 20);
+    placeObject(grid, state, 'house', 100, 20);
+    const firstId = state.byKind.house[0].id;
+    placeObject(grid, state, 'house', 140, 20);
+
+    expect(state.byKind.house.length).toBe(3);
+    expect(state.byKind.house.some((o) => o.id === firstId)).toBe(false);
+    expect(state.byKind.chest.length).toBe(1);
+    expect(state.byKind.person.length).toBe(1);
+  });
+
+  it('the per-kind cap of 3 evicts the oldest person the same way', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+
+    placeObject(grid, state, 'person', 20, 20);
+    placeObject(grid, state, 'person', 60, 20);
+    placeObject(grid, state, 'person', 100, 20);
+    const firstId = state.byKind.person[0].id;
+    placeObject(grid, state, 'person', 140, 20);
+
+    expect(state.byKind.person.length).toBe(3);
+    expect(state.byKind.person.some((o) => o.id === firstId)).toBe(false);
+  });
+
+  it('erasing across a house and a person in one interpolated drag removes both fully, with no leftover OBJECT cell (Scenario 3, SC-004)', () => {
+    const grid = createGrid(200, 60);
+    const state = createObjectsState();
+    placeObject(grid, state, 'house', 20, 20);
+    placeObject(grid, state, 'person', 80, 20);
+    const [house] = state.byKind.house;
+    const [person] = state.byKind.person;
+
+    eraseObjectsInBrushLine(grid, state, { x: 0, y: 30 }, { x: 199, y: 30 }, 1);
+
+    expect(state.byKind.house.length).toBe(0);
+    expect(state.byKind.person.length).toBe(0);
+    for (let py = house.y; py < house.y + house.size; py++) {
+      for (let px = house.x; px < house.x + house.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+    for (let py = person.y; py < person.y + person.size; py++) {
+      for (let px = person.x; px < person.x + person.size; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+  });
+
+  it('clearObjects/clearGrid empty the canvas of every kind including houses/people/chests and any diamonds (Scenario 4, FR-025)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    placeObject(grid, state, 'rainbow', 20, 20);
+    placeObject(grid, state, 'unicorn', 60, 20);
+    placeObject(grid, state, 'palm', 100, 20);
+    placeObject(grid, state, 'flamingo', 140, 20);
+    placeObject(grid, state, 'house', 20, 80);
+    placeObject(grid, state, 'person', 60, 80);
+    placeObject(grid, state, 'chest', 100, 80);
+    setCell(grid, 5, 5, DIAMOND, 3);
+
+    clearObjects(state);
+    clearGridState(grid);
+
+    for (const kind of ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest'] as const) {
+      expect(state.byKind[kind]).toEqual([]);
+    }
+    for (let i = 0; i < grid.elements.length; i++) {
+      expect(grid.elements[i]).toBe(EMPTY);
+    }
   });
 });

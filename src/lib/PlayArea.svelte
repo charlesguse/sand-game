@@ -23,11 +23,13 @@
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
   import { createFlashMask, updateFlashMask } from './sparkle';
+  import { createStarField, updateStarField, drawStarField, type StarField } from './stars';
   import { randomShade } from '../sim/shade';
   import {
     createObjectsState,
     placeObject,
     applyRainbowConversions,
+    applyChestConversions,
     isUnicornTouched,
     eraseObjectsInBrush,
     eraseObjectsInBrushLine,
@@ -61,6 +63,7 @@
     type SceneId,
   } from '../sim/types';
   import { colorFor } from './palette';
+  import { CHEST_SHAPE } from './chestShape';
   import {
     initSoundOnGesture,
     playPour,
@@ -88,11 +91,17 @@
   const history = new HistoryManager();
   const particles: Particle[] = [];
 
+  // 'chest' never reaches this map — drawObjectGlyph's chest branch returns before the
+  // OBJECT_GLYPHS lookup, since a chest has no Unicode glyph at all (FR-007). The empty string
+  // is here only so this Record stays complete over every ObjectKind.
   const OBJECT_GLYPHS: Record<ObjectKind, string> = {
     rainbow: '🌈',
     unicorn: '🦄',
     palm: '🌴',
     flamingo: '🦩',
+    house: '🏠',
+    person: '🧑',
+    chest: '',
   };
   const PALM_SWAY_RADIANS = 0.06;
   const PALM_SWAY_SPEED = 0.0011;
@@ -139,6 +148,7 @@
   let grid: Grid;
   let imageData: ImageData;
   let flashMask: Uint8Array;
+  let starField: StarField;
   // One entry per active pointer (finger), each holding that pointer's last painted grid
   // position — lets every finger paint its own continuous stroke independently (Task 3).
   const strokes = new Map<number, { x: number; y: number }>();
@@ -295,6 +305,7 @@
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
     flashMask = createFlashMask(grid.width, grid.height);
+    starField = createStarField(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
 
@@ -337,6 +348,48 @@
           ? -Math.abs(Math.sin((lastFrameNow - hopStart) * 0.012)) * 6
           : 0;
       ctx.fillText(OBJECT_GLYPHS[obj.kind], cx, cy + bob + hop);
+      return;
+    }
+
+    if (obj.kind === 'chest') {
+      // Scales CHEST_SHAPE's 0-36 unit box to the chest's footprint size — no ctx.fillText,
+      // no glyph: a treasure chest has no Unicode glyph at all (FR-007).
+      const scale = obj.size / 36;
+      ctx.save();
+      ctx.translate(obj.x, obj.y);
+      ctx.scale(scale, scale);
+      for (const part of CHEST_SHAPE) {
+        if (part.kind === 'rect' && part.rect) {
+          const { x, y, width, height, rx = 0 } = part.rect;
+          ctx.beginPath();
+          if (rx > 0 && typeof ctx.roundRect === 'function') {
+            ctx.roundRect(x, y, width, height, rx);
+          } else {
+            ctx.rect(x, y, width, height);
+          }
+          if (part.fill !== 'none') {
+            ctx.fillStyle = part.fill;
+            ctx.fill();
+          }
+          if (part.stroke) {
+            ctx.strokeStyle = part.stroke;
+            ctx.lineWidth = part.strokeWidth ?? 1;
+            ctx.stroke();
+          }
+        } else if (part.kind === 'path' && part.d) {
+          const path = new Path2D(part.d);
+          if (part.fill !== 'none') {
+            ctx.fillStyle = part.fill;
+            ctx.fill(path);
+          }
+          if (part.stroke) {
+            ctx.strokeStyle = part.stroke;
+            ctx.lineWidth = part.strokeWidth ?? 1;
+            ctx.stroke(path);
+          }
+        }
+      }
+      ctx.restore();
       return;
     }
 
@@ -435,6 +488,8 @@
       ctx.fillText(p.glyph, p.x, p.y);
     }
     ctx.globalAlpha = 1;
+
+    drawStarField(ctx, starField, lastFrameNow);
   }
 
   function updateUnicorns(now: number): void {
@@ -483,10 +538,12 @@
     step(grid);
     stepPets(grid, petsState, poodleTarget);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
+    applyChestConversions(grid, objectsState.byKind.chest);
     updateUnicorns(now);
     sweepPokeReactions(now);
     tickParticles(particles, now);
     updateFlashMask(grid, flashMask);
+    updateStarField(grid, starField, now);
     render();
     requestAnimationFrame(frame);
   }
@@ -623,7 +680,15 @@
       canvas.setPointerCapture(event.pointerId);
       return;
     }
-    if (tool === 'rainbow' || tool === 'unicorn' || tool === 'palm' || tool === 'flamingo') {
+    if (
+      tool === 'rainbow' ||
+      tool === 'unicorn' ||
+      tool === 'palm' ||
+      tool === 'flamingo' ||
+      tool === 'house' ||
+      tool === 'person' ||
+      tool === 'chest'
+    ) {
       // Another finger may still be mid-paint (tool switched under it). Its action is pending in
       // history; beginAction below would silently overwrite that capture and swallow the paint
       // stroke's undo step. Settle all strokes first — placement ends the scribble, as it always
@@ -741,6 +806,7 @@
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
     flashMask = createFlashMask(grid.width, grid.height);
+    starField = createStarField(grid.width, grid.height);
     displayWidth = field.displayWidth;
     displayHeight = field.displayHeight;
     tryRestore();

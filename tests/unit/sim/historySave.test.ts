@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, OBJECT_KINDS } from '../../../src/sim/objects';
 import { HistoryManager, HISTORY_DEPTH, type WorldState } from '../../../src/sim/history';
-import { SAND, WATER, DIRT, GRASS, RAINBOW_SAND } from '../../../src/sim/types';
+import { SAND, WATER, DIRT, GRASS, RAINBOW_SAND, DIAMOND } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT, CELL_BUDGET } from '../../../src/lib/layout';
 import {
   HISTORY_SAVE_VERSION,
@@ -169,6 +169,74 @@ describe('historySave — serializeHistory/deserializeHistory round trip (US1, F
     expect(persisted).not.toBeNull();
     if (persisted === null) return;
     expect(persisted.steps.length).toBe(HISTORY_DEPTH);
+  });
+});
+
+describe('historySave — a byKind key missing for an ObjectKind reads as empty rather than rejecting the step (FR-028)', () => {
+  it('a step missing the house/person/chest keys still deserializes, with those kinds empty for that step', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'rainbow', 4, 4);
+    const rainbowBefore = [...objects.byKind.rainbow];
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const byKind = wire.steps[0].byKind as Record<string, unknown>;
+    const { house, person, chest, ...rest } = byKind;
+    void house;
+    void person;
+    void chest;
+    const tamperedSteps = [{ ...wire.steps[0], byKind: rest }];
+    const tampered = { ...wire, steps: tamperedSteps };
+
+    const persisted = deserializeHistory(JSON.stringify(tampered), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].byKind.house).toEqual([]);
+    expect(persisted.steps[0].byKind.person).toEqual([]);
+    expect(persisted.steps[0].byKind.chest).toEqual([]);
+    expect(persisted.steps[0].byKind.rainbow).toEqual(rainbowBefore);
+  });
+
+  it('a present-but-malformed byKind.house value in a step still rejects the whole payload', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const byKind = wire.steps[0].byKind as Record<string, unknown>;
+    const tamperedSteps = [{ ...wire.steps[0], byKind: { ...byKind, house: 'not-an-array' } }];
+    const tampered = { ...wire, steps: tamperedSteps };
+
+    expect(deserializeHistory(JSON.stringify(tampered), fingerprint)).toBeNull();
+  });
+
+  it('a diamond round-trips through serializeHistory/deserializeHistory unchanged', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 3, 3, DIAMOND, 7);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const persisted = deserializeHistory(serialized, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+
+    expect(Array.from(persisted.steps[0].elements)).toEqual(Array.from(history.getPersistableUndoStack()[0].elements));
+    expect(Array.from(persisted.steps[0].colorAux)).toEqual(Array.from(history.getPersistableUndoStack()[0].colorAux));
   });
 });
 
