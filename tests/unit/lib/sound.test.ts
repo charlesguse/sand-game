@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as sound from '../../../src/lib/sound';
 import {
   initSoundOnGesture,
   setMuted,
@@ -137,6 +140,25 @@ describe('canPlayPour — pure, injectable-clock throttle helper', () => {
   it('honors a custom throttle window when supplied', () => {
     expect(canPlayPour(100, 0, 200)).toBe(false);
     expect(canPlayPour(200, 0, 200)).toBe(true);
+  });
+});
+
+describe('a mermaid eating ice cream is silent (FR-023)', () => {
+  it('exports no mermaid-specific sound function', () => {
+    const mermaidSoundExports = Object.keys(sound).filter((key) => /mermaid/i.test(key));
+    expect(mermaidSoundExports).toEqual([]);
+  });
+
+  it("PlayArea.svelte's mermaid render loop calls no play*() sound function on 'eating'/'tricking'", () => {
+    const playArea = readFileSync(
+      fileURLToPath(new URL('../../../src/lib/PlayArea.svelte', import.meta.url)),
+      'utf8',
+    );
+    const mermaidLoopMatch = playArea.match(
+      /for \(const mermaid of petsState\.mermaids\) \{[\s\S]*?\n {4}\}\n/,
+    );
+    expect(mermaidLoopMatch).not.toBeNull();
+    expect(mermaidLoopMatch![0]).not.toMatch(/play[A-Z]\w*\(/);
   });
 });
 

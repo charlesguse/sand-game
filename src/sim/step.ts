@@ -1,4 +1,4 @@
-import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, GUMDROP, FLOWER, type Grid } from './types';
+import { EMPTY, WATER, GRASS, RAINBOW_SAND, STAR_POWER, FOG, GUMDROP, FLOWER, ICE_CREAM, type Grid } from './types';
 import { isPowder, isLiquid, isSolid } from './element';
 import { setCell, setGlitter, igniteStarPower, createFog } from './grid';
 import { randomShade, randomHue, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
@@ -483,7 +483,7 @@ export function step(grid: Grid): void {
         stepPowder(grid, x, y, i);
       } else if (isLiquid(element)) {
         stepLiquid(grid, x, y, i);
-      } else if (element === GUMDROP) {
+      } else if (element === GUMDROP || element === ICE_CREAM) {
         stepGumdrop(grid, x, y, i);
       } else if (element === GRASS) {
         stepGrass(grid, x, y, i);

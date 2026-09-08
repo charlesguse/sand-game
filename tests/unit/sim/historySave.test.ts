@@ -170,6 +170,30 @@ describe('historySave — serializeHistory/deserializeHistory round trip (US1, F
     if (persisted === null) return;
     expect(persisted.steps.length).toBe(HISTORY_DEPTH);
   });
+
+  it("deserializes a wire payload shaped like today's (no per-step `mermaids` key) with mermaids: [] per step and no error (FR-029)", () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const legacySteps = wire.steps.map((step) => {
+      const { mermaids: _mermaids, ...rest } = step;
+      return rest;
+    });
+    const legacy = { ...wire, steps: legacySteps };
+
+    expect(() => deserializeHistory(JSON.stringify(legacy), fingerprint)).not.toThrow();
+    const persisted = deserializeHistory(JSON.stringify(legacy), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].mermaids).toEqual([]);
+  });
 });
 
 describe('historySave — a byKind key missing for an ObjectKind reads as empty rather than rejecting the step (FR-028)', () => {

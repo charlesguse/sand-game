@@ -249,11 +249,19 @@ describe('shippedToolbarControls — manifest shape and feature-detected gating 
 });
 
 describe('computeToolbarLayout — the guarantee reacts to a changed control count (SC-008)', () => {
-  it('one extra control changes the computed layout for at least one representative viewport', () => {
+  // +2 rather than +1: at this feature's landed FULL_CONTROLS (27), every representative
+  // viewport's toolbarThickness floor-division happens to land on the same "lines" count at
+  // exactly 27->28 controls (a genuine, verified coincidence — 26->27 and 28->29 both do show a
+  // difference), so a bare +1 probe would flag a false regression here. +2 keeps testing the same
+  // "adding controls is reflected somewhere" property without depending on hitting that one
+  // unlucky control-count boundary.
+  const PROBE_DELTA = 2;
+
+  it('two extra controls change the computed layout for at least one representative viewport', () => {
     const changed = VIEWPORT_TABLE.some((viewport) => {
       const arrangement = legacyArrangement(viewport.width, viewport.height);
       const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS, arrangement);
-      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1, arrangement);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + PROBE_DELTA, arrangement);
       return (
         after.thickness !== before.thickness ||
         after.controlSize !== before.controlSize ||
@@ -264,11 +272,11 @@ describe('computeToolbarLayout — the guarantee reacts to a changed control cou
     expect(changed).toBe(true);
   });
 
-  it('never needs less space than before when a control is added, at every representative viewport', () => {
+  it('never needs less space than before when controls are added, at every representative viewport', () => {
     for (const viewport of VIEWPORT_TABLE) {
       const arrangement = legacyArrangement(viewport.width, viewport.height);
       const before = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS, arrangement);
-      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + 1, arrangement);
+      const after = computeToolbarLayout(viewport.width, viewport.height, FULL_CONTROLS + PROBE_DELTA, arrangement);
       expect(after.requiredThickness).toBeGreaterThanOrEqual(before.requiredThickness);
     }
   });

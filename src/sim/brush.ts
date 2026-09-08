@@ -1,4 +1,4 @@
-import { EMPTY, SAND, WATER, DIRT, GRASS, FOG, GUMDROP, type Grid, type Tool } from './types';
+import { EMPTY, SAND, WATER, DIRT, GRASS, FOG, GUMDROP, ICE_CREAM, type Grid, type Tool } from './types';
 import { setCell, inBounds, igniteStarPower, createFog } from './grid';
 import { randomHue } from './shade';
 
@@ -41,6 +41,9 @@ function paintCell(grid: Grid, tool: Tool, x: number, y: number, shade: number):
     setCell(grid, x, y, GRASS, shade);
   } else if (tool === 'gumdrop' && (paintable || current === WATER)) {
     setCell(grid, x, y, GUMDROP, shade);
+    grid.hues[y * grid.width + x] = randomHue();
+  } else if (tool === 'icecream' && (paintable || current === WATER)) {
+    setCell(grid, x, y, ICE_CREAM, shade);
     grid.hues[y * grid.width + x] = randomHue();
   } else if (tool === 'water' && paintable) {
     setCell(grid, x, y, WATER, shade);

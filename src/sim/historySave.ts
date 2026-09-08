@@ -35,6 +35,11 @@ interface WireHistoryObject {
   size: number;
 }
 
+interface WireHistoryMermaid {
+  x: number;
+  y: number;
+}
+
 interface WireHistoryStep {
   elements: string;
   colorAux: string;
@@ -42,6 +47,7 @@ interface WireHistoryStep {
   glitter: string;
   grassHeight: string;
   byKind: Record<string, WireHistoryObject[]>;
+  mermaids?: WireHistoryMermaid[];
 }
 
 interface WireHistory {
@@ -70,6 +76,7 @@ function encodeStep(state: WorldState): WireHistoryStep {
     glitter: encodeBase64(state.glitter),
     grassHeight: encodeBase64(state.grassHeight),
     byKind,
+    mermaids: state.mermaids.map((m) => ({ x: m.x, y: m.y })),
   };
 }
 
@@ -132,6 +139,23 @@ function isWireHistoryObjectShape(value: unknown): value is WireHistoryObject {
     isFiniteNumber(obj.y) &&
     isFiniteNumber(obj.size)
   );
+}
+
+function isWireHistoryMermaidShape(value: unknown): value is WireHistoryMermaid {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return isFiniteNumber(obj.x) && isFiniteNumber(obj.y);
+}
+
+/** Tolerantly parses a step's mermaids field: a missing field, a non-array, or any individually malformed entry all default to [] rather than rejecting the whole payload (FR-029), mirroring save.ts's parseMermaids. */
+function parseHistoryMermaids(value: unknown): WireHistoryMermaid[] {
+  if (!Array.isArray(value)) return [];
+  const mermaids: WireHistoryMermaid[] = [];
+  for (const item of value) {
+    if (!isWireHistoryMermaidShape(item)) return [];
+    mermaids.push({ x: item.x, y: item.y });
+  }
+  return mermaids;
 }
 
 /**
@@ -205,7 +229,9 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
         byKind[kind] = objectsForKind;
       }
 
-      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind });
+      const mermaids = parseHistoryMermaids(step.mermaids);
+
+      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids });
     }
 
     const cappedSteps = steps.length > HISTORY_DEPTH ? steps.slice(-HISTORY_DEPTH) : steps;

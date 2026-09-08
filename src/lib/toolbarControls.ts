@@ -29,6 +29,7 @@ export const TOOLBAR_CONTROLS: readonly ToolbarControlSpec[] = [
   { id: 'tool-grass', group: 'elements', ariaLabel: 'Grass' },
   { id: 'tool-star', group: 'elements', ariaLabel: 'Star power' },
   { id: 'tool-gumdrop', group: 'elements', ariaLabel: 'Gumdrops' },
+  { id: 'tool-icecream', group: 'elements', ariaLabel: 'Ice cream' },
 
   { id: 'tool-rainbow', group: 'objects', ariaLabel: 'Rainbow' },
   { id: 'tool-unicorn', group: 'objects', ariaLabel: 'Unicorn' },
@@ -38,6 +39,7 @@ export const TOOLBAR_CONTROLS: readonly ToolbarControlSpec[] = [
   { id: 'tool-house', group: 'objects', ariaLabel: 'House' },
   { id: 'tool-person', group: 'objects', ariaLabel: 'Person' },
   { id: 'tool-chest', group: 'objects', ariaLabel: 'Treasure chest' },
+  { id: 'tool-mermaid', group: 'objects', ariaLabel: 'Mermaid' },
 
   { id: 'tool-eraser', group: 'actions', ariaLabel: 'Eraser' },
   { id: 'action-clear', group: 'actions', ariaLabel: 'Clear all' },

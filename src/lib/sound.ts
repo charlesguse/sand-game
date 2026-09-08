@@ -13,7 +13,7 @@
 const MUTE_KEY = 'rainbow-sand-muted';
 const MASTER_GAIN = 0.12;
 
-export type PourKind = 'sand' | 'water' | 'dirt' | 'gumdrop' | 'grass' | 'star';
+export type PourKind = 'sand' | 'water' | 'dirt' | 'gumdrop' | 'grass' | 'star' | 'icecream';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -157,6 +157,7 @@ const POUR_PITCH: Record<PourKind, number> = {
   gumdrop: 700,
   grass: 380,
   star: 640,
+  icecream: 460,
 };
 
 /** A soft trickling blip, pitched per material so pouring sand doesn't sound like pouring

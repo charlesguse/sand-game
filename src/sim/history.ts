@@ -12,6 +12,7 @@ import {
 import { OBJECT_KINDS } from './objects';
 import { usesHueColor } from './element';
 import { randomBurnLife, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
+import { createPetsState, restoreMermaidsFromPositions, type PetsState } from './pets';
 
 /** Undo/redo stack depth cap, each direction (FR-019, FR-020). */
 export const HISTORY_DEPTH = 10;
@@ -23,6 +24,7 @@ export interface WorldState {
   readonly glitter: Uint8Array;
   readonly grassHeight: Uint8Array;
   readonly byKind: Record<ObjectKind, PlacedObject[]>;
+  readonly mermaids: { x: number; y: number }[];
 }
 
 function cloneObjectList(list: PlacedObject[]): PlacedObject[] {
@@ -37,8 +39,8 @@ function cloneObjectsByKind(byKind: Record<ObjectKind, PlacedObject[]>): Record<
   return clone;
 }
 
-/** Snapshots every visible property of grid/objects (FR-028). Allocates five typed arrays plus one small object-list clone per kind in OBJECT_KINDS. O(width * height). */
-export function captureWorldState(grid: Grid, objects: ObjectsState): WorldState {
+/** Snapshots every visible property of grid/objects/mermaids (FR-028). Allocates five typed arrays plus one small object-list clone per kind in OBJECT_KINDS, plus one small array of mermaid positions. O(width * height). */
+export function captureWorldState(grid: Grid, objects: ObjectsState, pets: PetsState = createPetsState()): WorldState {
   const size = grid.width * grid.height;
   const elements = new Uint8Array(grid.elements);
   const colorAux = new Uint8Array(size);
@@ -52,6 +54,7 @@ export function captureWorldState(grid: Grid, objects: ObjectsState): WorldState
     glitter: new Uint8Array(grid.glitter),
     grassHeight: new Uint8Array(grid.grassHeight),
     byKind: cloneObjectsByKind(objects.byKind),
+    mermaids: pets.mermaids.map((m) => ({ x: m.x, y: m.y })),
   };
 }
 
@@ -75,7 +78,7 @@ export function worldStateFits(state: WorldState, grid: Grid): boolean {
 }
 
 /**
- * Writes state back into grid/objects in place; resets every excluded internal timer
+ * Writes state back into grid/objects/pets in place; resets every excluded internal timer
  * (grassCooldown, star-power age/life/fuelled, fog/cloud timers) to its own "freshly created"
  * value (research.md §4); recomputes grassCount/fogCloudCount; leaves grid.moved and
  * objects.nextId untouched. O(width * height).
@@ -83,8 +86,19 @@ export function worldStateFits(state: WorldState, grid: Grid): boolean {
  * Refuses (returns false, writes nothing at all — no partial mutation) when state does not fit
  * grid, per worldStateFits. Never throws: a refusal must be silent and safe (constitution
  * principle II — nothing the child does is ever "wrong"), not an error dialog or a crash.
+ *
+ * pets.mermaids is replaced wholesale with fresh default-activity mermaids rebuilt from just
+ * state.mermaids' positions (state 'drifting', timer 0, pursuit cleared) — mermaids are saved as
+ * a position only, matching the poodle's own existing precedent and this feature's Key Entities
+ * note. Defaults to an empty PetsState so every pre-existing call site (grid/objects-only undo,
+ * redo, and save restores) keeps compiling and behaving exactly as before.
  */
-export function restoreWorldState(grid: Grid, objects: ObjectsState, state: WorldState): boolean {
+export function restoreWorldState(
+  grid: Grid,
+  objects: ObjectsState,
+  state: WorldState,
+  pets: PetsState = createPetsState(),
+): boolean {
   if (!worldStateFits(state, grid)) return false;
 
   const size = grid.width * grid.height;
@@ -145,6 +159,8 @@ export function restoreWorldState(grid: Grid, objects: ObjectsState, state: Worl
   grid.fogCloudCount = fogCloudCount;
 
   objects.byKind = cloneObjectsByKind(state.byKind);
+  restoreMermaidsFromPositions(pets, state.mermaids);
+
   return true;
 }
 
@@ -247,7 +263,16 @@ export function remapWorldState(
     byKind[kind] = kept;
   }
 
-  return { elements, colorAux, cloud, glitter, grassHeight, byKind };
+  // Mermaids are clamped into the new bounds, never dropped — unlike a PlacedObject's footprint,
+  // a lone (x, y) pair is always clampable with zero information loss beyond landing at the edge
+  // instead of exactly where she was (research.md §9). They never participate in
+  // wouldRemapLosslessly's reject-the-whole-snapshot decision for the same reason.
+  const mermaids = state.mermaids.map((m) => ({
+    x: Math.min(Math.max(m.x + offsetX, 0), newWidth - 1),
+    y: Math.min(Math.max(m.y + offsetY, 0), newHeight - 1),
+  }));
+
+  return { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids };
 }
 
 /**
@@ -298,8 +323,8 @@ function objectListsEqual(a: readonly PlacedObject[], b: readonly PlacedObject[]
   return true;
 }
 
-/** True iff the live grid/objects exactly match every field pending holds (research.md §3) — read-compare, no allocation. */
-function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState): boolean {
+/** True iff the live grid/objects/mermaids exactly match every field pending holds (research.md §3) — read-compare, no allocation. */
+function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState, pets: PetsState): boolean {
   const size = grid.width * grid.height;
   for (let i = 0; i < size; i++) {
     const element = grid.elements[i];
@@ -312,6 +337,10 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState): b
   }
   for (const kind of OBJECT_KINDS) {
     if (!objectListsEqual(pending.byKind[kind], objects.byKind[kind])) return false;
+  }
+  if (pending.mermaids.length !== pets.mermaids.length) return false;
+  for (let i = 0; i < pending.mermaids.length; i++) {
+    if (pending.mermaids[i].x !== pets.mermaids[i].x || pending.mermaids[i].y !== pets.mermaids[i].y) return false;
   }
   return true;
 }
@@ -347,17 +376,17 @@ export class HistoryManager {
   private redoStack: WorldState[] = [];
   private pending: WorldState | null = null;
 
-  /** Captures grid/objects' current state as the pending "before" snapshot for an action about to start (FR-008). */
-  beginAction(grid: Grid, objects: ObjectsState): void {
-    this.pending = captureWorldState(grid, objects);
+  /** Captures grid/objects/pets' current state as the pending "before" snapshot for an action about to start (FR-008). Defaults pets to an empty PetsState so every pre-existing call site keeps compiling and behaving exactly as before. */
+  beginAction(grid: Grid, objects: ObjectsState, pets: PetsState = createPetsState()): void {
+    this.pending = captureWorldState(grid, objects, pets);
   }
 
-  /** Compares the live grid/objects against the pending snapshot; discards it with no history change if identical (FR-007); otherwise pushes it onto the undo stack (evicting the oldest past HISTORY_DEPTH, FR-019) and clears the redo stack (FR-017). No-op if no action is pending. */
-  commitAction(grid: Grid, objects: ObjectsState): void {
+  /** Compares the live grid/objects/pets against the pending snapshot; discards it with no history change if identical (FR-007); otherwise pushes it onto the undo stack (evicting the oldest past HISTORY_DEPTH, FR-019) and clears the redo stack (FR-017). No-op if no action is pending. */
+  commitAction(grid: Grid, objects: ObjectsState, pets: PetsState = createPetsState()): void {
     const pending = this.pending;
     if (pending === null) return;
     this.pending = null;
-    if (worldMatches(pending, grid, objects)) return;
+    if (worldMatches(pending, grid, objects, pets)) return;
 
     this.undoStack.push(pending);
     if (this.undoStack.length > HISTORY_DEPTH) this.undoStack.shift();
@@ -366,7 +395,8 @@ export class HistoryManager {
 
   /**
    * Pops the most recent undo entry (false, no-op, if none — FR-013); captures the current state
-   * onto the redo stack (FR-015); restores the popped state; returns true.
+   * onto the redo stack (FR-015); restores the popped state (including pets.mermaids); returns
+   * true.
    *
    * If the popped state does not fit grid (wrong shape — e.g. a bug elsewhere left a
    * pre-remap entry behind), it is unrestorable: discard it and clear the rest of the undo
@@ -375,35 +405,35 @@ export class HistoryManager {
    * never partially mutates). This degrades to exactly the old reset()-on-every-resize behaviour
    * for that one stack instead of corrupting the child's picture.
    */
-  undo(grid: Grid, objects: ObjectsState): boolean {
+  undo(grid: Grid, objects: ObjectsState, pets: PetsState = createPetsState()): boolean {
     const state = this.undoStack.pop();
     if (state === undefined) return false;
     if (!worldStateFits(state, grid)) {
       this.undoStack.length = 0;
       return false;
     }
-    this.redoStack.push(captureWorldState(grid, objects));
-    restoreWorldState(grid, objects, state);
+    this.redoStack.push(captureWorldState(grid, objects, pets));
+    restoreWorldState(grid, objects, state, pets);
     return true;
   }
 
   /**
    * Pops the most recent redo entry (false, no-op, if none — FR-016); captures the current state
-   * onto the undo stack; restores the popped state; returns true.
+   * onto the undo stack; restores the popped state (including pets.mermaids); returns true.
    *
    * Mirrors undo()'s shape guard: a popped state that does not fit grid is discarded along with
    * the rest of the redo stack (same stale shape, equally unusable), and grid/objects are left
    * untouched.
    */
-  redo(grid: Grid, objects: ObjectsState): boolean {
+  redo(grid: Grid, objects: ObjectsState, pets: PetsState = createPetsState()): boolean {
     const state = this.redoStack.pop();
     if (state === undefined) return false;
     if (!worldStateFits(state, grid)) {
       this.redoStack.length = 0;
       return false;
     }
-    this.undoStack.push(captureWorldState(grid, objects));
-    restoreWorldState(grid, objects, state);
+    this.undoStack.push(captureWorldState(grid, objects, pets));
+    restoreWorldState(grid, objects, state, pets);
     return true;
   }
 

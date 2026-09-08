@@ -11,6 +11,7 @@ import {
   type ObjectsState,
 } from '../../../src/sim/objects';
 import { loadScene } from '../../../src/sim/scenes';
+import { createPetsState, type Mermaid } from '../../../src/sim/pets';
 import {
   EMPTY,
   SAND,
@@ -24,6 +25,7 @@ import {
   GUMDROP,
   FLOWER,
   DIAMOND,
+  ICE_CREAM,
   type Grid,
   type SceneId,
 } from '../../../src/sim/types';
@@ -46,7 +48,10 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
     // Deliberately spelled out longhand (not shared with src's usesHueColor) so a regression in
     // either the predicate or the capture path fails here instead of hiding behind shared code.
     colorAux[i] =
-      grid.elements[i] === RAINBOW_SAND || grid.elements[i] === GUMDROP || grid.elements[i] === FLOWER
+      grid.elements[i] === RAINBOW_SAND ||
+      grid.elements[i] === GUMDROP ||
+      grid.elements[i] === FLOWER ||
+      grid.elements[i] === ICE_CREAM
         ? grid.hues[i]
         : grid.shades[i];
   }
@@ -59,6 +64,28 @@ function visibleSnapshot(grid: Grid, objects: ObjectsState) {
     rainbows: objects.byKind.rainbow.map((o) => ({ ...o })),
     unicorns: objects.byKind.unicorn.map((o) => ({ ...o })),
   };
+}
+
+/** Pushes a fresh default-activity mermaid at (x, y) directly onto pets.mermaids — mirrors exactly what restoreMermaidsFromPositions/restoreWorldState themselves rebuild, so these tests don't depend on addMermaid's own water-search placement behaviour. */
+function pushMermaid(pets: ReturnType<typeof createPetsState>, x: number, y: number): Mermaid {
+  const mermaid: Mermaid = {
+    id: pets.nextId++,
+    x,
+    y,
+    facing: 1,
+    state: 'drifting',
+    timer: 0,
+    pursuitX: -1,
+    pursuitY: -1,
+    pursuitBestDist: Infinity,
+    pursuitStaleFrames: 0,
+    iceCreamCooldown: 0,
+    homeX: x,
+    homeY: y,
+    driftDir: 1,
+  };
+  pets.mermaids.push(mermaid);
+  return mermaid;
 }
 
 const PAINT_TOOLS = ['sand', 'water', 'dirt', 'grass', 'star', 'gumdrop', 'eraser'] as const;
@@ -845,6 +872,93 @@ describe('history — gumdrop colour survives undo/redo (US1, FR-024)', () => {
   });
 });
 
+describe('history — ice cream colour survives undo/redo (US4, FR-014)', () => {
+  it("undo then redo across a later, unrelated action preserves each ice cream cell's own hue exactly", () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, ICE_CREAM, 0);
+    grid.hues[1 * 10 + 1] = 45;
+    history.commitAction(grid, objects);
+
+    history.beginAction(grid, objects);
+    setCell(grid, 8, 8, SAND, 5);
+    history.commitAction(grid, objects);
+
+    expect(history.undo(grid, objects)).toBe(true);
+    expect(history.redo(grid, objects)).toBe(true);
+
+    expect(getElement(grid, 1, 1)).toBe(ICE_CREAM);
+    expect(grid.hues[1 * 10 + 1]).toBe(45);
+  });
+
+  it('shows no colour drift across many undo/redo cycles', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects);
+    setCell(grid, 4, 4, ICE_CREAM, 0);
+    grid.hues[4 * 10 + 4] = 88;
+    history.commitAction(grid, objects);
+
+    for (let i = 0; i < 20; i++) {
+      expect(history.undo(grid, objects)).toBe(true);
+      expect(history.redo(grid, objects)).toBe(true);
+      expect(grid.hues[4 * 10 + 4]).toBe(88);
+    }
+  });
+});
+
+describe('history — mermaids round trip across undo/redo (US4, FR-027)', () => {
+  it('beginAction/commitAction/undo/redo round-trip mermaid positions', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    pushMermaid(pets, 5, 5);
+    history.commitAction(grid, objects, pets);
+
+    expect(pets.mermaids).toHaveLength(1);
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.mermaids).toHaveLength(0);
+    expect(history.redo(grid, objects, pets)).toBe(true);
+    expect(pets.mermaids).toHaveLength(1);
+    expect(pets.mermaids[0].x).toBe(5);
+    expect(pets.mermaids[0].y).toBe(5);
+  });
+
+  it('a mermaid restored via undo is a fresh default-activity mermaid, not whatever state/timer/pursuit she had when captured', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    const mermaid = pushMermaid(pets, 6, 6);
+    mermaid.state = 'eating';
+    mermaid.timer = 12;
+    mermaid.pursuitX = 9;
+    mermaid.pursuitY = 9;
+    history.commitAction(grid, objects, pets);
+
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 0, 0, SAND, 1);
+    history.commitAction(grid, objects, pets);
+
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.mermaids).toHaveLength(1);
+    expect(pets.mermaids[0].state).toBe('drifting');
+    expect(pets.mermaids[0].timer).toBe(0);
+    expect(pets.mermaids[0].pursuitX).toBe(-1);
+    expect(pets.mermaids[0].pursuitY).toBe(-1);
+  });
+});
+
 describe('history — simulation never records (FR-006)', () => {
   it('running step() many times with no beginAction/commitAction never populates the undo history', () => {
     const grid = createGrid(20, 20);
@@ -1025,6 +1139,56 @@ describe('history — remapWorldState re-anchors a snapshot to new grid dimensio
 
     expect(getElement(newGrid, 6 + offsetX, 6 + offsetY)).toBe(GUMDROP);
     expect(newGrid.hues[(6 + offsetY) * 15 + (6 + offsetX)]).toBe(77);
+  });
+
+  it('clamps a mermaid position into the new bounds rather than dropping her (research.md §9)', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    pushMermaid(pets, 9, 9);
+    const state = captureWorldState(grid, objects, pets);
+
+    // An offset that would push her destination well outside a much smaller grid.
+    const remapped = remapWorldState(state, 10, 10, 5, 5, -8, -8);
+
+    expect(remapped.mermaids).toHaveLength(1);
+    expect(remapped.mermaids[0].x).toBeGreaterThanOrEqual(0);
+    expect(remapped.mermaids[0].x).toBeLessThan(5);
+    expect(remapped.mermaids[0].y).toBeGreaterThanOrEqual(0);
+    expect(remapped.mermaids[0].y).toBeLessThan(5);
+  });
+
+  it('a mermaid near the edge never causes HistoryManager.remap to reject the snapshot (research.md §9)', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    // Action 1: place a mermaid near the edge — the "before" state of action 2 will contain her.
+    history.beginAction(grid, objects, pets);
+    pushMermaid(pets, 18, 18);
+    history.commitAction(grid, objects, pets);
+
+    // Action 2: an unrelated edit, elsewhere on the grid.
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 0, 0, SAND, 2);
+    history.commitAction(grid, objects, pets);
+
+    expect(history.canUndo()).toBe(true);
+
+    // Shrink drastically — a naive remap would push the mermaid's destination out of bounds.
+    history.remap(20, 20, 5, 5, -15, -15);
+    expect(history.canUndo()).toBe(true);
+
+    const newGrid = createGrid(5, 5);
+    const newObjects = createObjectsState();
+    const newPets = createPetsState();
+    expect(history.undo(newGrid, newObjects, newPets)).toBe(true);
+    expect(newPets.mermaids).toHaveLength(1);
+    expect(newPets.mermaids[0].x).toBeGreaterThanOrEqual(0);
+    expect(newPets.mermaids[0].x).toBeLessThan(5);
+    expect(newPets.mermaids[0].y).toBeGreaterThanOrEqual(0);
+    expect(newPets.mermaids[0].y).toBeLessThan(5);
   });
 });
 

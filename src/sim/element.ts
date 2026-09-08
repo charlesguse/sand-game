@@ -1,4 +1,4 @@
-import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, GUMDROP, FLOWER, DIAMOND } from './types';
+import { SAND, WATER, DIRT, RAINBOW_SAND, GRASS, STAR_POWER, GUMDROP, FLOWER, DIAMOND, ICE_CREAM } from './types';
 
 export function isPowder(e: number): boolean {
   return e === SAND || e === DIRT || e === RAINBOW_SAND || e === DIAMOND;
@@ -9,7 +9,7 @@ export function isLiquid(e: number): boolean {
 }
 
 export function isSolid(e: number): boolean {
-  return isPowder(e) || e === GRASS || e === STAR_POWER || e === GUMDROP || e === FLOWER;
+  return isPowder(e) || e === GRASS || e === STAR_POWER || e === GUMDROP || e === FLOWER || e === ICE_CREAM;
 }
 
 /**
@@ -20,5 +20,5 @@ export function isSolid(e: number): boolean {
  * has shipped once already, when the ternaries were spelled out longhand at each site.
  */
 export function usesHueColor(e: number): boolean {
-  return e === RAINBOW_SAND || e === GUMDROP || e === FLOWER;
+  return e === RAINBOW_SAND || e === GUMDROP || e === FLOWER || e === ICE_CREAM;
 }

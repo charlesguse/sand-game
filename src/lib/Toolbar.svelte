@@ -63,6 +63,8 @@
         return tool === 'star';
       case 'tool-gumdrop':
         return tool === 'gumdrop';
+      case 'tool-icecream':
+        return tool === 'icecream';
       case 'tool-rainbow':
         return tool === 'rainbow';
       case 'tool-unicorn':
@@ -79,6 +81,8 @@
         return tool === 'person';
       case 'tool-chest':
         return tool === 'chest';
+      case 'tool-mermaid':
+        return tool === 'mermaid';
       case 'tool-eraser':
         return tool === 'eraser';
       case 'tool-wand':
@@ -112,6 +116,8 @@
         return '⭐';
       case 'tool-gumdrop':
         return '🍬';
+      case 'tool-icecream':
+        return '🍦';
       case 'tool-rainbow':
         return '🌈';
       case 'tool-unicorn':
@@ -126,6 +132,8 @@
         return '🏠';
       case 'tool-person':
         return '🧑';
+      case 'tool-mermaid':
+        return '🧜';
       case 'tool-eraser':
         return '🧽';
       case 'action-clear':
@@ -176,6 +184,9 @@
       case 'tool-gumdrop':
         onSelectTool('gumdrop');
         return;
+      case 'tool-icecream':
+        onSelectTool('icecream');
+        return;
       case 'tool-rainbow':
         onSelectTool('rainbow');
         return;
@@ -199,6 +210,9 @@
         return;
       case 'tool-chest':
         onSelectTool('chest');
+        return;
+      case 'tool-mermaid':
+        onSelectTool('mermaid');
         return;
       case 'tool-eraser':
         onSelectTool('eraser');
