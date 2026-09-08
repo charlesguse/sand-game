@@ -354,17 +354,23 @@ describe('User Story 3 — eraser hold-off', () => {
     expect(before).toBeGreaterThan(0);
 
     const fish = state.fish[0];
+    // Both of this pool's fish spawn from the same 8-cell reservoir sample and then drift at
+    // only 0.06 cells/frame, so a second fish can legitimately land within radius 1 of `fish`
+    // by chance — the brush then correctly catches both. Compute how many it should catch
+    // instead of assuming exactly one, so the assertion matches whatever actually happened.
+    const caught = state.fish.filter((f) => Math.hypot(f.x - fish.x, f.y - fish.y) <= 1).length;
     eraseSeaLifeInBrush(state, fish.x, fish.y, 1);
-    expect(state.fish.length).toBe(before - 1);
-    expect(state.eraserCooldowns.length).toBeGreaterThan(0);
+    expect(state.fish.length).toBe(before - caught);
+    expect(state.eraserCooldowns.length).toBe(caught);
+    const after = state.fish.length;
 
     // Held off for most of the cooldown: this pool's count must not climb back up yet.
     for (let i = 0; i < ERASER_HOLD_OFF_FRAMES - 30; i++) stepSeaLife(grid, state);
-    expect(state.fish.length).toBeLessThanOrEqual(before - 1);
+    expect(state.fish.length).toBe(after);
 
     // Once the cooldown expires, the pool repopulates under the ordinary rule on its own.
     for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
-    expect(state.fish.length).toBeGreaterThanOrEqual(before - 1);
+    expect(state.fish.length).toBe(before);
   });
 });
 
