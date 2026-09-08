@@ -149,6 +149,12 @@ Single client-only project (established 001–013): `src/`, `tests/unit/` at the
 
 ---
 
+## Phase 9: Convergence
+
+- [ ] T044 Add a test to `tests/unit/sim/seaLife.test.ts` that places a shark near fish and asserts the fish-scatter reaction: nearby fish get `scatterTimer` set and move faster/away from the shark while it is positive, and settle back into ordinary drifting once the timer decays to 0, per US2/AC3, US2/AC7 (partial)
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
