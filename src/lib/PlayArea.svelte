@@ -46,6 +46,16 @@
     type PoodleState,
   } from '../sim/pets';
   import {
+    createSeaLifeState,
+    resetSeaLifeState,
+    stepSeaLife,
+    eraseSeaLifeInBrush,
+    eraseSeaLifeInBrushLine,
+    clearSeaLife,
+    CREATURE_FADE_FRAMES,
+    type SeaLifeState,
+  } from '../sim/seaLife';
+  import {
     createButterfliesState,
     stepButterflies,
     eraseButterfliesInBrush,
@@ -117,6 +127,7 @@
   const PALM_SWAY_SPEED = 0.0011;
   const FLAMINGO_BOB_SPEED = 0.0016;
   const FLAMINGO_BOB_PIXELS = 2.5;
+  const FISH_BOB_PIXELS = 1.5;
 
   const BURST_COOLDOWN_MS = 2000;
   const IDLE_INTERVAL_MS = 5000;
@@ -156,6 +167,9 @@
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D;
   let grid: Grid;
+  // Sized to grid's dimensions, so (unlike objectsState/petsState) it can only be created once
+  // grid exists — see onMount, right after grid is created.
+  let seaLifeState: SeaLifeState;
   let imageData: ImageData;
   let flashMask: Uint8Array;
   let starField: StarField;
@@ -241,6 +255,9 @@
       // — otherwise a landscape-save opened in portrait strands poodles outside the grid where
       // they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
+      // Fish/sharks are never saved (FR-027) — re-derive them from the just-restored water
+      // instead of leaving whatever the fresh mount's createSeaLifeState produced (FR-028).
+      resetSeaLifeState(seaLifeState, grid);
 
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
@@ -311,6 +328,7 @@
     repositionPoodles(petsState.poodles, newGrid, offsetX, offsetY);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    resetSeaLifeState(seaLifeState, newGrid);
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -511,6 +529,26 @@
       ctx.restore();
     }
 
+    for (const fish of seaLifeState.fish) {
+      const bob = Math.sin(fish.bobPhase) * FISH_BOB_PIXELS;
+      ctx.save();
+      ctx.globalAlpha = fish.fadeTimer > 0 ? fish.fadeTimer / CREATURE_FADE_FRAMES : 1;
+      ctx.translate(fish.x, fish.y + bob);
+      if (fish.dirX < 0) ctx.scale(-1, 1);
+      ctx.fillText('🐠', 0, 0);
+      ctx.restore();
+    }
+    ctx.font = `${OBJECT_FOOTPRINT_SIZE}px sans-serif`;
+    for (const shark of seaLifeState.sharks) {
+      ctx.save();
+      ctx.globalAlpha = shark.fadeTimer > 0 ? shark.fadeTimer / CREATURE_FADE_FRAMES : 1;
+      ctx.translate(shark.x, shark.y);
+      if (shark.facing < 0) ctx.scale(-1, 1);
+      ctx.fillText('🦈', 0, 0);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -568,6 +606,7 @@
     stepPets(grid, petsState, poodleTarget);
     stepButterflies(grid, butterfliesState, now);
     stepBirds(objectsState.byKind.palm, birdsState, now);
+    stepSeaLife(grid, seaLifeState);
     applyRainbowConversions(grid, objectsState.byKind.rainbow);
     applyChestConversions(grid, objectsState.byKind.chest);
     updateUnicorns(now);
@@ -616,10 +655,12 @@
         eraseObjectsInBrushLine(grid, objectsState, from, pos, radius);
         eraseButterfliesInBrushLine(butterfliesState, from, pos, radius, now);
         eraseBirdsInBrushLine(birdsState, from, pos, radius, now);
+        eraseSeaLifeInBrushLine(seaLifeState, from, pos, radius);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
         eraseButterfliesInBrush(butterfliesState, pos.x, pos.y, radius, now);
         eraseBirdsInBrush(birdsState, pos.x, pos.y, radius, now);
+        eraseSeaLifeInBrush(seaLifeState, pos.x, pos.y, radius);
       }
     }
     if (tool === 'wand') {
@@ -768,6 +809,7 @@
     clearPets(petsState);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    clearSeaLife(seaLifeState);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     playSweep();
@@ -782,6 +824,7 @@
     clearPets(petsState);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
+    resetSeaLifeState(seaLifeState, grid);
     particles.length = 0;
     history.commitAction(grid, objectsState);
     scheduleSave();
@@ -791,6 +834,7 @@
   export function undo(): void {
     endAllStrokes();
     history.undo(grid, objectsState);
+    resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     // Undo changes the world like any stroke does: without this, the persisted save can keep
     // the pre-undo picture until some later commit happens to schedule one.
@@ -801,6 +845,7 @@
   export function redo(): void {
     endAllStrokes();
     history.redo(grid, objectsState);
+    resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
@@ -842,6 +887,7 @@
     ctx = canvas.getContext('2d')!;
     const field = measureField();
     grid = createGrid(field.gridWidth, field.gridHeight);
+    seaLifeState = createSeaLifeState(grid);
     canvas.width = grid.width;
     canvas.height = grid.height;
     imageData = ctx.createImageData(grid.width, grid.height);
