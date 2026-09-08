@@ -3,10 +3,12 @@ import { createGrid, setCell } from '../../../src/sim/grid';
 import {
   createPetsState,
   addMermaid,
+  addPoodle,
   stepPets,
   stepMermaids,
   pokeMermaidAt,
   MERMAID_CAP,
+  ICE_CREAM_SCENT_RADIUS,
 } from '../../../src/sim/pets';
 import { POKE_RADIUS } from '../../../src/sim/pets';
 import { SAND, GUMDROP, ICE_CREAM, WATER, EMPTY, type Grid } from '../../../src/sim/types';
@@ -189,6 +191,99 @@ describe('buried mermaids free themselves', () => {
         expect(grid.elements[y * grid.width + x]).not.toBe(element);
       }
     }
+  });
+});
+
+describe('she swims for the ice cream (US3)', () => {
+  it('moves closer over successive frames and eventually eats it, entering the eating state', () => {
+    const grid = withPool(80, 40, 5, 75, 15, 20, 8);
+    const pets = createPetsState();
+    addMermaid(grid, pets, 10, 17);
+    const mermaid = pets.mermaids[0];
+    // Within ICE_CREAM_SCENT_RADIUS of her starting position (not just her eventual drift
+    // range), so she can detect and pursue it from where she's placed.
+    setCell(grid, 30, 17, ICE_CREAM, 0);
+
+    let sawEating = false;
+    for (let i = 0; i < 600; i++) {
+      stepPets(grid, pets, null);
+      if (mermaid.state === 'eating') sawEating = true;
+    }
+    expect(sawEating).toBe(true);
+    expect(grid.elements[17 * grid.width + 30]).toBe(EMPTY);
+  });
+
+  it('erasing the ice cream mid-pursuit stops her cleanly, with pursuit reset and no reaction to ice cream far outside her scent window', () => {
+    const grid = withPool(80, 40, 5, 75, 15, 20, 8);
+    const pets = createPetsState();
+    addMermaid(grid, pets, 10, 17);
+    const mermaid = pets.mermaids[0];
+    setCell(grid, 30, 17, ICE_CREAM, 0);
+    run(grid, pets, 30);
+    expect(mermaid.pursuitX).not.toBe(-1);
+
+    setCell(grid, 30, 17, EMPTY, 0);
+    run(grid, pets, 30);
+    expect(mermaid.pursuitX).toBe(-1);
+    expect(mermaid.pursuitY).toBe(-1);
+    expect(mermaid.state).not.toBe('freeing');
+
+    // Ice cream far outside her scent window causes no reaction at all.
+    const farGrid = withPool(200, 40, 5, 195, 15, 20, 8);
+    const farPets = createPetsState();
+    addMermaid(farGrid, farPets, 100, 17);
+    const farMermaid = farPets.mermaids[0];
+    setCell(farGrid, 100 - (ICE_CREAM_SCENT_RADIUS + 20), 17, ICE_CREAM, 0);
+    run(farGrid, farPets, 60);
+    expect(farMermaid.pursuitX).toBe(-1);
+  });
+
+  it('gives up gracefully on ice cream she cannot reach, entering cooldown, and never leaves the water', () => {
+    const grid = withPool(80, 40, 5, 35, 15, 20, 8);
+    setCell(grid, 45, 17, ICE_CREAM, 0); // outside the pool, on dry land — unreachable, but in scent range
+    const pets = createPetsState();
+    addMermaid(grid, pets, 30, 17); // near the pool's edge, well within scent range of the ice cream
+    const mermaid = pets.mermaids[0];
+
+    for (let i = 0; i < 400; i++) {
+      stepPets(grid, pets, null);
+      const x = Math.round(mermaid.x);
+      const y = Math.round(mermaid.y);
+      expect(grid.elements[y * grid.width + x]).toBe(WATER);
+    }
+    expect(mermaid.iceCreamCooldown).toBeGreaterThan(0);
+    expect(mermaid.pursuitX).toBe(-1);
+  });
+
+  it('eats ice cream poured directly onto her own cell rather than ignoring or vanishing it', () => {
+    const grid = withPool(40, 40, 10, 30, 20, 25, 8);
+    const pets = createPetsState();
+    addMermaid(grid, pets, 20, 22);
+    const mermaid = pets.mermaids[0];
+    setCell(grid, Math.round(mermaid.x), Math.round(mermaid.y), ICE_CREAM, 0);
+    stepMermaids(grid, pets);
+    expect(mermaid.state).toBe('eating');
+    expect(grid.elements[Math.round(mermaid.y) * grid.width + Math.round(mermaid.x)]).toBe(EMPTY);
+  });
+
+  it('mutual exclusivity: a poodle only reacts to gumdrops and a mermaid only reacts to ice cream', () => {
+    // withPool's own withFloor already lays a full-width sand floor across the bottom 8 rows
+    // (32-39) — the poodle stands on dry land at x=90, well clear of the pool (x=5..75).
+    const grid = withPool(100, 40, 5, 75, 15, 20, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 90, 20);
+    run(grid, pets, 20); // let her fall and settle onto the floor first, per pets.test.ts's convention
+    const poodleRestY = Math.round(pets.poodles[0].y);
+    setCell(grid, 85, poodleRestY, GUMDROP, 0);
+
+    addMermaid(grid, pets, 10, 17);
+    setCell(grid, 30, 17, ICE_CREAM, 0);
+    run(grid, pets, 400);
+
+    // The gumdrop was eaten by the poodle; the ice cream by the mermaid — neither pet touches
+    // the other's treat.
+    expect(grid.elements[poodleRestY * grid.width + 85]).toBe(EMPTY);
+    expect(grid.elements[17 * grid.width + 30]).toBe(EMPTY);
   });
 });
 

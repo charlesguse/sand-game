@@ -1,5 +1,5 @@
 import { isSolid } from './element';
-import { EMPTY, GUMDROP, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
+import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
 import { randomHue } from './shade';
 
 export type PoodleState = 'idle' | 'trotting' | 'eating' | 'shaking' | 'digging' | 'tricking';
@@ -523,6 +523,18 @@ const MERMAID_FREE_DURATION = 12;
 export const MERMAID_DRIFT_RANGE = 10;
 /** Frames spent doing a trick after being poked. */
 export const MERMAID_TRICK_DURATION = 36;
+/** How far a mermaid can smell ice cream, in cells — mirrors GUMDROP_SCENT_RADIUS. */
+export const ICE_CREAM_SCENT_RADIUS = 25;
+/** Frames spent happily eating. */
+const MERMAID_EAT_DURATION = 20;
+/**
+ * Frames a mermaid will keep trying to close the distance on a pursued ice cream without any
+ * improvement before giving up on it — mirrors GUMDROP_PATIENCE, generalized to Chebyshev
+ * distance (research.md §2).
+ */
+const ICE_CREAM_PATIENCE = 40;
+/** Frames a mermaid ignores all ice-cream scent after giving up on one it couldn't reach — mirrors GUMDROP_COOLDOWN. */
+const ICE_CREAM_COOLDOWN = 150;
 
 /**
  * Nearest WATER cell within a bounded square window around (x, y), or null if none — the
@@ -603,17 +615,25 @@ function nearestNonSolidCell(grid: Grid, cx: number, cy: number, radius: number)
 }
 
 /**
- * The WATER neighbour (of up to 8, dx/dy in {-1,0,1} excluding (0,0)) closest — Chebyshev
- * distance, ties broken uniformly at random via reservoir sampling — to (targetX, targetY).
+ * The best neighbour (of up to 8, dx/dy in {-1,0,1} excluding (0,0)) to step onto — Chebyshev
+ * distance to (targetX, targetY), ties broken uniformly at random via reservoir sampling.
  * Allocation-free (constitution Principle IV): no candidate array, just running best/tie-count.
  * Mirrors research.md §1's "greedy neighbour stepping, not pathfinding" decision.
+ *
+ * A candidate is valid if it is WATER, or if it exactly matches (allowX, allowY) — the latter
+ * lets a mermaid step directly onto her pursuit target even when that one cell holds ICE_CREAM
+ * rather than WATER (otherwise she could approach to distance 1 and never actually reach it, see
+ * FR-017/FR-018). Pass -1, -1 (never a real coordinate) to disable that exception for ordinary
+ * drifting/recovery, which must only ever step onto genuine WATER.
  */
-function bestWaterNeighbour(
+function bestSwimNeighbour(
   grid: Grid,
   cx: number,
   cy: number,
   targetX: number,
   targetY: number,
+  allowX: number,
+  allowY: number,
 ): { x: number; y: number } | null {
   let bestX = -1;
   let bestY = -1;
@@ -625,7 +645,8 @@ function bestWaterNeighbour(
       if (dx === 0 && dy === 0) continue;
       const nx = cx + dx;
       const ny = cy + dy;
-      if (!cellIsWater(grid, nx, ny)) continue;
+      const valid = cellIsWater(grid, nx, ny) || (nx === allowX && ny === allowY);
+      if (!valid) continue;
       const dist = Math.max(Math.abs(nx - targetX), Math.abs(ny - targetY));
       if (dist < bestDist) {
         bestDist = dist;
@@ -644,10 +665,34 @@ function bestWaterNeighbour(
   return bestDist === Infinity ? null : { x: bestX, y: bestY };
 }
 
-/** At most once every MERMAID_SWIM_INTERVAL frames (per mermaid, staggered by id), steps onto whichever WATER neighbour is closest to (targetX, targetY). No-op if she has no WATER neighbour at all. */
-function swimToward(grid: Grid, mermaid: Mermaid, targetX: number, targetY: number, stride: number): void {
+function bestWaterNeighbour(grid: Grid, cx: number, cy: number, targetX: number, targetY: number): { x: number; y: number } | null {
+  return bestSwimNeighbour(grid, cx, cy, targetX, targetY, -1, -1);
+}
+
+/**
+ * At most once every MERMAID_SWIM_INTERVAL frames (per mermaid, staggered by id), steps onto
+ * whichever neighbour is closest to (targetX, targetY) — ordinarily WATER only, or also
+ * (targetX, targetY) itself when allowTarget is true (the pursuit case, so she can step onto an
+ * ice cream cell). No-op if there is no valid neighbour at all.
+ */
+function swimToward(
+  grid: Grid,
+  mermaid: Mermaid,
+  targetX: number,
+  targetY: number,
+  stride: number,
+  allowTarget = false,
+): void {
   if (mermaid.id % MERMAID_SWIM_INTERVAL !== stride % MERMAID_SWIM_INTERVAL) return;
-  const next = bestWaterNeighbour(grid, Math.round(mermaid.x), Math.round(mermaid.y), targetX, targetY);
+  const next = bestSwimNeighbour(
+    grid,
+    Math.round(mermaid.x),
+    Math.round(mermaid.y),
+    targetX,
+    targetY,
+    allowTarget ? targetX : -1,
+    allowTarget ? targetY : -1,
+  );
   if (next === null) return;
   if (next.x !== mermaid.x) mermaid.facing = next.x > mermaid.x ? 1 : -1;
   mermaid.x = next.x;
@@ -667,6 +712,98 @@ function driftStep(grid: Grid, mermaid: Mermaid, stride: number): void {
   const targetX = Math.max(0, Math.min(grid.width - 1, mermaid.homeX + mermaid.driftDir * MERMAID_DRIFT_RANGE));
   mermaid.state = 'drifting';
   swimToward(grid, mermaid, targetX, mermaid.y, stride);
+}
+
+/**
+ * Nearest ICE_CREAM cell within a bounded square window around (x, y), or null if none — mirrors
+ * nearestGumdropX's shape (bounded scan, no allocation), predicate swapped, and scans both axes
+ * since a mermaid's target is a cell, not a column.
+ */
+function nearestIceCreamCell(grid: Grid, x: number, y: number): { x: number; y: number } | null {
+  const cx = Math.round(x);
+  const cy = Math.round(y);
+  let bestX = -1;
+  let bestY = -1;
+  let bestDist = Infinity;
+  let tieCount = 0;
+
+  const minX = Math.max(0, cx - ICE_CREAM_SCENT_RADIUS);
+  const maxX = Math.min(grid.width - 1, cx + ICE_CREAM_SCENT_RADIUS);
+  const minY = Math.max(0, cy - ICE_CREAM_SCENT_RADIUS);
+  const maxY = Math.min(grid.height - 1, cy + ICE_CREAM_SCENT_RADIUS);
+
+  for (let yy = minY; yy <= maxY; yy++) {
+    for (let xx = minX; xx <= maxX; xx++) {
+      if (grid.elements[yy * grid.width + xx] !== ICE_CREAM) continue;
+      const dist = Math.max(Math.abs(xx - cx), Math.abs(yy - cy));
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestX = xx;
+        bestY = yy;
+        tieCount = 1;
+      } else if (dist === bestDist) {
+        tieCount++;
+        if (Math.random() < 1 / tieCount) {
+          bestX = xx;
+          bestY = yy;
+        }
+      }
+    }
+  }
+  return bestDist === Infinity ? null : { x: bestX, y: bestY };
+}
+
+/**
+ * Scent/pursuit/give-up/cooldown bookkeeping, mirroring stepPoodle's gumdrop pursuit shape
+ * exactly (research.md §2) but with Chebyshev distance in place of a 1D column distance. Returns
+ * true iff she is actively pursuing this frame (state set to 'swimming', a swim step attempted);
+ * false means the caller should fall through to ordinary drifting.
+ */
+function pursueIceCream(grid: Grid, mermaid: Mermaid, stride: number): boolean {
+  if (mermaid.iceCreamCooldown > 0) {
+    mermaid.iceCreamCooldown--;
+    return false;
+  }
+
+  const target = nearestIceCreamCell(grid, mermaid.x, mermaid.y);
+  if (target === null) {
+    mermaid.pursuitX = -1;
+    mermaid.pursuitY = -1;
+    mermaid.pursuitBestDist = Infinity;
+    mermaid.pursuitStaleFrames = 0;
+    return false;
+  }
+
+  if (mermaid.pursuitX !== target.x || mermaid.pursuitY !== target.y) {
+    mermaid.pursuitX = target.x;
+    mermaid.pursuitY = target.y;
+    mermaid.pursuitBestDist = Infinity;
+    mermaid.pursuitStaleFrames = 0;
+  }
+
+  const dist = Math.max(Math.abs(mermaid.pursuitX - mermaid.x), Math.abs(mermaid.pursuitY - mermaid.y));
+  if (dist < mermaid.pursuitBestDist) {
+    mermaid.pursuitBestDist = dist;
+    mermaid.pursuitStaleFrames = 0;
+  } else {
+    mermaid.pursuitStaleFrames++;
+  }
+
+  if (mermaid.pursuitStaleFrames > ICE_CREAM_PATIENCE) {
+    // Hasn't gotten any closer in a while — give up (wall, unreachable pool, dry land) and ignore
+    // ice-cream scent for a while so she settles back into ordinary drifting instead of
+    // immediately re-committing to the same unreachable spot.
+    mermaid.pursuitX = -1;
+    mermaid.pursuitY = -1;
+    mermaid.pursuitBestDist = Infinity;
+    mermaid.pursuitStaleFrames = 0;
+    mermaid.iceCreamCooldown = ICE_CREAM_COOLDOWN;
+    return false;
+  }
+
+  mermaid.state = 'swimming';
+  swimToward(grid, mermaid, mermaid.pursuitX, mermaid.pursuitY, stride, true);
+  return true;
 }
 
 /** At most three mermaids at once; placing a fourth retires the oldest, mirroring addPoodle. */
@@ -731,6 +868,22 @@ function stepMermaid(grid: Grid, mermaid: Mermaid, stride: number): void {
   const ownX = Math.round(mermaid.x);
   const ownY = Math.round(mermaid.y);
 
+  if (grid.elements[ownY * grid.width + ownX] === ICE_CREAM) {
+    // Ice cream landed exactly on her own cell (poured there directly, or arrived at via
+    // pursuit): eat it. isSolid() counts ICE_CREAM as solid for burial purposes below, but this
+    // is eating, not freeing — check for it first so the two don't share a predicate and this
+    // scoop doesn't get silently deleted with no eating state (mirrors stepPoodle's own gumdrop-
+    // on-her-own-cell check, FR-021).
+    grid.elements[ownY * grid.width + ownX] = EMPTY;
+    mermaid.state = 'eating';
+    mermaid.timer = MERMAID_EAT_DURATION;
+    mermaid.pursuitX = -1;
+    mermaid.pursuitY = -1;
+    mermaid.pursuitBestDist = Infinity;
+    mermaid.pursuitStaleFrames = 0;
+    return;
+  }
+
   if (cellIsSolid(grid, ownX, ownY)) {
     // Buried: no gravity relationship exists to guide "up", so search-and-relocate rather than
     // dig (research.md §4). Re-attempted every frame she stays buried, in case the grid changes.
@@ -779,7 +932,9 @@ function stepMermaid(grid: Grid, mermaid: Mermaid, stride: number): void {
     return;
   }
 
-  driftStep(grid, mermaid, stride);
+  if (!pursueIceCream(grid, mermaid, stride)) {
+    driftStep(grid, mermaid, stride);
+  }
 }
 
 export function stepMermaids(grid: Grid, state: PetsState): void {
