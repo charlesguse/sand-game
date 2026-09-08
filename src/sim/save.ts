@@ -12,6 +12,7 @@ export interface SavedWorld {
   height: number;
   state: WorldState;
   poodles: { x: number; y: number }[];
+  mermaids: { x: number; y: number }[];
 }
 
 /**
@@ -101,6 +102,11 @@ interface WirePoodle {
   y: number;
 }
 
+interface WireMermaid {
+  x: number;
+  y: number;
+}
+
 interface WireWorld {
   version: number;
   width: number;
@@ -112,6 +118,7 @@ interface WireWorld {
   grassHeight: string;
   byKind: Record<string, WireObject[]>;
   poodles: WirePoodle[];
+  mermaids?: WireMermaid[];
 }
 
 /**
@@ -136,6 +143,7 @@ export function serializeWorld(grid: Grid, objects: ObjectsState, pets: PetsStat
     }
 
     const poodles: WirePoodle[] = pets.poodles.map((poodle) => ({ x: poodle.x, y: poodle.y }));
+    const mermaids: WireMermaid[] = pets.mermaids.map((mermaid) => ({ x: mermaid.x, y: mermaid.y }));
 
     const wire: WireWorld = {
       version: SAVE_VERSION,
@@ -148,6 +156,7 @@ export function serializeWorld(grid: Grid, objects: ObjectsState, pets: PetsStat
       grassHeight: encodeBase64(state.grassHeight),
       byKind,
       poodles,
+      mermaids,
     };
 
     return JSON.stringify(wire);
@@ -176,6 +185,28 @@ function isPoodleShape(value: unknown): value is WirePoodle {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
   return isFiniteNumber(obj.x) && isFiniteNumber(obj.y);
+}
+
+function isMermaidShape(value: unknown): value is WireMermaid {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return isFiniteNumber(obj.x) && isFiniteNumber(obj.y);
+}
+
+/**
+ * Tolerantly parses a wire mermaids field: a missing field, a non-array, or any individually
+ * malformed entry all default to [] rather than rejecting the whole payload (FR-029) — this is
+ * what lets a save written before this feature existed (no `mermaids` key at all) restore
+ * cleanly, with no mermaids and no error surface.
+ */
+function parseMermaids(value: unknown): WireMermaid[] {
+  if (!Array.isArray(value)) return [];
+  const mermaids: WireMermaid[] = [];
+  for (const item of value) {
+    if (!isMermaidShape(item)) return [];
+    mermaids.push({ x: item.x, y: item.y });
+  }
+  return mermaids;
 }
 
 /**
@@ -251,9 +282,14 @@ export function deserializeWorld(raw: string): SavedWorld | null {
       poodles.push({ x: item.x, y: item.y });
     }
 
-    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind };
+    const mermaids = parseMermaids(wire.mermaids);
 
-    return { version: wire.version, width, height, state, poodles };
+    // The nested WorldState's own `mermaids` field is unused by the save-restore path (mermaid
+    // data round-trips as the sibling `mermaids` field above, mirroring `poodles` exactly) — kept
+    // empty here since restoreWorldState is called without a `pets` argument for a save restore.
+    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids: [] };
+
+    return { version: wire.version, width, height, state, poodles, mermaids };
   } catch {
     return null;
   }

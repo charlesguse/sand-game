@@ -4,7 +4,7 @@ import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../
 import { createPetsState, addPoodle } from '../../../src/sim/pets';
 import { restoreWorldState } from '../../../src/sim/history';
 import { step } from '../../../src/sim/step';
-import { SAND, WATER, RAINBOW_SAND, GUMDROP, DIRT, DIAMOND, OBJECT } from '../../../src/sim/types';
+import { SAND, WATER, RAINBOW_SAND, GUMDROP, ICE_CREAM, DIRT, DIAMOND, OBJECT } from '../../../src/sim/types';
 import {
   SAVE_VERSION,
   serializeWorld,
@@ -50,6 +50,10 @@ function buildPopulatedWorld() {
 
   addPoodle(pets, 3, 4);
   addPoodle(pets, 12, 6);
+  pets.mermaids.push(
+    { id: pets.nextId++, x: 8, y: 9, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 8, homeY: 9, driftDir: 1 },
+    { id: pets.nextId++, x: 15, y: 11, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 15, homeY: 11, driftDir: 1 },
+  );
 
   return { grid, objects, pets };
 }
@@ -84,6 +88,10 @@ describe('save — codec round trip (Task 1)', () => {
     expect(saved.poodles).toEqual([
       { x: 3, y: 4 },
       { x: 12, y: 6 },
+    ]);
+    expect(saved.mermaids).toEqual([
+      { x: 8, y: 9 },
+      { x: 15, y: 11 },
     ]);
   });
 
@@ -229,6 +237,58 @@ describe('save — a byKind key missing for an ObjectKind reads as empty rather 
     for (const kind of ['house', 'person', 'chest'] as const) {
       expect(saved.state.byKind[kind]).toEqual(objects.byKind[kind]);
     }
+  });
+});
+
+describe('save — mermaids and ice cream round trip (US4, FR-026, FR-029)', () => {
+  it('round-trips every un-eaten ice cream cell along with its flavour colour', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    grid.elements[5] = ICE_CREAM;
+    grid.hues[5] = 111;
+
+    const json = serializeWorld(grid, objects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+
+    expect(saved.state.elements[5]).toBe(ICE_CREAM);
+    expect(saved.state.colorAux[5]).toBe(111);
+  });
+
+  it('deserializes a wire payload shaped like today\'s (no `mermaids` key) with mermaids: [] and no error', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    delete wire.mermaids;
+    const legacyJson = JSON.stringify(wire);
+
+    expect(() => deserializeWorld(legacyJson)).not.toThrow();
+    const saved = deserializeWorld(legacyJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.mermaids).toEqual([]);
+    // Everything else about the payload still restores cleanly — a pre-feature save's mermaids
+    // field simply doesn't exist yet, and that alone must never reject the whole picture.
+    expect(saved.poodles).toEqual([
+      { x: 3, y: 4 },
+      { x: 12, y: 6 },
+    ]);
+  });
+
+  it('defaults to mermaids: [] when the field is present but malformed, instead of rejecting the payload', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const tampered = { ...wire, mermaids: 'not-an-array' };
+    const tamperedJson = JSON.stringify(tampered);
+
+    expect(() => deserializeWorld(tamperedJson)).not.toThrow();
+    const saved = deserializeWorld(tamperedJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.mermaids).toEqual([]);
   });
 });
 

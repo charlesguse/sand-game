@@ -3,9 +3,13 @@ import { createGrid, setCell } from '../../../src/sim/grid';
 import {
   createPetsState,
   addPoodle,
+  addMermaid,
   stepPets,
   clearPets,
   repositionPoodles,
+  repositionMermaids,
+  eraseMermaidsInBrush,
+  eraseMermaidsInBrushLine,
   pokePoodleAt,
   POODLE_CAP,
   POKE_RADIUS,
@@ -621,6 +625,66 @@ describe('repositioning on resize', () => {
     expect(pets.poodles[0].x).toBeLessThanOrEqual(newGrid.width - 1);
     expect(pets.poodles[0].y).toBeLessThanOrEqual(newGrid.height - 1);
   });
+
+  it('shifts every mermaid by the same offset the grid content gets (FR-028)', () => {
+    const pets = createPetsState();
+    pets.mermaids.push(
+      { id: pets.nextId++, x: 20, y: 15, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 20, homeY: 15, driftDir: 1 },
+      { id: pets.nextId++, x: 30, y: 10, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 30, homeY: 10, driftDir: 1 },
+    );
+    const newGrid = createGrid(80, 40);
+    repositionMermaids(pets.mermaids, newGrid, 10, 5);
+    expect(pets.mermaids[0].x).toBeCloseTo(30);
+    expect(pets.mermaids[0].y).toBeCloseTo(20);
+    expect(pets.mermaids[1].x).toBeCloseTo(40);
+    expect(pets.mermaids[1].y).toBeCloseTo(15);
+  });
+
+  it('clamps a mermaid back inside the new grid rather than dropping her (FR-028)', () => {
+    const pets = createPetsState();
+    pets.mermaids.push({ id: pets.nextId++, x: 5, y: 5, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 5, homeY: 5, driftDir: 1 });
+    const newGrid = createGrid(40, 20);
+    repositionMermaids(pets.mermaids, newGrid, -20, -20);
+    expect(pets.mermaids).toHaveLength(1);
+    expect(pets.mermaids[0].x).toBeGreaterThanOrEqual(0);
+    expect(pets.mermaids[0].x).toBeLessThan(40);
+    expect(pets.mermaids[0].y).toBeGreaterThanOrEqual(0);
+    expect(pets.mermaids[0].y).toBeLessThan(20);
+  });
+
+  it('clamps a mermaid against the far edge too, not just zero (FR-028)', () => {
+    const pets = createPetsState();
+    pets.mermaids.push({ id: pets.nextId++, x: 35, y: 15, facing: 1, state: 'drifting', timer: 0, pursuitX: -1, pursuitY: -1, pursuitBestDist: Infinity, pursuitStaleFrames: 0, iceCreamCooldown: 0, homeX: 35, homeY: 15, driftDir: 1 });
+    const newGrid = createGrid(20, 10);
+    repositionMermaids(pets.mermaids, newGrid, 20, 20);
+    expect(pets.mermaids[0].x).toBeLessThanOrEqual(newGrid.width - 1);
+    expect(pets.mermaids[0].y).toBeLessThanOrEqual(newGrid.height - 1);
+  });
+});
+
+describe('erasing mermaids (FR-024)', () => {
+  it('removes a mermaid within POKE_RADIUS of the erase point and leaves one outside untouched', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    setCell(grid, 30, 20, WATER, 0);
+    setCell(grid, 90, 20, WATER, 0);
+    addMermaid(grid, pets, 30, 20);
+    addMermaid(grid, pets, 90, 20);
+    eraseMermaidsInBrush(pets, 30, 20, POKE_RADIUS);
+    expect(pets.mermaids).toHaveLength(1);
+    expect(pets.mermaids[0].x).toBeCloseTo(90);
+  });
+
+  it('eraseMermaidsInBrushLine reaches every point along a fast drag', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    setCell(grid, 30, 20, WATER, 0);
+    setCell(grid, 60, 20, WATER, 0);
+    addMermaid(grid, pets, 30, 20);
+    addMermaid(grid, pets, 60, 20);
+    eraseMermaidsInBrushLine(pets, { x: 20, y: 20 }, { x: 70, y: 20 }, POKE_RADIUS);
+    expect(pets.mermaids).toHaveLength(0);
+  });
 });
 
 describe('clearing the pack', () => {
@@ -639,5 +703,15 @@ describe('clearing the pack', () => {
     clearPets(pets);
     addPoodle(pets, 10, 5);
     expect(pets.poodles[0].id).not.toBe(firstId);
+  });
+
+  it('removes every mermaid too (FR-025)', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    setCell(grid, 30, 20, WATER, 0);
+    addMermaid(grid, pets, 30, 20);
+    addMermaid(grid, pets, 30, 20);
+    clearPets(pets);
+    expect(pets.mermaids).toHaveLength(0);
   });
 });

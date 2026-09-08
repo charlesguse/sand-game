@@ -43,8 +43,13 @@
     stepPets,
     clearPets,
     repositionPoodles,
+    repositionMermaids,
     pokePoodleAt,
     pokeMermaidAt,
+    eraseMermaidsInBrush,
+    eraseMermaidsInBrushLine,
+    restoreMermaidsFromPositions,
+    POKE_RADIUS,
     type PoodleState,
   } from '../sim/pets';
   import {
@@ -252,14 +257,16 @@
 
       clearPets(petsState);
       for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
+      restoreMermaidsFromPositions(petsState, saved.mermaids);
       // Saved coordinates belong to the saved dimensions: shift them by the same offset the
       // terrain just got, and clamp back in bounds (deserializeWorld accepts any finite coords)
-      // — otherwise a landscape-save opened in portrait strands poodles outside the grid where
-      // they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
+      // — otherwise a landscape-save opened in portrait strands poodles/mermaids outside the grid
+      // where they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
       // Fish/sharks are never saved (FR-027) — re-derive them from the just-restored water
       // instead of leaving whatever the fresh mount's createSeaLifeState produced (FR-028).
       resetSeaLifeState(seaLifeState, grid);
+      repositionMermaids(petsState.mermaids, grid, offsetX, offsetY);
 
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
@@ -331,6 +338,7 @@
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
     resetSeaLifeState(seaLifeState, newGrid);
+    repositionMermaids(petsState.mermaids, newGrid, offsetX, offsetY);
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -670,11 +678,13 @@
         eraseButterfliesInBrushLine(butterfliesState, from, pos, radius, now);
         eraseBirdsInBrushLine(birdsState, from, pos, radius, now);
         eraseSeaLifeInBrushLine(seaLifeState, from, pos, radius);
+        eraseMermaidsInBrushLine(petsState, from, pos, POKE_RADIUS);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
         eraseButterfliesInBrush(butterfliesState, pos.x, pos.y, radius, now);
         eraseBirdsInBrush(birdsState, pos.x, pos.y, radius, now);
         eraseSeaLifeInBrush(seaLifeState, pos.x, pos.y, radius);
+        eraseMermaidsInBrush(petsState, pos.x, pos.y, POKE_RADIUS);
       }
     }
     if (tool === 'wand') {
@@ -703,7 +713,7 @@
   function endStroke(pointerId: number): void {
     if (!strokes.delete(pointerId)) return;
     if (strokes.size === 0) {
-      history.commitAction(grid, objectsState);
+      history.commitAction(grid, objectsState, petsState);
       scheduleSave();
       onHistoryChange?.(history.canUndo(), history.canRedo());
     }
@@ -715,7 +725,7 @@
   function endAllStrokes(): void {
     if (strokes.size === 0) return;
     strokes.clear();
-    history.commitAction(grid, objectsState);
+    history.commitAction(grid, objectsState, petsState);
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
@@ -794,9 +804,9 @@
       // stroke's undo step. Settle all strokes first — placement ends the scribble, as it always
       // did in the single-pointer code.
       endAllStrokes();
-      history.beginAction(grid, objectsState);
+      history.beginAction(grid, objectsState, petsState);
       placeObject(grid, objectsState, tool, pos.x, pos.y);
-      history.commitAction(grid, objectsState);
+      history.commitAction(grid, objectsState, petsState);
       playPop();
       scheduleSave();
       onHistoryChange?.(history.canUndo(), history.canRedo());
@@ -804,7 +814,7 @@
       return;
     }
     if (strokes.size === 0) {
-      history.beginAction(grid, objectsState);
+      history.beginAction(grid, objectsState, petsState);
     }
     strokes.set(event.pointerId, pos);
     paintAt(pos, null);
@@ -826,7 +836,7 @@
 
   export function clearAll(): void {
     endAllStrokes();
-    history.beginAction(grid, objectsState);
+    history.beginAction(grid, objectsState, petsState);
     clearGridState(grid);
     clearObjects(objectsState);
     clearPets(petsState);
@@ -834,7 +844,7 @@
     clearBirds(birdsState);
     clearSeaLife(seaLifeState);
     particles.length = 0;
-    history.commitAction(grid, objectsState);
+    history.commitAction(grid, objectsState, petsState);
     playSweep();
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
@@ -842,21 +852,21 @@
 
   export function loadScene(sceneId: SceneId): void {
     endAllStrokes();
-    history.beginAction(grid, objectsState);
+    history.beginAction(grid, objectsState, petsState);
     loadSceneState(sceneId, grid, objectsState);
     clearPets(petsState);
     clearButterflies(butterfliesState);
     clearBirds(birdsState);
     resetSeaLifeState(seaLifeState, grid);
     particles.length = 0;
-    history.commitAction(grid, objectsState);
+    history.commitAction(grid, objectsState, petsState);
     scheduleSave();
     onHistoryChange?.(history.canUndo(), history.canRedo());
   }
 
   export function undo(): void {
     endAllStrokes();
-    history.undo(grid, objectsState);
+    history.undo(grid, objectsState, petsState);
     resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     // Undo changes the world like any stroke does: without this, the persisted save can keep
@@ -867,7 +877,7 @@
 
   export function redo(): void {
     endAllStrokes();
-    history.redo(grid, objectsState);
+    history.redo(grid, objectsState, petsState);
     resetSeaLifeState(seaLifeState, grid);
     playWhoosh();
     scheduleSave();

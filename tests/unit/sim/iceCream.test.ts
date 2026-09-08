@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createGrid, setCell, createFog } from '../../../src/sim/grid';
 import { step } from '../../../src/sim/step';
 import { applyBrush } from '../../../src/sim/brush';
-import { SAND, FOG, ICE_CREAM, GUMDROP, WATER, type Grid } from '../../../src/sim/types';
+import { SAND, EMPTY, FOG, ICE_CREAM, GUMDROP, WATER, type Grid } from '../../../src/sim/types';
 
 function at(grid: Grid, x: number, y: number): number {
   return grid.elements[y * grid.width + x];
@@ -93,6 +93,15 @@ describe('ice cream falls and rests exactly like a gumdrop (FR-015)', () => {
     step(grid);
     expect(at(grid, 0, 3)).toBe(FOG);
     expect(at(grid, 0, 4)).toBe(ICE_CREAM);
+  });
+});
+
+describe('ice cream is erasable (FR-024)', () => {
+  it('the eraser empties an ice cream cell, exactly as it does every other element', () => {
+    const grid = createGrid(9, 9);
+    setCell(grid, 4, 4, ICE_CREAM, 0);
+    applyBrush(grid, 'eraser', 4, 4, 2, 0);
+    expect(at(grid, 4, 4)).toBe(EMPTY);
   });
 });
 

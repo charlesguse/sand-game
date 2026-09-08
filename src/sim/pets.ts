@@ -128,6 +128,35 @@ export function clearPets(state: PetsState): void {
   state.mermaids.length = 0;
 }
 
+/**
+ * Replaces state.mermaids wholesale with fresh default-activity mermaids rebuilt from just each
+ * position (state 'drifting', timer 0, pursuit cleared) — the "position only, saved trusted
+ * as-is, no re-search for water" restore rule shared by both restore paths that reconstruct
+ * mermaids from persisted data: history.ts's restoreWorldState (undo/redo) and PlayArea.svelte's
+ * tryRestore (session save). Deliberately not addMermaid: that function re-searches for the
+ * nearest water cell, which is wrong here — a saved/captured position is already known-valid and
+ * re-snapping it could move her, or (before any reposition-by-offset has run) search at the wrong
+ * coordinates entirely.
+ */
+export function restoreMermaidsFromPositions(state: PetsState, positions: readonly { x: number; y: number }[]): void {
+  state.mermaids = positions.map((p) => ({
+    id: state.nextId++,
+    x: p.x,
+    y: p.y,
+    facing: 1,
+    state: 'drifting',
+    timer: 0,
+    pursuitX: -1,
+    pursuitY: -1,
+    pursuitBestDist: Infinity,
+    pursuitStaleFrames: 0,
+    iceCreamCooldown: 0,
+    homeX: p.x,
+    homeY: p.y,
+    driftDir: 1,
+  }));
+}
+
 export function addPoodle(state: PetsState, x: number, y: number): void {
   if (state.poodles.length >= POODLE_CAP) state.poodles.shift();
   state.poodles.push({
@@ -171,6 +200,16 @@ export function repositionPoodles(
     // Home moves with her: a stale homeX further than WANDER_RANGE from the shifted position
     // would fail wanderStep's leash check in both directions, permanently disabling wandering.
     poodle.homeX = poodle.x;
+  }
+}
+
+/** Shifts every mermaid by (offsetX, offsetY) and clamps back in-bounds, exactly mirroring repositionPoodles (FR-028) — never dropped. */
+export function repositionMermaids(mermaids: Mermaid[], newGrid: Grid, offsetX: number, offsetY: number): void {
+  for (const mermaid of mermaids) {
+    mermaid.x = Math.min(Math.max(mermaid.x + offsetX, 0), newGrid.width - 1);
+    mermaid.y = Math.min(Math.max(mermaid.y + offsetY, 0), newGrid.height - 1);
+    mermaid.homeX = mermaid.x;
+    mermaid.homeY = mermaid.y;
   }
 }
 
@@ -850,6 +889,49 @@ export function pokeMermaidAt(pets: PetsState, x: number, y: number): boolean {
   nearest.state = 'tricking';
   nearest.timer = MERMAID_TRICK_DURATION;
   return true;
+}
+
+/** Removes, in whole, every mermaid within radius of (cx, cy) — same circular-reach shape as eraseObjectsInBrush (research.md §12). */
+export function eraseMermaidsInBrush(pets: PetsState, cx: number, cy: number, radius: number): void {
+  for (let i = pets.mermaids.length - 1; i >= 0; i--) {
+    const mermaid = pets.mermaids[i];
+    const dx = mermaid.x - cx;
+    const dy = mermaid.y - cy;
+    if (dx * dx + dy * dy <= radius * radius) pets.mermaids.splice(i, 1);
+  }
+}
+
+/** Applies eraseMermaidsInBrush along every point on the line from `from` to `to`, Bresenham-interpolated exactly like eraseObjectsInBrushLine. */
+export function eraseMermaidsInBrushLine(
+  pets: PetsState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  radius: number,
+): void {
+  let x0 = Math.round(from.x);
+  let y0 = Math.round(from.y);
+  const x1 = Math.round(to.x);
+  const y1 = Math.round(to.y);
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  for (;;) {
+    eraseMermaidsInBrush(pets, x0, y0, radius);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
 }
 
 /** Advances one mermaid by one frame. Allocation-free. */
