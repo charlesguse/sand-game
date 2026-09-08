@@ -145,7 +145,7 @@ Single client-only project (established 001–013): `src/`, `tests/unit/` at the
 
 ## Phase 8: Convergence
 
-- [ ] T043 Add a test to `tests/unit/sim/seaLife.test.ts` that oscillates a pool's cell count one cell either side of `FISH_SPAWN_THRESHOLD` (e.g. alternating between 119 and 121 cells) across many completed sweeps, and asserts the fish population never flickers in and out once established, per FR-034 / Edge Cases ("a pool exactly at the threshold... wobbling") (partial)
+- [X] T043 Add a test to `tests/unit/sim/seaLife.test.ts` that oscillates a pool's cell count one cell either side of `FISH_SPAWN_THRESHOLD` (e.g. alternating between 119 and 121 cells) across many completed sweeps, and asserts the fish population never flickers in and out once established, per FR-034 / Edge Cases ("a pool exactly at the threshold... wobbling") (partial)
 
 ---
 

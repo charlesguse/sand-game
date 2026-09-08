@@ -557,3 +557,36 @@ describe('Convergence — shrinking a shark-qualifying pool below the shark thre
     }
   });
 });
+
+describe('Convergence — a pool wobbling one cell either side of the fish threshold', () => {
+  it('never flickers the fish population once established, across many completed sweeps', () => {
+    const grid = createGrid(60, 40);
+    // A 7x17 = 119-cell core (permanently in the hysteresis band on its own) plus a
+    // 2-cell appendage at (12,5)/(12,6), adjacent to the core's rightmost column, that
+    // toggles the pool between 119 and 121 cells — one either side of FISH_SPAWN_THRESHOLD
+    // (120) — without ever disconnecting the pool.
+    fillWaterRect(grid, 5, 5, 7, 17);
+    const appendage: Array<[number, number]> = [
+      [12, 5],
+      [12, 6],
+    ];
+    const setAppendage = (present: boolean) => {
+      for (const [x, y] of appendage) setCell(grid, x, y, present ? WATER : EMPTY, 0);
+    };
+
+    setAppendage(true); // 121 cells: crosses FISH_SPAWN_THRESHOLD
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.fish.length).toBe(1);
+
+    let sawFlicker = false;
+    for (let cycle = 0; cycle < 6; cycle++) {
+      setAppendage(cycle % 2 === 0 ? false : true); // alternate 119 / 121 cells
+      for (let i = 0; i < SWEEP_TARGET_FRAMES * 2; i++) {
+        stepSeaLife(grid, state);
+        if (state.fish.length !== 1) sawFlicker = true;
+      }
+    }
+    expect(sawFlicker).toBe(false);
+  });
+});
