@@ -2,7 +2,8 @@
   "issue": 44,
   "spec_dir": "specs/016-mermaid-ice-cream",
   "feature_num": "016",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 3,
-  "spec_branch": "spec/016-mermaid-ice-cream"
+  "spec_branch": "spec/016-mermaid-ice-cream",
+  "pending_re_review_from": []
 }
