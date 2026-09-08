@@ -590,3 +590,56 @@ describe('Convergence — a pool wobbling one cell either side of the fish thres
     expect(sawFlicker).toBe(false);
   });
 });
+
+describe('Convergence — a shark approach triggers the fish scatter reaction', () => {
+  it('sets scatterTimer on a nearby fish, moves it faster while scattering, and settles back to ordinary drift once the timer decays', () => {
+    const grid = createGrid(50, 40);
+    fillWaterRect(grid, 2, 2, 30, 30); // 900 cells: well above the shark threshold
+    const state = createSeaLifeState(grid);
+    for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
+    expect(state.sharks.length).toBeGreaterThan(0);
+    expect(state.fish.length).toBeGreaterThan(0);
+
+    const shark = state.sharks[0];
+    const fish = state.fish[0];
+
+    // Put the fish right next to the shark so the very next scatter check fires (US2/AC3).
+    fish.x = shark.x + 1;
+    fish.y = shark.y;
+    fish.scatterTimer = 0;
+    stepSeaLife(grid, state);
+    expect(fish.scatterTimer).toBeGreaterThan(0);
+
+    // Move the shark far across the pool so it can't keep re-triggering the scatter while it
+    // decays — whichever half of the pool the fish landed in, the shark goes to the other.
+    shark.x = fish.x < 17 ? 30 : 4;
+    shark.y = fish.y < 17 ? 30 : 4;
+
+    let scatterFrames = 0;
+    let scatterDisplacement = 0;
+    let guard = 0;
+    while (fish.scatterTimer > 0 && guard < 200) {
+      const x0 = fish.x;
+      const y0 = fish.y;
+      stepSeaLife(grid, state);
+      scatterDisplacement += Math.hypot(fish.x - x0, fish.y - y0);
+      scatterFrames++;
+      guard++;
+    }
+    expect(fish.scatterTimer).toBe(0); // decayed on its own (US2/AC7), not stuck on
+    expect(scatterFrames).toBeGreaterThan(0);
+
+    let ordinaryFrames = 0;
+    let ordinaryDisplacement = 0;
+    for (let i = 0; i < 30; i++) {
+      const x0 = fish.x;
+      const y0 = fish.y;
+      stepSeaLife(grid, state);
+      expect(fish.scatterTimer).toBe(0); // settled — the distant shark doesn't retrigger it
+      ordinaryDisplacement += Math.hypot(fish.x - x0, fish.y - y0);
+      ordinaryFrames++;
+    }
+
+    expect(scatterDisplacement / scatterFrames).toBeGreaterThan(ordinaryDisplacement / ordinaryFrames);
+  });
+});
