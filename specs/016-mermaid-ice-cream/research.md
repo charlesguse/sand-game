@@ -269,3 +269,29 @@ additive to the wire format and achieves exactly what FR-029 describes with
 no version-gate risk. The spec's own Assumptions section left this open
 ("the save version is bumped if the format's shape requires it") — this plan
 judges that it does not require one.
+
+## 14. One-cell shore-beached ice cream is reachable, by design (T057)
+
+**Decision**: Ice cream painted exactly one cell onto dry land, immediately
+touching a pool's edge, is treated as reachable and gets eaten — it is
+**not** distinguished from ice cream poured into water. No "original
+terrain" memory is added to grid cells to make that distinction possible.
+
+**Rationale**: `swimToward`'s `allowTarget` exception (`src/sim/pets.ts`)
+exists so a mermaid can step onto her own pursuit target even when that cell
+holds `ICE_CREAM` rather than `WATER` — necessary for FR-018 (in-pool ice
+cream is, by definition, a non-`WATER` cell once painted, and she must still
+be able to reach it). The grid stores only a live element id per cell, with
+no history of what a cell held immediately before it was painted, so
+`allowTarget` cannot tell "ice cream poured into water, now occupying what
+was a water cell" apart from "ice cream poured one cell onto the adjacent
+shore" — both look identical: a non-`WATER` cell adjacent to her current
+water. Recovering that distinction would mean carrying a per-cell "what was
+here before" shadow value through paint/erase/undo/redo/save — a new piece
+of persistent state this feature's data model does not otherwise need,
+solely to make one narrow corner case (a single shore-adjacent cell, not the
+common "many cells inland" unreachable case, which is unaffected and still
+correctly given up on per FR-019/FR-020) behave less generously. Per the
+constitution's kid-first rule against failure states, a mermaid stretching
+one extra cell onto the sand to reach dessert reads as delightful rather
+than broken, so this is accepted rather than "fixed."

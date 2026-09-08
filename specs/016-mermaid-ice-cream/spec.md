@@ -267,7 +267,13 @@ cream cells/colours before and after.
   ignoring it or having it silently vanish.
 - **Ice cream that ends up out of reach** (on dry land, on a mountain top, in a
   sealed pocket): she gives up on it and it simply stays there as decoration,
-  un-melted, until the child pours water to it or erases it.
+  un-melted, until the child pours water to it or erases it. Exception: a
+  single cell of ice cream painted immediately onto the shore touching her
+  pool (one cell of "dry land," not many) is treated as reachable and gets
+  eaten — the grid keeps no memory of what a cell held before it was
+  painted, so this one-cell shore-beaching can't be distinguished from ice
+  cream poured into water; accepted by design rather than fixed (research.md
+  §14).
 - **A poke that lands on a mermaid mid-pursuit**: she does her trick and then
   resumes the pursuit; the poke never becomes a paint stroke or a new
   destination.
