@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
 import { SAND } from '../../../src/sim/types';
-import { STAR_CAP, STAR_SKY_FRACTION, createStarField, updateStarField } from '../../../src/lib/stars';
+import { STAR_CAP, STAR_SKY_FRACTION, createStarField, drawStarField, updateStarField } from '../../../src/lib/stars';
 
 function activeCells(field: ReturnType<typeof createStarField>): number[] {
   const cells: number[] = [];
@@ -12,6 +12,32 @@ function activeCells(field: ReturnType<typeof createStarField>): number[] {
     if (field.cellIndex[k] >= 0) cells.push(field.cellIndex[k]);
   }
   return cells;
+}
+
+/**
+ * A minimal CanvasRenderingContext2D stand-in — just enough of the real save/restore stack
+ * semantics (paint-state properties snapshot on save, roll back on restore) to catch a function
+ * that mutates fillStyle without containing the change, without needing a real canvas or DOM.
+ */
+function createFakeCtx(): CanvasRenderingContext2D {
+  let fillStyle = 'sentinel';
+  const stack: string[] = [];
+  return {
+    get fillStyle() {
+      return fillStyle;
+    },
+    set fillStyle(v: string) {
+      fillStyle = v;
+    },
+    fillRect() {},
+    save() {
+      stack.push(fillStyle);
+    },
+    restore() {
+      const prev = stack.pop();
+      if (prev !== undefined) fillStyle = prev;
+    },
+  } as unknown as CanvasRenderingContext2D;
 }
 
 describe('stars — eligibility, cap, and empty-sky-only sampling (US3, FR-020, FR-023, Scenario 1)', () => {
@@ -97,5 +123,33 @@ describe('stars — never intersects saved/undoable/erasable state (US3, FR-021,
     updateStarField(grid, field, 0);
     updateStarField(grid, field, 1000);
     expect(field.count).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('stars — drawStarField never leaks paint state to the caller', () => {
+  it('leaves ctx.fillStyle exactly as it found it after drawing an active field', () => {
+    const grid = createGrid(20, 30);
+    const field = createStarField(grid.width, grid.height);
+    updateStarField(grid, field, 0);
+    expect(field.count).toBeGreaterThan(0); // otherwise this test can't exercise the fillStyle write at all
+
+    const ctx = createFakeCtx();
+    drawStarField(ctx, field, 0);
+
+    // Regression: each twinkle paints ctx.fillStyle as a translucent white and, without
+    // save/restore around the loop, that alpha silently carries into whatever the caller draws
+    // next — color-emoji glyphs (stamps, fish, sharks, …) honor a fill's alpha even though they
+    // ignore its color, so every ambient glyph faded and vanished in lockstep with the twinkle.
+    expect(ctx.fillStyle).toBe('sentinel');
+  });
+
+  it('leaves ctx.fillStyle untouched when there is nothing to draw', () => {
+    const grid = createGrid(20, 30);
+    const field = createStarField(grid.width, grid.height); // no updateStarField call: count stays 0
+
+    const ctx = createFakeCtx();
+    drawStarField(ctx, field, 0);
+
+    expect(ctx.fillStyle).toBe('sentinel');
   });
 });
