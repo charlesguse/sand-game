@@ -81,8 +81,14 @@ export function updateStarField(grid: Grid, field: StarField, now: number): void
 
 const STAR_TWINKLE_SPEED = 0.0025;
 
-/** Draws each active slot as a small sine-faded white twinkle. Allocates nothing. */
+/**
+ * Draws each active slot as a small sine-faded white twinkle. Allocates nothing.
+ * Wrapped in save/restore so the per-twinkle fillStyle (a translucent white) never leaks into
+ * whatever the caller paints next — color-emoji glyphs drawn afterward would otherwise inherit
+ * that alpha even though they ignore its color, fading and vanishing along with the twinkle.
+ */
 export function drawStarField(ctx: CanvasRenderingContext2D, field: StarField, now: number): void {
+  ctx.save();
   for (let k = 0; k < field.count; k++) {
     const index = field.cellIndex[k];
     if (index < 0) continue;
@@ -92,4 +98,5 @@ export function drawStarField(ctx: CanvasRenderingContext2D, field: StarField, n
     ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(3)})`;
     ctx.fillRect(x, y, 1, 1);
   }
+  ctx.restore();
 }
