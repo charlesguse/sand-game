@@ -35,9 +35,12 @@ export function frameFor(pictureSet: PersonPictureSet, variant: PersonVariant, f
 /**
  * The native left/right facing of the walking glyph on this platform's font (FR-011) — a single
  * named constant so a platform that draws 🚶 facing the other way is a one-value correction, not
- * a rewrite. Flagged in quickstart.md for the other maintainer to confirm/correct on their device.
+ * a rewrite. -1 means the glyph walks toward -x (screen left) as drawn. Verified by eye on
+ * Windows 11 desktop Chrome (Segoe UI Emoji): 🚶 and 🏃 both face left, so a person heading right
+ * must be mirrored. Apple's and Noto's 🚶 also face left, but iPad Safari is Max's to confirm
+ * (quickstart.md, FR-032).
  */
-export const WALK_GLYPH_NATIVE_FACING: 1 | -1 = 1;
+export const WALK_GLYPH_NATIVE_FACING: 1 | -1 = -1;
 
 const GLYPHS: Readonly<Record<PersonVariant, Readonly<Record<PersonFrame, string>>>> = {
   neutral: { standing: '🧍', walking: '🚶', running: '🏃' },
