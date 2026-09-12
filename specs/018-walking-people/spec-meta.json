@@ -2,7 +2,8 @@
   "issue": 61,
   "spec_dir": "specs/018-walking-people",
   "feature_num": "018",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 1,
-  "spec_branch": "spec/018-walking-people"
+  "spec_branch": "spec/018-walking-people",
+  "pending_re_review_from": []
 }
