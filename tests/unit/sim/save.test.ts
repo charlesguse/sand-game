@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../../../src/sim/objects';
-import { createPetsState, addPoodle, addMermaid, addPerson, PERSON_CAP } from '../../../src/sim/pets';
+import { createPetsState, addPoodle, addMermaid, addPerson, restorePeopleFromPositions, PERSON_CAP } from '../../../src/sim/pets';
 import { restoreWorldState } from '../../../src/sim/history';
+import { frameFor, type PersonPictureSet } from '../../../src/lib/personGlyphs';
 import { step } from '../../../src/sim/step';
 import { SAND, WATER, RAINBOW_SAND, GUMDROP, ICE_CREAM, DIRT, DIAMOND, OBJECT, type PersonTone } from '../../../src/sim/types';
 import {
@@ -326,6 +327,57 @@ describe('save — people round trip, position and variant (US2/US4, FR-023, FR-
 
       expect(saved.people.map((p) => p.tone)).toEqual(batch);
     }
+  });
+
+  it('renders a restored undrawable stored tone as default while the in-memory tone — and a subsequent resave — still hold the real value (US5 Acceptance Scenario 5, FR-017, SC-004)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    restorePeopleFromPositions(pets, [{ x: 5, y: 5, variant: 'neutral', tone: 'medium' }]);
+    expect(pets.people[0].tone).toBe('medium');
+
+    // A fabricated device whose drawable set excludes 'medium' — its pictures table falls back
+    // 'medium' to that variant's default row (FR-017), but the in-memory Person is untouched.
+    const pictureSet: PersonPictureSet = {
+      drawableVariants: ['neutral'],
+      drawableTones: ['default'],
+      pictures: {
+        neutral: {
+          default: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          light: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          mediumLight: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          medium: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          mediumDark: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          dark: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+        },
+        man: {
+          default: { standing: '', walking: '', running: '' },
+          light: { standing: '', walking: '', running: '' },
+          mediumLight: { standing: '', walking: '', running: '' },
+          medium: { standing: '', walking: '', running: '' },
+          mediumDark: { standing: '', walking: '', running: '' },
+          dark: { standing: '', walking: '', running: '' },
+        },
+        woman: {
+          default: { standing: '', walking: '', running: '' },
+          light: { standing: '', walking: '', running: '' },
+          mediumLight: { standing: '', walking: '', running: '' },
+          medium: { standing: '', walking: '', running: '' },
+          mediumDark: { standing: '', walking: '', running: '' },
+          dark: { standing: '', walking: '', running: '' },
+        },
+      },
+      canRunPicture: true,
+      toolbarGlyph: 'default-stand',
+    };
+    expect(frameFor(pictureSet, pets.people[0].variant, pets.people[0].tone, 'standing')).toBe('default-stand');
+    expect(pets.people[0].tone).toBe('medium');
+
+    const json = serializeWorld(grid, objects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people[0].tone).toBe('medium');
   });
 
   it('defaults to tone: \'default\' for a wire payload shaped like a pre-this-feature save (people entries with variant but no tone key) (US4 Acceptance Scenario 1, FR-020)', () => {

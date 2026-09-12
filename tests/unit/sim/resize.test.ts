@@ -9,6 +9,7 @@ import {
   getGlitter,
 } from '../../../src/sim/grid';
 import { placeObject, createObjectsState } from '../../../src/sim/objects';
+import { createPetsState, repositionPeople } from '../../../src/sim/pets';
 import { resizeGrid } from '../../../src/sim/resize';
 import { step } from '../../../src/sim/step';
 import { SAND, DIRT, OBJECT, GRASS, STAR_POWER, RAINBOW_SAND, FOG, EMPTY, DIAMOND } from '../../../src/sim/types';
@@ -310,5 +311,26 @@ describe('resizeGrid — fog and cloud carry across at the same offset (FR-034, 
     let actualFogCloud = 0;
     for (let i = 0; i < grid.elements.length; i++) if (grid.elements[i] === FOG) actualFogCloud++;
     expect(grid.fogCloudCount).toBe(actualFogCloud);
+  });
+});
+
+describe('resizeGrid — people of several tones survive the same re-derivation as the terrain (US5 Acceptance Scenario 3)', () => {
+  it('repositionPeople carries every tone through unchanged, at the same offset resizeGrid produced', () => {
+    const oldGrid = seedGrid();
+    const { grid: newGrid, offsetX, offsetY } = resizeGrid(oldGrid, 60, 140);
+
+    const pets = createPetsState();
+    pets.people.push(
+      { id: 0, x: 20, y: 50, facing: 1, state: 'standing', timer: 0, variant: 'neutral', tone: 'light', homeX: 20, wanderDir: 1 },
+      { id: 1, x: 40, y: 60, facing: 1, state: 'standing', timer: 0, variant: 'man', tone: 'dark', homeX: 40, wanderDir: 1 },
+      { id: 2, x: 60, y: 70, facing: 1, state: 'standing', timer: 0, variant: 'woman', tone: 'medium', homeX: 60, wanderDir: 1 },
+    );
+
+    repositionPeople(pets.people, newGrid, offsetX, offsetY);
+
+    expect(pets.people.map((p) => p.tone)).toEqual(['light', 'dark', 'medium']);
+    expect(pets.people.map((p) => p.variant)).toEqual(['neutral', 'man', 'woman']);
+    expect(pets.people[0].x).toBe(20 + offsetX);
+    expect(pets.people[0].homeX).toBe(pets.people[0].x);
   });
 });

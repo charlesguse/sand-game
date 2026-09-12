@@ -28,6 +28,7 @@ import {
   ICE_CREAM,
   type Grid,
   type PersonVariant,
+  type PersonTone,
   type SceneId,
 } from '../../../src/sim/types';
 import { CELL_BUDGET, GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
@@ -90,7 +91,13 @@ function pushMermaid(pets: ReturnType<typeof createPetsState>, x: number, y: num
 }
 
 /** Pushes a fresh default-activity person at (x, y) directly onto pets.people — mirrors exactly what restorePeopleFromPositions itself rebuilds, so these tests don't depend on addPerson's own settle behaviour. */
-function pushPerson(pets: ReturnType<typeof createPetsState>, x: number, y: number, variant: PersonVariant): Person {
+function pushPerson(
+  pets: ReturnType<typeof createPetsState>,
+  x: number,
+  y: number,
+  variant: PersonVariant,
+  tone: PersonTone = 'default',
+): Person {
   const person: Person = {
     id: pets.nextId++,
     x,
@@ -99,6 +106,7 @@ function pushPerson(pets: ReturnType<typeof createPetsState>, x: number, y: numb
     state: 'standing',
     timer: 0,
     variant,
+    tone,
     homeX: x,
     wanderDir: 1,
   };
@@ -985,9 +993,9 @@ describe('history — people round trip across undo/redo, variant included (US2/
     const history = new HistoryManager();
 
     history.beginAction(grid, objects, pets);
-    pushPerson(pets, 5, 5, 'man');
-    pushPerson(pets, 8, 8, 'woman');
-    pushPerson(pets, 11, 11, 'neutral');
+    pushPerson(pets, 5, 5, 'man', 'light');
+    pushPerson(pets, 8, 8, 'woman', 'dark');
+    pushPerson(pets, 11, 11, 'neutral', 'medium');
     history.commitAction(grid, objects, pets);
 
     expect(pets.people).toHaveLength(3);
@@ -996,8 +1004,28 @@ describe('history — people round trip across undo/redo, variant included (US2/
     expect(history.redo(grid, objects, pets)).toBe(true);
     expect(pets.people).toHaveLength(3);
     expect(pets.people.map((p) => p.variant)).toEqual(['man', 'woman', 'neutral']);
+    expect(pets.people.map((p) => p.tone)).toEqual(['light', 'dark', 'medium']);
     expect(pets.people[0].x).toBe(5);
     expect(pets.people[1].x).toBe(8);
+  });
+
+  it('a redo restores the same position, form, and tone she had (US5 Acceptance Scenario 2)', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    pushPerson(pets, 7, 7, 'woman', 'mediumDark');
+    history.commitAction(grid, objects, pets);
+
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(0);
+    expect(history.redo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].x).toBe(7);
+    expect(pets.people[0].variant).toBe('woman');
+    expect(pets.people[0].tone).toBe('mediumDark');
   });
 
   it('a person restored via undo is a fresh default-activity walker, not whatever state/timer she had when captured', () => {
@@ -1007,7 +1035,7 @@ describe('history — people round trip across undo/redo, variant included (US2/
     const history = new HistoryManager();
 
     history.beginAction(grid, objects, pets);
-    const person = pushPerson(pets, 6, 6, 'woman');
+    const person = pushPerson(pets, 6, 6, 'woman', 'dark');
     person.state = 'walking';
     person.timer = 40;
     history.commitAction(grid, objects, pets);
@@ -1019,8 +1047,34 @@ describe('history — people round trip across undo/redo, variant included (US2/
     expect(history.undo(grid, objects, pets)).toBe(true);
     expect(pets.people).toHaveLength(1);
     expect(pets.people[0].variant).toBe('woman');
+    expect(pets.people[0].tone).toBe('dark');
     expect(pets.people[0].state).toBe('standing');
     expect(pets.people[0].timer).toBe(0);
+  });
+
+  it('a tone-only change is still detected as a change by worldMatches, not treated as a no-op (US5 Acceptance Scenario 4, FR-021)', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    pushPerson(pets, 5, 5, 'neutral', 'default');
+    history.commitAction(grid, objects, pets);
+    expect(history.canUndo()).toBe(true);
+    history.undo(grid, objects, pets); // back to zero people, clean slate for the real assertion
+
+    history.beginAction(grid, objects, pets);
+    pushPerson(pets, 5, 5, 'neutral', 'default');
+    history.commitAction(grid, objects, pets);
+
+    history.beginAction(grid, objects, pets);
+    // Same position, same variant, same person count — only tone differs from the pending snapshot.
+    (pets.people[0] as { tone: string }).tone = 'dark';
+    history.commitAction(grid, objects, pets);
+
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people[0].tone).toBe('default');
   });
 });
 
