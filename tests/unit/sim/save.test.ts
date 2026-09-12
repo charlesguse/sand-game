@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../../../src/sim/objects';
-import { createPetsState, addPoodle, addMermaid, addPerson, PERSON_CAP } from '../../../src/sim/pets';
+import { createPetsState, addPoodle, addMermaid, addPerson, restorePeopleFromPositions, PERSON_CAP } from '../../../src/sim/pets';
 import { restoreWorldState } from '../../../src/sim/history';
+import { frameFor, type PersonPictureSet } from '../../../src/lib/personGlyphs';
 import { step } from '../../../src/sim/step';
-import { SAND, WATER, RAINBOW_SAND, GUMDROP, ICE_CREAM, DIRT, DIAMOND, OBJECT } from '../../../src/sim/types';
+import { SAND, WATER, RAINBOW_SAND, GUMDROP, ICE_CREAM, DIRT, DIAMOND, OBJECT, type PersonTone } from '../../../src/sim/types';
 import {
   SAVE_VERSION,
   serializeWorld,
@@ -295,9 +296,9 @@ describe('save — people round trip, position and variant (US2/US4, FR-023, FR-
     const grid = createGrid(60, 40);
     const objects = createObjectsState();
     const pets = createPetsState();
-    addPerson(grid, pets, 5, 5, ['neutral'], () => 0);
-    addPerson(grid, pets, 10, 10, ['man'], () => 0);
-    addPerson(grid, pets, 15, 15, ['woman'], () => 0);
+    addPerson(grid, pets, 5, 5, ['neutral'], ['default'], () => 0);
+    addPerson(grid, pets, 10, 10, ['man'], ['default'], () => 0);
+    addPerson(grid, pets, 15, 15, ['woman'], ['default'], () => 0);
 
     const json = serializeWorld(grid, objects, pets);
     const saved = deserializeWorld(json);
@@ -307,6 +308,141 @@ describe('save — people round trip, position and variant (US2/US4, FR-023, FR-
     expect(saved.people).toHaveLength(3);
     expect(saved.people.map((p) => p.variant)).toEqual(['neutral', 'man', 'woman']);
     expect(saved.people[0].x).toBeCloseTo(5);
+  });
+
+  it('round-trips tone alongside variant, for every tone (US5 Acceptance Scenario 1, SC-004)', () => {
+    // PERSON_CAP is 3, so every tone is exercised across two separate worlds rather than one
+    // six-person placement (which would evict the first three before they could be saved).
+    const allTones: readonly PersonTone[] = ['default', 'light', 'mediumLight', 'medium', 'mediumDark', 'dark'];
+    for (const batch of [allTones.slice(0, 3), allTones.slice(3)]) {
+      const grid = createGrid(60, 40);
+      const objects = createObjectsState();
+      const pets = createPetsState();
+      for (let i = 0; i < batch.length; i++) addPerson(grid, pets, 5 + i * 5, 5, ['neutral'], [batch[i]], () => 0);
+
+      const json = serializeWorld(grid, objects, pets);
+      const saved = deserializeWorld(json);
+      expect(saved).not.toBeNull();
+      if (saved === null) continue;
+
+      expect(saved.people.map((p) => p.tone)).toEqual(batch);
+    }
+  });
+
+  it('renders a restored undrawable stored tone as default while the in-memory tone — and a subsequent resave — still hold the real value (US5 Acceptance Scenario 5, FR-017, SC-004)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    restorePeopleFromPositions(pets, [{ x: 5, y: 5, variant: 'neutral', tone: 'medium' }]);
+    expect(pets.people[0].tone).toBe('medium');
+
+    // A fabricated device whose drawable set excludes 'medium' — its pictures table falls back
+    // 'medium' to that variant's default row (FR-017), but the in-memory Person is untouched.
+    const pictureSet: PersonPictureSet = {
+      drawableVariants: ['neutral'],
+      drawableTones: ['default'],
+      pictures: {
+        neutral: {
+          default: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          light: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          mediumLight: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          medium: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          mediumDark: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+          dark: { standing: 'default-stand', walking: 'default-walk', running: 'default-run' },
+        },
+        man: {
+          default: { standing: '', walking: '', running: '' },
+          light: { standing: '', walking: '', running: '' },
+          mediumLight: { standing: '', walking: '', running: '' },
+          medium: { standing: '', walking: '', running: '' },
+          mediumDark: { standing: '', walking: '', running: '' },
+          dark: { standing: '', walking: '', running: '' },
+        },
+        woman: {
+          default: { standing: '', walking: '', running: '' },
+          light: { standing: '', walking: '', running: '' },
+          mediumLight: { standing: '', walking: '', running: '' },
+          medium: { standing: '', walking: '', running: '' },
+          mediumDark: { standing: '', walking: '', running: '' },
+          dark: { standing: '', walking: '', running: '' },
+        },
+      },
+      canRunPicture: true,
+      toolbarGlyph: 'default-stand',
+    };
+    expect(frameFor(pictureSet, pets.people[0].variant, pets.people[0].tone, 'standing')).toBe('default-stand');
+    expect(pets.people[0].tone).toBe('medium');
+
+    const json = serializeWorld(grid, objects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people[0].tone).toBe('medium');
+  });
+
+  it('defaults to tone: \'default\' for a wire payload shaped like a pre-this-feature save (people entries with variant but no tone key) (US4 Acceptance Scenario 1, FR-020)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], ['default'], () => 0);
+
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const people = wire.people as Record<string, unknown>[];
+    delete people[0].tone;
+    const legacyJson = JSON.stringify(wire);
+
+    const saved = deserializeWorld(legacyJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people).toHaveLength(1);
+    expect(saved.people[0].tone).toBe('default');
+    expect(saved.people[0].variant).toBe('neutral');
+    expect(saved.people[0].x).toBeCloseTo(5);
+  });
+
+  it('falls back only a malformed tone to \'default\', leaving other people\'s tones and the rest of the world untouched (US4 Acceptance Scenario 2, FR-018)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], ['dark'], () => 0);
+    addPerson(grid, pets, 10, 10, ['neutral'], ['dark'], () => 0);
+    addPerson(grid, pets, 15, 15, ['neutral'], ['dark'], () => 0);
+
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const people = wire.people as Record<string, unknown>[];
+    // Person 0 keeps a valid tone; 1/2/3 each get a differently-malformed one.
+    people[1].tone = 'chartreuse';
+    people[2].tone = '';
+    const tamperedJson = JSON.stringify(wire);
+
+    const saved = deserializeWorld(tamperedJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people).toHaveLength(3);
+    expect(saved.people[0].tone).toBe('dark');
+    expect(saved.people[1].tone).toBe('default');
+    expect(saved.people[2].tone).toBe('default');
+    expect(saved.people.map((p) => p.x)).toEqual([5, 10, 15]);
+  });
+
+  it('falls back a null tone to \'default\' too', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], ['dark'], () => 0);
+
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const people = wire.people as Record<string, unknown>[];
+    people[0].tone = null;
+    const tamperedJson = JSON.stringify(wire);
+
+    const saved = deserializeWorld(tamperedJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people[0].tone).toBe('default');
   });
 
   it('deserializes a wire payload shaped like today\'s (no `people` key) with people: [] and no error (FR-025)', () => {
@@ -364,6 +500,7 @@ describe('save — people round trip, position and variant (US2/US4, FR-023, FR-
     if (saved === null) return;
     expect(saved.people).toHaveLength(1);
     expect(saved.people[0].variant).toBe('neutral');
+    expect(saved.people[0].tone).toBe('default');
   });
 
   it('a malformed byKind.person entry still rejects the whole payload, same strictness as any other legacy object kind', () => {
@@ -403,8 +540,24 @@ describe('save — people round trip, position and variant (US2/US4, FR-023, FR-
     expect(saved.mermaids).toHaveLength(3);
   });
 
-  it('SAVE_VERSION is unchanged by this feature (FR-025)', () => {
+  it('SAVE_VERSION is unchanged by this feature (FR-019, SC-006)', () => {
     expect(SAVE_VERSION).toBe(1);
+  });
+
+  it('restores correct position/variant from a payload carrying tone data even if a reader ignored the tone key entirely (FR-019, SC-006)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['man'], ['dark'], () => 0);
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const people = wire.people as Record<string, unknown>[];
+    expect(people[0].tone).toBe('dark'); // the new field really is present on the wire...
+
+    // ...but a hypothetical pre-feature reader, blind to `tone`, would still read x/variant fine
+    // (y settles onto the ground below the requested point, exactly as it always has).
+    const { x, variant } = people[0] as { x: number; y: number; variant: string };
+    expect({ x, variant }).toEqual({ x: 5, variant: 'man' });
   });
 });
 

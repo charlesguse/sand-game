@@ -5,7 +5,7 @@
  * objects). See specs/018-walking-people/research.md §§1-3 for the fallback ladder's reasoning.
  */
 
-import type { PersonVariant } from '../sim/types';
+import type { PersonVariant, PersonTone } from '../sim/types';
 
 export type PersonFrame = 'standing' | 'walking' | 'running';
 
@@ -18,18 +18,20 @@ export interface GlyphProbeInputs {
 
 export interface PersonPictureSet {
   readonly drawableVariants: readonly PersonVariant[];
-  readonly pictures: Readonly<Record<PersonVariant, Readonly<Record<PersonFrame, string>>>>;
+  readonly drawableTones: readonly PersonTone[];
+  readonly pictures: Readonly<Record<PersonVariant, Readonly<Record<PersonTone, Readonly<Record<PersonFrame, string>>>>>>;
   readonly canRunPicture: boolean;
   readonly toolbarGlyph: string;
 }
 
 /**
- * Frame selection as a pure function of state, variant, and the resolved picture set (FR-010) —
- * a person's state *is* her frame (data-model.md), so this is a direct lookup, not a computation.
- * Both the render loop and its tests call this rather than indexing `pictures` themselves.
+ * Frame selection as a pure function of state, variant, tone, and the resolved picture set
+ * (FR-010) — a person's state *is* her frame (data-model.md), so this is a direct lookup, not a
+ * computation. Both the render loop and its tests call this rather than indexing `pictures`
+ * themselves.
  */
-export function frameFor(pictureSet: PersonPictureSet, variant: PersonVariant, frame: PersonFrame): string {
-  return pictureSet.pictures[variant][frame];
+export function frameFor(pictureSet: PersonPictureSet, variant: PersonVariant, tone: PersonTone, frame: PersonFrame): string {
+  return pictureSet.pictures[variant][tone][frame];
 }
 
 /**
@@ -50,6 +52,47 @@ const GLYPHS: Readonly<Record<PersonVariant, Readonly<Record<PersonFrame, string
 
 const VARIANTS: readonly PersonVariant[] = ['neutral', 'man', 'woman'];
 const FRAMES: readonly PersonFrame[] = ['standing', 'walking', 'running'];
+/** Every tone but 'default', which draws with no modifier at all (FR-005). */
+const MODIFIER_TONES: readonly PersonTone[] = ['light', 'mediumLight', 'medium', 'mediumDark', 'dark'];
+
+/** Fitzpatrick emoji modifiers (Unicode Emoji 1.0+), one per non-default tone (FR-004). */
+const TONE_MODIFIERS: Readonly<Record<Exclude<PersonTone, 'default'>, string>> = {
+  light: '\u{1F3FB}',
+  mediumLight: '\u{1F3FC}',
+  medium: '\u{1F3FD}',
+  mediumDark: '\u{1F3FE}',
+  dark: '\u{1F3FF}',
+};
+
+/**
+ * Builds one (variant, tone, frame) picture: the bare base glyph, then the tone modifier (skipped
+ * for 'default'), then — for `man`/`woman` — the ZWJ + gender sign + VS16 tail already embedded
+ * in `GLYPHS[variant][frame]` (FR-005). The tail is sliced off the existing gendered glyph rather
+ * than hand-written, since `GLYPHS.neutral[frame]` is always an exact prefix of
+ * `GLYPHS[variant][frame]` for the gendered variants.
+ */
+function composePicture(variant: PersonVariant, tone: PersonTone, frame: PersonFrame): string {
+  const base = GLYPHS.neutral[frame];
+  const toneModifier = tone === 'default' ? '' : TONE_MODIFIERS[tone];
+  const tail = variant === 'neutral' ? '' : GLYPHS[variant][frame].slice(base.length);
+  return base + toneModifier + tail;
+}
+
+/** Every (variant, tone, frame) picture, composed once at module load (FR-005). */
+const TONED_GLYPHS: Readonly<Record<PersonVariant, Readonly<Record<PersonTone, Readonly<Record<PersonFrame, string>>>>>> =
+  (() => {
+    const toned = {} as Record<PersonVariant, Record<PersonTone, Record<PersonFrame, string>>>;
+    for (const variant of VARIANTS) {
+      const byTone = {} as Record<PersonTone, Record<PersonFrame, string>>;
+      for (const tone of ['default', ...MODIFIER_TONES] as const) {
+        const byFrame = {} as Record<PersonFrame, string>;
+        for (const frame of FRAMES) byFrame[frame] = composePicture(variant, tone, frame);
+        byTone[tone] = byFrame;
+      }
+      toned[variant] = byTone;
+    }
+    return toned;
+  })();
 
 /** A split ZWJ sequence renders roughly 2x its base glyph's width; anything past this counts as split. */
 const SPLIT_WIDTH_RATIO = 1.5;
@@ -86,6 +129,19 @@ function isGenderedGlyphOk(probe: GlyphProbeInputs, genderedGlyph: string, neutr
 }
 
 /**
+ * True iff `tonedGlyph` renders as one figure relative to `baselineWidth` — the already-resolved
+ * untoned width for that same (variant, frame) — mirroring isGenderedGlyphOk's shape (FR-010,
+ * FR-011). Takes the baseline as a number rather than re-measuring a neutral glyph each time, so
+ * callers can measure each frame's baseline once and reuse it across all five modifier tones.
+ */
+function isToneGlyphOk(probe: GlyphProbeInputs, tonedGlyph: string, baselineWidth: number): boolean {
+  if (!safeCanRender(probe, tonedGlyph)) return false;
+  const tonedWidth = safeMeasureWidth(probe, tonedGlyph);
+  if (!Number.isFinite(tonedWidth) || !Number.isFinite(baselineWidth) || baselineWidth <= 0) return false;
+  return tonedWidth <= baselineWidth * SPLIT_WIDTH_RATIO;
+}
+
+/**
  * Pure, DOM-free resolution of the fallback ladder (FR-017–FR-020, research.md §§1-3). Never
  * called more than once per session by production code — that guarantee lives at the call site
  * (App.svelte), not inside this function.
@@ -118,11 +174,61 @@ export function resolvePersonPictureSet(probe: GlyphProbeInputs): PersonPictureS
     if (!safeCanRender(probe, GLYPHS[variant].running)) canRunPicture = false;
   }
 
+  // Rung 4 (tone): for each drawable variant, standing is only actually drawn separately from
+  // walking when rung 2 didn't already collapse it — checking a variant's toned stander when its
+  // own untoned stander is unprobed/unavailable would wrongly disqualify a tone over a picture
+  // nothing ever draws (FR-012, research.md §3).
+  function distinctFrames(variant: PersonVariant): readonly PersonFrame[] {
+    return pictures[variant].standing === pictures[variant].walking ? ['walking', 'running'] : FRAMES;
+  }
+
+  const untonedFrameWidths = {} as Record<PersonVariant, Partial<Record<PersonFrame, number>>>;
+  for (const variant of drawableVariants) {
+    const widths: Partial<Record<PersonFrame, number>> = {};
+    for (const frame of distinctFrames(variant)) widths[frame] = safeMeasureWidth(probe, pictures[variant][frame]);
+    untonedFrameWidths[variant] = widths;
+  }
+
+  const usableTones: PersonTone[] = [];
+  for (const tone of MODIFIER_TONES) {
+    let toneOk = true;
+    for (const variant of drawableVariants) {
+      for (const frame of distinctFrames(variant)) {
+        if (!isToneGlyphOk(probe, TONED_GLYPHS[variant][tone][frame], untonedFrameWidths[variant][frame]!)) {
+          toneOk = false;
+        }
+      }
+    }
+    if (toneOk) usableTones.push(tone);
+  }
+  const drawableTones: readonly PersonTone[] = ['default', ...usableTones];
+
+  // Builds the widened, tone-keyed pictures table: a drawable tone gets its own (possibly
+  // rung-2-collapsed) composed row; a non-drawable tone falls back wholesale to the variant's
+  // already-resolved untoned row (FR-017) — a value copy made once here, never a per-draw branch.
+  const tonedPictures = {} as Record<PersonVariant, Record<PersonTone, Readonly<Record<PersonFrame, string>>>>;
+  for (const variant of VARIANTS) {
+    const collapsed = pictures[variant].standing === pictures[variant].walking;
+    const rows = {} as Record<PersonTone, Readonly<Record<PersonFrame, string>>>;
+    rows.default = pictures[variant];
+    for (const tone of MODIFIER_TONES) {
+      rows[tone] = drawableTones.includes(tone)
+        ? {
+            standing: collapsed ? TONED_GLYPHS[variant][tone].walking : TONED_GLYPHS[variant][tone].standing,
+            walking: TONED_GLYPHS[variant][tone].walking,
+            running: TONED_GLYPHS[variant][tone].running,
+          }
+        : pictures[variant];
+    }
+    tonedPictures[variant] = rows;
+  }
+
   return {
     drawableVariants,
-    pictures,
+    drawableTones,
+    pictures: tonedPictures,
     canRunPicture,
-    toolbarGlyph: pictures.neutral.standing,
+    toolbarGlyph: tonedPictures.neutral.default.standing,
   };
 }
 

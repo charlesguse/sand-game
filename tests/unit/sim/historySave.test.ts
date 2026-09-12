@@ -205,8 +205,8 @@ describe('historySave — people round trip per step, position and variant (US2/
     // Placed BEFORE beginAction, like placeObject in the byKind-missing-key tests below: the
     // persisted undo stack holds each action's *before* snapshot, so a person must already exist
     // when beginAction captures it in order to show up in that persisted step.
-    addPerson(grid, pets, 5, 5, ['neutral'], () => 0);
-    addPerson(grid, pets, 10, 10, ['man'], () => 0);
+    addPerson(grid, pets, 5, 5, ['neutral'], ['default'], () => 0);
+    addPerson(grid, pets, 10, 10, ['man'], ['default'], () => 0);
     const history = new HistoryManager();
     history.beginAction(grid, objects, pets);
     setCell(grid, 1, 1, SAND, 3);
@@ -218,6 +218,57 @@ describe('historySave — people round trip per step, position and variant (US2/
     expect(persisted).not.toBeNull();
     if (persisted === null) return;
     expect(persisted.steps[0].people.map((p) => p.variant)).toEqual(['neutral', 'man']);
+  });
+
+  it("defaults a step's person to tone: 'default' when the wire entry has no tone key at all (US4 Acceptance Scenario 1, FR-020)", () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], ['default'], () => 0);
+    const history = new HistoryManager();
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects, pets);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 60, 40, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const stepPeople = wire.steps[0].people as Record<string, unknown>[];
+    delete stepPeople[0].tone;
+    const tampered = JSON.stringify(wire);
+
+    const persisted = deserializeHistory(tampered, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people[0].tone).toBe('default');
+    expect(persisted.steps[0].people[0].variant).toBe('neutral');
+  });
+
+  it("falls back only a malformed per-step tone to 'default', leaving other people's tones intact (US4 Acceptance Scenario 2, FR-018)", () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], ['dark'], () => 0);
+    addPerson(grid, pets, 10, 10, ['neutral'], ['dark'], () => 0);
+    const history = new HistoryManager();
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects, pets);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 60, 40, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const stepPeople = wire.steps[0].people as Record<string, unknown>[];
+    stepPeople[0].tone = 'valid';
+    stepPeople[1].tone = 'chartreuse';
+    const tampered = JSON.stringify(wire);
+
+    const persisted = deserializeHistory(tampered, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people[0].tone).toBe('default'); // 'valid' isn't a real PersonTone
+    expect(persisted.steps[0].people[1].tone).toBe('default');
+    expect(persisted.steps[0].people).toHaveLength(2);
   });
 
   it("deserializes a step shaped like today's (no per-step `people` key) with people: [] and no error (FR-025)", () => {
@@ -288,6 +339,7 @@ describe('historySave — people round trip per step, position and variant (US2/
     if (persisted === null) return;
     expect(persisted.steps[0].people).toHaveLength(1);
     expect(persisted.steps[0].people[0].variant).toBe('neutral');
+    expect(persisted.steps[0].people[0].tone).toBe('default');
   });
 
   it('never produces more than PERSON_CAP people per step even with 3 byKind.person entries (Edge Cases)', () => {
@@ -316,8 +368,26 @@ describe('historySave — people round trip per step, position and variant (US2/
     expect(persisted.steps[0].people.length).toBeLessThanOrEqual(PERSON_CAP);
   });
 
-  it('HISTORY_SAVE_VERSION is unchanged by this feature (FR-025)', () => {
+  it('HISTORY_SAVE_VERSION is unchanged by this feature (FR-019, SC-006)', () => {
     expect(HISTORY_SAVE_VERSION).toBe(1);
+  });
+
+  it('restores correct position/variant from a per-step payload carrying tone data even if a reader ignored the tone key entirely (FR-019, SC-006)', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['man'], ['dark'], () => 0);
+    const history = new HistoryManager();
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects, pets);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 60, 40, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const stepPeople = wire.steps[0].people as Record<string, unknown>[];
+    const { x, variant } = stepPeople[0] as { x: number; variant: string };
+    expect({ x, variant }).toEqual({ x: 5, variant: 'man' });
   });
 });
 

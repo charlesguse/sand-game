@@ -1,6 +1,6 @@
 import { captureWorldState, type WorldState } from './history';
 import { OBJECT_KINDS, migrateLegacyPersonObjects } from './objects';
-import type { ObjectKind, ObjectsState, PersonVariant, PlacedObject, Grid } from './types';
+import type { ObjectKind, ObjectsState, PersonVariant, PersonTone, PlacedObject, Grid } from './types';
 import { PERSON_CAP, type PetsState } from './pets';
 
 /** Bumped whenever the wire format changes shape; deserializeWorld rejects any other value. */
@@ -13,7 +13,7 @@ export interface SavedWorld {
   state: WorldState;
   poodles: { x: number; y: number }[];
   mermaids: { x: number; y: number }[];
-  people: { x: number; y: number; variant: PersonVariant }[];
+  people: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[];
 }
 
 /**
@@ -112,6 +112,7 @@ interface WirePerson {
   x: number;
   y: number;
   variant: PersonVariant;
+  tone?: unknown;
 }
 
 interface WireWorld {
@@ -152,7 +153,12 @@ export function serializeWorld(grid: Grid, objects: ObjectsState, pets: PetsStat
 
     const poodles: WirePoodle[] = pets.poodles.map((poodle) => ({ x: poodle.x, y: poodle.y }));
     const mermaids: WireMermaid[] = pets.mermaids.map((mermaid) => ({ x: mermaid.x, y: mermaid.y }));
-    const people: WirePerson[] = pets.people.map((person) => ({ x: person.x, y: person.y, variant: person.variant }));
+    const people: WirePerson[] = pets.people.map((person) => ({
+      x: person.x,
+      y: person.y,
+      variant: person.variant,
+      tone: person.tone,
+    }));
 
     const wire: WireWorld = {
       version: SAVE_VERSION,
@@ -207,6 +213,22 @@ function isPersonVariant(value: unknown): value is PersonVariant {
   return value === 'neutral' || value === 'man' || value === 'woman';
 }
 
+/** Kept deliberately outside isPersonShape's boolean gate (research.md §7, FR-018) — an unrecognised or missing tone defaults to 'default' rather than rejecting the whole payload. */
+function isPersonTone(value: unknown): value is PersonTone {
+  return (
+    value === 'default' ||
+    value === 'light' ||
+    value === 'mediumLight' ||
+    value === 'medium' ||
+    value === 'mediumDark' ||
+    value === 'dark'
+  );
+}
+
+function resolvedTone(raw: unknown): PersonTone {
+  return isPersonTone(raw) ? raw : 'default';
+}
+
 function isPersonShape(value: unknown): value is WirePerson {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
@@ -229,13 +251,13 @@ function parseMermaids(value: unknown): WireMermaid[] {
   return mermaids;
 }
 
-/** Structurally identical to parseMermaids (FR-025) — a missing field, a non-array, or any individually malformed entry all default to []. */
-function parsePeople(value: unknown): WirePerson[] {
+/** Structurally identical to parseMermaids (FR-025) — a missing field, a non-array, or any individually malformed entry all default to []. An unrecognised/missing tone resolves to 'default' rather than rejecting the entry (FR-018). */
+function parsePeople(value: unknown): { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] {
   if (!Array.isArray(value)) return [];
-  const people: WirePerson[] = [];
+  const people: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] = [];
   for (const item of value) {
     if (!isPersonShape(item)) return [];
-    people.push({ x: item.x, y: item.y, variant: item.variant });
+    people.push({ x: item.x, y: item.y, variant: item.variant, tone: resolvedTone(item.tone) });
   }
   return people;
 }
@@ -320,7 +342,7 @@ export function deserializeWorld(raw: string): SavedWorld | null {
     // other object kind above, unchanged from before this feature — and migrate it into walker
     // positions, releasing the footprint cells it stamped solid (FR-026, FR-027, research.md §8).
     const rawLegacyPersonList = rawByKind.person;
-    let migratedPeople: WirePerson[] = [];
+    let migratedPeople: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] = [];
     if (rawLegacyPersonList !== undefined) {
       if (!Array.isArray(rawLegacyPersonList)) return null;
       const legacyPeople: PlacedObject[] = [];
@@ -335,6 +357,7 @@ export function deserializeWorld(raw: string): SavedWorld | null {
         x: p.x,
         y: p.y,
         variant: 'neutral' as const,
+        tone: 'default' as const,
       }));
     }
 

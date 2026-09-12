@@ -76,6 +76,9 @@ export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' |
 /** Which person a placed walker is — chosen once at placement, kept for life (FR-012). */
 export type PersonVariant = 'neutral' | 'man' | 'woman';
 
+/** Which skin tone a placed walker has — chosen once at placement, kept for life (FR-002, FR-012). */
+export type PersonTone = 'default' | 'light' | 'mediumLight' | 'medium' | 'mediumDark' | 'dark';
+
 export interface PlacedObject {
   readonly id: number;
   readonly kind: ObjectKind;

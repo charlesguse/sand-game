@@ -597,8 +597,8 @@
       // a running glyph that would render as tofu (FR-016a, FR-019).
       const hopping = person.state === 'running' && !personPictureSet.canRunPicture;
       const glyph = hopping
-        ? frameFor(personPictureSet, person.variant, 'standing')
-        : frameFor(personPictureSet, person.variant, person.state);
+        ? frameFor(personPictureSet, person.variant, person.tone, 'standing')
+        : frameFor(personPictureSet, person.variant, person.tone, person.state);
       const hop = hopping ? -Math.abs(Math.sin((PERSON_RUN_DURATION - person.timer) * 0.3)) * 6 : 0;
 
       ctx.save();
@@ -848,7 +848,7 @@
       return;
     }
     if (tool === 'person') {
-      addPerson(grid, petsState, pos.x, pos.y, personPictureSet.drawableVariants, Math.random);
+      addPerson(grid, petsState, pos.x, pos.y, personPictureSet.drawableVariants, personPictureSet.drawableTones, Math.random);
       canvas.setPointerCapture(event.pointerId);
       return;
     }

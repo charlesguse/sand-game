@@ -7,6 +7,7 @@ import {
   type ObjectKind,
   type ObjectsState,
   type PersonVariant,
+  type PersonTone,
   type PlacedObject,
   STAR_POWER,
 } from './types';
@@ -26,7 +27,7 @@ export interface WorldState {
   readonly grassHeight: Uint8Array;
   readonly byKind: Record<ObjectKind, PlacedObject[]>;
   readonly mermaids: { x: number; y: number }[];
-  readonly people: { x: number; y: number; variant: PersonVariant }[];
+  readonly people: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[];
 }
 
 function cloneObjectList(list: PlacedObject[]): PlacedObject[] {
@@ -57,7 +58,7 @@ export function captureWorldState(grid: Grid, objects: ObjectsState, pets: PetsS
     grassHeight: new Uint8Array(grid.grassHeight),
     byKind: cloneObjectsByKind(objects.byKind),
     mermaids: pets.mermaids.map((m) => ({ x: m.x, y: m.y })),
-    people: pets.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant })),
+    people: pets.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant, tone: p.tone })),
   };
 }
 
@@ -281,6 +282,7 @@ export function remapWorldState(
     x: Math.min(Math.max(p.x + offsetX, 0), newWidth - 1),
     y: Math.min(Math.max(p.y + offsetY, 0), newHeight - 1),
     variant: p.variant,
+    tone: p.tone,
   }));
 
   return { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids, people };
@@ -357,7 +359,7 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState, pe
   for (let i = 0; i < pending.people.length; i++) {
     const a = pending.people[i];
     const b = pets.people[i];
-    if (a.x !== b.x || a.y !== b.y || a.variant !== b.variant) return false;
+    if (a.x !== b.x || a.y !== b.y || a.variant !== b.variant || a.tone !== b.tone) return false;
   }
   return true;
 }
