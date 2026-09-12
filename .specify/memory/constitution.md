@@ -61,18 +61,25 @@ state what to eyeball. Do not add browser-automation test infrastructure.
   poured near it — so neither grows the toolbar. New element types require a
   spec.
 - **Objects and pets**: rainbow 🌈, unicorn 🦄, palm 🌴, flamingo 🦩, house
-  🏠, person 🧑, and treasure-chest emoji objects (the chest continuously
-  turns sand/dirt/water poured near it into diamonds), plus up to three
-  poodle 🐩 pets who trot to her finger, chase gumdrops, shake off water,
-  wander when bored, and do a trick when poked, and up to three mermaid 🧜
-  pets who swim within her water, seek out and eat ice cream, and do a trick
-  when poked directly (never summoned by an ordinary paint stroke, since her
-  finger is also the brush). Objects and pets render as real emoji glyphs
-  drawn on/over the canvas wherever Unicode has one; the treasure chest does
-  not (no Unicode glyph exists for it), so it is the one sanctioned
-  exception — its toolbar control and its on-canvas figure are a shape drawn
-  in code (`src/lib/chestShape.ts`), never an asset file and never a
-  substitute glyph.
+  🏠, and treasure-chest emoji objects (the chest continuously turns
+  sand/dirt/water poured near it into diamonds), plus up to three poodle 🐩
+  pets who trot to her finger, chase gumdrops, shake off water, wander when
+  bored, and do a trick when poked, up to three mermaid 🧜 pets who swim
+  within her water, seek out and eat ice cream, and do a trick when poked
+  directly (never summoned by an ordinary paint stroke, since her finger is
+  also the brush), and up to three people 🧍 who stroll about on their own
+  (standing 🧍, walking 🚶, and running 🏃 when poked — the frames *are* the
+  animation), never follow her finger, and each keep the neutral/man/woman
+  form they were born with. People's glyphs are probed at runtime and fall
+  back (gendered → neutral, standing → walking, running → a hop) wherever the
+  device's emoji font would draw a box or split a figure — a picture that
+  cannot be drawn is never shown, the same hidden-when-unsupported pattern as
+  the 📺 and 📷 buttons (Principle II). Objects and pets render
+  as real emoji glyphs drawn on/over the canvas wherever Unicode has one; the
+  treasure chest does not (no Unicode glyph exists for it), so it is the one
+  sanctioned exception — its toolbar control and its on-canvas figure are a
+  shape drawn in code (`src/lib/chestShape.ts`), never an asset file and
+  never a substitute glyph.
 - **Ambient life**: fish 🐠 and a rarer shark 🦈 appear on their own in big
   enough pools of water and drift/play there; butterflies 🦋 appear near her
   flowers and birds 🐦 perch on her palms; faint twinkles appear over empty
@@ -133,4 +140,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.2.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-09-08
+**Version**: 1.3.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-09-12
