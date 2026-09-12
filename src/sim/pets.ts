@@ -210,7 +210,7 @@ export function restoreMermaidsFromPositions(state: PetsState, positions: readon
  */
 export function restorePeopleFromPositions(
   state: PetsState,
-  positions: readonly { x: number; y: number; variant: PersonVariant }[],
+  positions: readonly { x: number; y: number; variant: PersonVariant; tone: PersonTone }[],
 ): void {
   state.people = positions.map((p) => ({
     id: state.nextId++,
@@ -220,6 +220,7 @@ export function restorePeopleFromPositions(
     state: 'standing',
     timer: 0,
     variant: p.variant,
+    tone: p.tone,
     homeX: p.x,
     wanderDir: 1,
   }));
@@ -248,9 +249,31 @@ export function pickPersonVariant(
 }
 
 /**
- * Places a person at (x, y) with a freshly-picked variant (via pickPersonVariant); settles onto
- * the surface below her over the following frames via the normal groundBelow check, exactly like
- * addPoodle. Evicts the oldest person first if already at PERSON_CAP.
+ * Injectable-RNG shuffle-bag tone chooser — a byte-for-byte structural twin of
+ * pickPersonVariant, operating on its own independent bag (state.personToneBag) so tone and
+ * variant cycle without affecting each other (FR-006, FR-007, research.md §5).
+ */
+export function pickPersonTone(
+  state: PetsState,
+  drawableTones: readonly PersonTone[],
+  rng: () => number,
+): PersonTone {
+  if (state.personToneBag.length === 0) {
+    const shuffled = [...drawableTones];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    state.personToneBag = shuffled;
+  }
+  return state.personToneBag.pop()!;
+}
+
+/**
+ * Places a person at (x, y) with a freshly-picked variant and tone (via pickPersonVariant/
+ * pickPersonTone); settles onto the surface below her over the following frames via the normal
+ * groundBelow check, exactly like addPoodle. Evicts the oldest person first if already at
+ * PERSON_CAP.
  */
 export function addPerson(
   grid: Grid,
@@ -258,6 +281,7 @@ export function addPerson(
   x: number,
   y: number,
   drawableVariants: readonly PersonVariant[],
+  drawableTones: readonly PersonTone[],
   rng: () => number,
 ): void {
   if (state.people.length >= PERSON_CAP) state.people.shift();
@@ -269,6 +293,7 @@ export function addPerson(
     state: 'standing',
     timer: PERSON_PAUSE_FRAMES,
     variant: pickPersonVariant(state, drawableVariants, rng),
+    tone: pickPersonTone(state, drawableTones, rng),
     homeX: x,
     wanderDir: 1,
   });
