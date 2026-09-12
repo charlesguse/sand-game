@@ -2,7 +2,7 @@
   "issue": 61,
   "spec_dir": "specs/018-walking-people",
   "feature_num": "018",
-  "stage": "spec",
+  "stage": "plan",
   "iteration": 0,
-  "spec_branch": null
+  "spec_branch": "spec/018-walking-people"
 }
