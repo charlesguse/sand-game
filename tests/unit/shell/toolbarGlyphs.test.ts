@@ -47,10 +47,10 @@ describe('the treasure chest renders as a drawn shape, never a glyph (FR-007)', 
   });
 });
 
-describe('person is 🧑, never the gender-neutral standing-person glyph (FR-005)', () => {
-  it('contains 🧑 but never 🧍', () => {
-    expect(toolbar).toContain('🧑');
-    expect(toolbar).not.toContain('🧍');
+describe('the person tool button reads its glyph from the resolved picture set, never a literal (research.md §11)', () => {
+  it('has no literal 🧑/🧍 glyph baked into the component — glyphFor(\'tool-person\') reads personPictureSet.toolbarGlyph instead', () => {
+    expect(toolbar).not.toContain("'🧑'");
+    expect(toolbar).toContain('personPictureSet.toolbarGlyph');
   });
 });
 

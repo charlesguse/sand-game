@@ -6,6 +6,7 @@
   import { isFullscreenSupported, toggleFullscreen } from './lib/fullscreen';
   import { isMuted, setMuted } from './lib/sound';
   import { readArrangement, RAIL_MEDIA_QUERY } from './lib/layout';
+  import { resolvePersonPictureSet, createCanvasGlyphProbe } from './lib/personGlyphs';
 
   let tool = $state<Tool>('sand');
   let brushSize = $state<BrushSize>('medium');
@@ -16,6 +17,11 @@
   let playArea: PlayArea;
 
   const showFullscreen = isFullscreenSupported(document.documentElement);
+
+  // Resolved exactly once per session (FR-020) against a throwaway off-screen canvas, then
+  // threaded as a plain value to both PlayArea (the canvas figures) and Toolbar (the button) so
+  // they can never disagree about who a person is (FR-015).
+  const personPictureSet = resolvePersonPictureSet(createCanvasGlyphProbe(document.createElement('canvas')));
 
   // The 📺 pattern: computed once, and the 📷 button simply does not exist where the platform
   // can't share a file (desktop browsers, older iOS) — absent, never broken. The probe File is
@@ -91,6 +97,7 @@
     {showFullscreen}
     {showPhoto}
     {muted}
+    {personPictureSet}
     onSelectTool={selectTool}
     onSelectBrushSize={selectBrushSize}
     onSelectScene={selectScene}

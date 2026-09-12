@@ -1231,6 +1231,9 @@ function stepPerson(grid: Grid, person: Person, stride: number): void {
       person.state = 'walking';
       person.timer = PERSON_WALK_BURST_FRAMES;
       person.wanderDir = Math.random() < 0.5 ? 1 : -1;
+      // Sync facing to the freshly-picked direction on this same frame — otherwise she'd be drawn
+      // in the walking frame for one frame still facing her old direction (FR-010/FR-011).
+      person.facing = person.wanderDir;
     }
     return;
   }
