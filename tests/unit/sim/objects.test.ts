@@ -36,6 +36,7 @@ import {
   GUMDROP,
   STAR_POWER,
   FOG,
+  ICE_CREAM,
   type PlacedObject,
 } from '../../../src/sim/types';
 import { OBJECT_FOOTPRINT_SIZE } from '../../../src/lib/layout';
@@ -586,6 +587,11 @@ describe('objects — house joins the placeable roster, purely decorative (US2, 
   it('OBJECT_KINDS has exactly 6 entries and no longer contains \'person\' — a person is a walker, not a placed object (FR-001, FR-009)', () => {
     expect(OBJECT_KINDS).toHaveLength(6);
     expect(OBJECT_KINDS).not.toContain('person');
+  });
+
+  it('adds no new grid-element ID — a person is figure state drawn over the grid, not a cell value (FR-009)', () => {
+    expect(ICE_CREAM).toBe(11);
+    expect(DIAMOND).toBe(12);
   });
 });
 

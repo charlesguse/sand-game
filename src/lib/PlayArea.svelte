@@ -53,6 +53,8 @@
     erasePeopleInBrush,
     erasePeopleInBrushLine,
     restoreMermaidsFromPositions,
+    restorePeopleFromPositions,
+    repositionPeople,
     POKE_RADIUS,
     PERSON_RUN_DURATION,
     type PoodleState,
@@ -134,7 +136,6 @@
     palm: '🌴',
     flamingo: '🦩',
     house: '🏠',
-    person: '🧑',
     chest: '',
   };
   const PALM_SWAY_RADIANS = 0.06;
@@ -265,15 +266,18 @@
       clearPets(petsState);
       for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
       restoreMermaidsFromPositions(petsState, saved.mermaids);
+      restorePeopleFromPositions(petsState, saved.people);
       // Saved coordinates belong to the saved dimensions: shift them by the same offset the
       // terrain just got, and clamp back in bounds (deserializeWorld accepts any finite coords)
-      // — otherwise a landscape-save opened in portrait strands poodles/mermaids outside the grid
-      // where they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
+      // — otherwise a landscape-save opened in portrait strands poodles/mermaids/people outside
+      // the grid where they can never walk back in. Offsets are 0 when dims match, leaving just
+      // the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
       // Fish/sharks are never saved (FR-027) — re-derive them from the just-restored water
       // instead of leaving whatever the fresh mount's createSeaLifeState produced (FR-028).
       resetSeaLifeState(seaLifeState, grid);
       repositionMermaids(petsState.mermaids, grid, offsetX, offsetY);
+      repositionPeople(petsState.people, grid, offsetX, offsetY);
 
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
@@ -346,6 +350,7 @@
     clearBirds(birdsState);
     resetSeaLifeState(seaLifeState, newGrid);
     repositionMermaids(petsState.mermaids, newGrid, offsetX, offsetY);
+    repositionPeople(petsState.people, newGrid, offsetX, offsetY);
 
     grid = newGrid;
     canvas.width = grid.width;
