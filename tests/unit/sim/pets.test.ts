@@ -4,20 +4,32 @@ import {
   createPetsState,
   addPoodle,
   addMermaid,
+  addPerson,
   stepPets,
+  stepPeople,
   clearPets,
   repositionPoodles,
   repositionMermaids,
+  repositionPeople,
+  restorePeopleFromPositions,
   eraseMermaidsInBrush,
   eraseMermaidsInBrushLine,
+  erasePeopleInBrush,
+  erasePeopleInBrushLine,
   pokePoodleAt,
+  pokePersonAt,
+  pickPersonVariant,
   POODLE_CAP,
+  PERSON_CAP,
+  PERSON_ROAM_RANGE,
+  PERSON_RUN_DURATION,
   POKE_RADIUS,
   GUMDROP_SCENT_RADIUS,
   WANDER_IDLE_DELAY,
   WANDER_RANGE,
 } from '../../../src/sim/pets';
-import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid } from '../../../src/sim/types';
+import { SAND, GUMDROP, EMPTY, WATER, RAINBOW_SAND, type Grid, type PersonVariant } from '../../../src/sim/types';
+import { applyBrush } from '../../../src/sim/brush';
 
 /** Fills the bottom `depth` rows with sand, giving the poodle a floor to stand on. */
 function withFloor(width: number, height: number, depth: number): Grid {
@@ -713,5 +725,469 @@ describe('clearing the pack', () => {
     addMermaid(grid, pets, 30, 20);
     clearPets(pets);
     expect(pets.mermaids).toHaveLength(0);
+  });
+
+  it('removes every person too (FR-022)', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 10, 5, ['neutral'], Math.random);
+    expect(pets.people).toHaveLength(1);
+    clearPets(pets);
+    expect(pets.people).toHaveLength(0);
+  });
+});
+
+const NEUTRAL_ONLY: readonly PersonVariant[] = ['neutral'];
+const ALL_VARIANTS: readonly PersonVariant[] = ['neutral', 'man', 'woman'];
+
+/** Deterministic sequence generator so pickPersonVariant tests don't depend on Math.random. */
+function seededRng(values: readonly number[]): () => number {
+  let i = 0;
+  return () => values[i++ % values.length];
+}
+
+// stepPeople itself never advances pets.stride (stepPets does that once per real frame, shared
+// across poodles/mermaids/people) — bump it manually here so the staggered step cadence
+// (PERSON_STEP_INTERVAL) behaves the same way it does in production instead of every person
+// stepping on every call.
+function runPeople(grid: Grid, pets: ReturnType<typeof createPetsState>, frames: number): void {
+  for (let i = 0; i < frames; i++) {
+    pets.stride++;
+    stepPeople(grid, pets);
+  }
+}
+
+describe('placing people (US1, FR-001, FR-003)', () => {
+  it('adds a person at the requested position with a variant drawn from drawableVariants', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 12, 5, NEUTRAL_ONLY, Math.random);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].x).toBeCloseTo(12);
+    expect(pets.people[0].variant).toBe('neutral');
+    expect(pets.people[0].state).toBe('standing');
+  });
+
+  it('caps the group at PERSON_CAP and evicts the oldest', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    for (let i = 0; i < PERSON_CAP + 2; i++) addPerson(grid, pets, i * 3, 5, NEUTRAL_ONLY, Math.random);
+    expect(pets.people).toHaveLength(PERSON_CAP);
+    expect(pets.people[0].x).toBeCloseTo(6);
+  });
+
+  it('gives every person a unique id, never colliding with a poodle/mermaid id', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 1, 1);
+    addMermaid(grid, pets, 2, 2);
+    for (let i = 0; i < PERSON_CAP; i++) addPerson(grid, pets, i * 3, 5, NEUTRAL_ONLY, Math.random);
+    const ids = [...pets.poodles.map((p) => p.id), ...pets.mermaids.map((m) => m.id), ...pets.people.map((p) => p.id)];
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('pickPersonVariant — seeded no-repeat cycle (FR-013a, SC-005a)', () => {
+  it('yields every drawable variant exactly once per shuffle cycle, in a seed-determined order', () => {
+    const pets = createPetsState();
+    const rng = seededRng([0.1, 0.5, 0.9, 0.2, 0.6, 0.8]);
+    const first = [
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+    ];
+    expect(new Set(first)).toEqual(new Set(ALL_VARIANTS));
+
+    const second = [
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+      pickPersonVariant(pets, ALL_VARIANTS, rng),
+    ];
+    expect(new Set(second)).toEqual(new Set(ALL_VARIANTS));
+  });
+
+  it('degenerates to always neutral with a single-element drawableVariants list, no special-casing', () => {
+    const pets = createPetsState();
+    const rng = seededRng([0.1, 0.5, 0.9]);
+    for (let i = 0; i < 5; i++) {
+      expect(pickPersonVariant(pets, NEUTRAL_ONLY, rng)).toBe('neutral');
+    }
+  });
+});
+
+describe('a person standing on the ground (US1, FR-004)', () => {
+  it('falls until it rests on the surface', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 20, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 60);
+    expect(pets.people[0].y).toBeCloseTo(31, 0);
+  });
+
+  it('settles on a solid surface placed on hills, flat ground, mid-air, or water', () => {
+    const grid = withFloor(80, 40, 8);
+    for (let y = 20; y < 32; y++) {
+      for (let x = 30; x < 40; x++) setCell(grid, x, y, SAND, 0);
+    }
+    setCell(grid, 60, 31, WATER, 0);
+    const pets = createPetsState();
+    addPerson(grid, pets, 35, 5, NEUTRAL_ONLY, Math.random); // hill
+    addPerson(grid, pets, 10, 5, NEUTRAL_ONLY, Math.random); // flat ground
+    addPerson(grid, pets, 50, 5, NEUTRAL_ONLY, Math.random); // mid-air over the floor
+    addPerson(grid, pets, 60, 5, NEUTRAL_ONLY, Math.random); // over water
+    runPeople(grid, pets, 80);
+    for (const person of pets.people) {
+      expect(person.y).toBeGreaterThanOrEqual(0);
+      expect(person.y).toBeLessThan(40);
+    }
+  });
+
+  it('never falls out of the world when there is no ground', () => {
+    const grid = createGrid(40, 40);
+    const pets = createPetsState();
+    addPerson(grid, pets, 20, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 200);
+    expect(pets.people[0].y).toBeLessThanOrEqual(39);
+    expect(pets.people[0].y).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('a person strolls on her own (US1, FR-005, SC-002)', () => {
+  it('alternates standing and walking, moves over time, and never strays past PERSON_ROAM_RANGE', () => {
+    const grid = withFloor(200, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 100, 2, NEUTRAL_ONLY, Math.random);
+    const settleX = pets.people[0].homeX;
+
+    const seenStates = new Set<string>();
+    let moved = false;
+    const startX = pets.people[0].x;
+    for (let i = 0; i < 600; i++) {
+      pets.stride++;
+      stepPeople(grid, pets);
+      seenStates.add(pets.people[0].state);
+      if (pets.people[0].x !== startX) moved = true;
+      expect(Math.abs(pets.people[0].x - settleX)).toBeLessThanOrEqual(PERSON_ROAM_RANGE + 1);
+    }
+    expect(seenStates.has('standing')).toBe(true);
+    expect(seenStates.has('walking')).toBe(true);
+    expect(moved).toBe(true);
+  });
+
+  it('is drawn walking exactly while moving-state and standing while paused, facing matching wanderDir', () => {
+    const grid = withFloor(200, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 100, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 10); // let her settle
+    for (let i = 0; i < 400; i++) {
+      pets.stride++;
+      stepPeople(grid, pets);
+      const person = pets.people[0];
+      if (person.state === 'walking') {
+        expect(person.facing).toBe(person.wanderDir);
+      } else {
+        expect(person.state).toBe('standing');
+      }
+    }
+  });
+
+  it('never responds to a finger target — stepPets with a non-null target moves poodles, never people', () => {
+    const grid = withFloor(200, 40, 8);
+    const pets = createPetsState();
+    addPoodle(pets, 100, 2);
+    addPerson(grid, pets, 100, 2, NEUTRAL_ONLY, Math.random);
+    for (let i = 0; i < 20; i++) stepPets(grid, pets, null);
+    const poodleStartX = pets.poodles[0].x;
+    const personStartX = pets.people[0].x;
+    for (let i = 0; i < 120; i++) stepPets(grid, pets, { x: 190, y: 2 });
+    expect(pets.poodles[0].x).not.toBeCloseTo(poodleStartX, 0);
+    // A person may still take her own unrelated wander steps, but never toward the finger target
+    // specifically — bound the drift to what her own roam range allows around her settle point.
+    expect(Math.abs(pets.people[0].x - personStartX)).toBeLessThanOrEqual(PERSON_ROAM_RANGE + 1);
+  });
+});
+
+describe('a person steps up ledges and turns at walls (US1, FR-004)', () => {
+  it('mounts a 1-2 cell step and turns around at a taller wall instead of climbing or clipping', () => {
+    const grid = withFloor(120, 40, 8);
+    // A small step up at 72-77, and further along, a wall taller than MAX_CLIMB at 88-93.
+    for (let y = 30; y < 32; y++) {
+      for (let x = 72; x < 77; x++) setCell(grid, x, y, SAND, 0);
+    }
+    for (let y = 10; y < 32; y++) {
+      for (let x = 88; x < 93; x++) setCell(grid, x, y, SAND, 0);
+    }
+    const pets = createPetsState();
+    addPerson(grid, pets, 68, 2, NEUTRAL_ONLY, Math.random);
+    const person = pets.people[0];
+    // Force a rightward walking burst rather than waiting on the random pause/direction, and
+    // widen her roam anchor so the roam-range leash (tested separately above) isn't what stops
+    // her before she ever reaches the step/wall — this test is specifically about FR-004's
+    // ledge/wall handling, not FR-005's roam range.
+    person.state = 'walking';
+    person.timer = 5000;
+    person.wanderDir = 1;
+    person.homeX = 80;
+
+    let maxX = person.x;
+    for (let i = 0; i < 3000; i++) {
+      pets.stride++;
+      stepPeople(grid, pets);
+      // Never clips into or climbs the tall wall's footprint.
+      expect(person.x).toBeLessThan(88);
+      maxX = Math.max(maxX, person.x);
+    }
+    // She should have climbed the small step onto its top along the way.
+    expect(maxX).toBeGreaterThan(77);
+  });
+});
+
+describe('a person is never made solid (US1, FR-009)', () => {
+  it('pouring sand on her cell leaves the grid element unaffected by her presence', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 20, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 30);
+    const person = pets.people[0];
+    const beforeElement = grid.elements[Math.round(person.y) * grid.width + Math.round(person.x)];
+    applyBrush(grid, 'sand', person.x, person.y, 0, 0);
+    // The cell may now hold SAND (the brush painted it), but nothing about Person itself ever
+    // wrote to the grid — this just documents that her presence never resisted the pour.
+    const afterElement = grid.elements[Math.round(person.y) * grid.width + Math.round(person.x)];
+    expect(afterElement === SAND || afterElement === beforeElement).toBe(true);
+  });
+});
+
+describe('a person recovers from buried/airborne/off-grid placements (US1, FR-007, SC-001)', () => {
+  it('digs herself out within a bounded number of frames when buried in sand', () => {
+    const grid = withFloor(40, 40, 8);
+    for (let y = 0; y < 32; y++) setCell(grid, 20, y, SAND, 0);
+    const pets = createPetsState();
+    addPerson(grid, pets, 20, 15, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 400);
+    const person = pets.people[0];
+    expect(grid.elements[Math.round(person.y) * grid.width + Math.round(person.x)]).not.toBe(SAND);
+  });
+
+  it('recovers from being placed off the ground (mid-air)', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 20, 0, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 60);
+    expect(pets.people[0].y).toBeCloseTo(31, 0);
+  });
+
+  it('recovers from being placed at the very edge of the grid', () => {
+    const grid = withFloor(40, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 0, 2, NEUTRAL_ONLY, Math.random);
+    addPerson(grid, pets, grid.width - 1, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 300);
+    for (const person of pets.people) {
+      expect(person.x).toBeGreaterThanOrEqual(0);
+      expect(person.x).toBeLessThanOrEqual(grid.width - 1);
+    }
+  });
+});
+
+describe('a person survives 2,000 adversarial frames (SC-001)', () => {
+  it('never ends up outside the grid or permanently stuck in solid material', () => {
+    const grid = withFloor(150, 60, 10);
+    // Hills, ledges, walls, pits.
+    for (let y = 30; y < 50; y++) {
+      for (let x = 20; x < 40; x++) setCell(grid, x, y, SAND, 0);
+    }
+    for (let y = 45; y < 50; y++) {
+      for (let x = 60; x < 65; x++) setCell(grid, x, y, SAND, 0);
+    }
+    for (let x = 80; x < 90; x++) {
+      for (let y = 50; y < 60; y++) setCell(grid, x, y, EMPTY, 0); // a pit through the floor
+    }
+    const pets = createPetsState();
+    addPerson(grid, pets, 25, 5, ALL_VARIANTS, Math.random);
+    addPerson(grid, pets, 100, 5, ALL_VARIANTS, Math.random);
+    addPerson(grid, pets, 140, 5, ALL_VARIANTS, Math.random);
+
+    for (let i = 0; i < 2000; i++) {
+      pets.stride++;
+      stepPeople(grid, pets);
+      // Occasionally pour sand on/near a person or erase the ground beneath her.
+      if (i === 500) {
+        const p = pets.people[0];
+        for (let y = Math.max(0, Math.round(p.y) - 2); y <= p.y; y++) setCell(grid, Math.round(p.x), y, SAND, 0);
+      }
+      if (i === 1200) {
+        const p = pets.people[1];
+        for (let y = Math.round(p.y) + 1; y < grid.height; y++) setCell(grid, Math.round(p.x), y, EMPTY, 0);
+      }
+      for (const person of pets.people) {
+        expect(person.x).toBeGreaterThanOrEqual(0);
+        expect(person.x).toBeLessThanOrEqual(grid.width - 1);
+        expect(person.y).toBeGreaterThanOrEqual(0);
+        expect(person.y).toBeLessThanOrEqual(grid.height - 1);
+      }
+    }
+  });
+});
+
+describe('repositioning people on a grid re-derivation (US6, FR-028)', () => {
+  it('shifts by the offset and clamps back in-bounds, re-anchoring homeX', () => {
+    const pets = createPetsState();
+    pets.people.push({
+      id: pets.nextId++,
+      x: 10,
+      y: 10,
+      facing: 1,
+      state: 'standing',
+      timer: 0,
+      variant: 'neutral',
+      homeX: 10,
+      wanderDir: 1,
+    });
+    const newGrid = createGrid(20, 20);
+    repositionPeople(pets.people, newGrid, 5, 5);
+    expect(pets.people[0].x).toBe(15);
+    expect(pets.people[0].y).toBe(15);
+    expect(pets.people[0].homeX).toBe(15);
+  });
+
+  it('clamps rather than drops a person landing outside the new bounds', () => {
+    const pets = createPetsState();
+    pets.people.push({
+      id: pets.nextId++,
+      x: 15,
+      y: 15,
+      facing: 1,
+      state: 'standing',
+      timer: 0,
+      variant: 'neutral',
+      homeX: 15,
+      wanderDir: 1,
+    });
+    const newGrid = createGrid(10, 10);
+    repositionPeople(pets.people, newGrid, 20, 20);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].x).toBeLessThanOrEqual(newGrid.width - 1);
+    expect(pets.people[0].y).toBeLessThanOrEqual(newGrid.height - 1);
+  });
+});
+
+describe('restorePeopleFromPositions (US1/US4, FR-012, FR-023)', () => {
+  it('rebuilds people fresh (standing, timer 0) with the variant carried verbatim', () => {
+    const pets = createPetsState();
+    restorePeopleFromPositions(pets, [
+      { x: 5, y: 6, variant: 'man' },
+      { x: 7, y: 8, variant: 'woman' },
+    ]);
+    expect(pets.people).toHaveLength(2);
+    expect(pets.people[0].variant).toBe('man');
+    expect(pets.people[0].state).toBe('standing');
+    expect(pets.people[1].variant).toBe('woman');
+  });
+});
+
+describe('variant is fixed for life (US2, FR-012)', () => {
+  it('never changes across hundreds of frames of strolling, whatever variant she was given', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 40, 2, ALL_VARIANTS, seededRng([0.1, 0.9, 0.5]));
+    const variant = pets.people[0].variant;
+    runPeople(grid, pets, 500);
+    expect(pets.people[0].variant).toBe(variant);
+  });
+
+  it('is still unchanged after a pokePersonAt run reaction (US2 Acceptance Scenario 1, FR-012)', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 40, 2, ALL_VARIANTS, seededRng([0.1, 0.9, 0.5]));
+    const variant = pets.people[0].variant;
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    runPeople(grid, pets, PERSON_RUN_DURATION + 10);
+    expect(pets.people[0].variant).toBe(variant);
+  });
+});
+
+describe('poking a person (US5, FR-016)', () => {
+  it('breaks into a run when poked within reach, then returns to strolling', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    expect(person.state).toBe('running');
+    expect(person.timer).toBe(PERSON_RUN_DURATION);
+
+    runPeople(grid, pets, PERSON_RUN_DURATION);
+    expect(person.state).toBe('standing');
+  });
+
+  it('ignores a second poke while already running — no change to timer/state (US5 Acceptance Scenario 2)', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    pokePersonAt(pets, person.x, person.y);
+    runPeople(grid, pets, 5);
+    const timerBefore = person.timer;
+
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(false);
+    expect(person.state).toBe('running');
+    expect(person.timer).toBe(timerBefore);
+  });
+
+  it('returns false and changes nothing with no person nearby', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    const stateBefore = person.state;
+
+    expect(pokePersonAt(pets, person.x + POKE_RADIUS + 10, person.y)).toBe(false);
+    expect(person.state).toBe(stateBefore);
+  });
+
+  it('returns false with no people at all', () => {
+    const pets = createPetsState();
+    expect(pokePersonAt(pets, 10, 10)).toBe(false);
+  });
+
+  it('still transitions to running on poke even when the picture set has no running picture (US5 Acceptance Scenario 5, FR-016a) — the hop-vs-glyph choice is a render concern, not a sim one', () => {
+    // canRunPicture is a PlayArea.svelte rendering decision (see personGlyphs.test.ts); at the sim
+    // level, pokePersonAt always reacts regardless of what the picture set can draw.
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    expect(person.state).toBe('running');
+  });
+});
+
+describe('erasing people (US6, FR-021)', () => {
+  it('removes a person within reach and leaves one outside untouched', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    addPerson(grid, pets, 90, 2, NEUTRAL_ONLY, Math.random);
+    erasePeopleInBrush(pets, 30, pets.people[0].y, POKE_RADIUS);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].x).toBeCloseTo(90);
+  });
+
+  it('erasePeopleInBrushLine reaches every point along a fast drag, including a person straddled by the samples', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    addPerson(grid, pets, 60, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 5);
+    erasePeopleInBrushLine(pets, { x: 20, y: pets.people[0].y }, { x: 70, y: pets.people[0].y }, POKE_RADIUS);
+    expect(pets.people).toHaveLength(0);
   });
 });

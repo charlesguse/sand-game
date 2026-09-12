@@ -5,6 +5,7 @@
   import { shippedToolbarControls } from './toolbarControls';
   import BucketIcon from './BucketIcon.svelte';
   import ChestIcon from './ChestIcon.svelte';
+  import type { PersonPictureSet } from './personGlyphs';
 
   interface Props {
     tool: Tool;
@@ -14,6 +15,7 @@
     showFullscreen: boolean;
     showPhoto: boolean;
     muted: boolean;
+    personPictureSet: PersonPictureSet;
     onSelectTool: (tool: Tool) => void;
     onSelectBrushSize: (size: BrushSize) => void;
     onSelectScene: (sceneId: SceneId) => void;
@@ -33,6 +35,7 @@
     showFullscreen,
     showPhoto,
     muted,
+    personPictureSet,
     onSelectTool,
     onSelectBrushSize,
     onSelectScene,
@@ -131,7 +134,7 @@
       case 'tool-house':
         return '🏠';
       case 'tool-person':
-        return '🧑';
+        return personPictureSet.toolbarGlyph;
       case 'tool-mermaid':
         return '🧜';
       case 'tool-eraser':

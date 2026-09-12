@@ -40,16 +40,23 @@
     createPetsState,
     addPoodle,
     addMermaid,
+    addPerson,
     stepPets,
     clearPets,
     repositionPoodles,
     repositionMermaids,
     pokePoodleAt,
     pokeMermaidAt,
+    pokePersonAt,
     eraseMermaidsInBrush,
     eraseMermaidsInBrushLine,
+    erasePeopleInBrush,
+    erasePeopleInBrushLine,
     restoreMermaidsFromPositions,
+    restorePeopleFromPositions,
+    repositionPeople,
     POKE_RADIUS,
+    PERSON_RUN_DURATION,
     type PoodleState,
   } from '../sim/pets';
   import {
@@ -89,6 +96,7 @@
   } from '../sim/types';
   import { colorFor } from './palette';
   import { CHEST_SHAPE } from './chestShape';
+  import { frameFor, WALK_GLYPH_NATIVE_FACING, type PersonPictureSet } from './personGlyphs';
   import {
     initSoundOnGesture,
     playPour,
@@ -105,10 +113,11 @@
   interface Props {
     tool: Tool;
     brushSize: BrushSize;
+    personPictureSet: PersonPictureSet;
     onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
   }
 
-  let { tool, brushSize, onHistoryChange }: Props = $props();
+  let { tool, brushSize, personPictureSet, onHistoryChange }: Props = $props();
 
   const objectsState = createObjectsState();
   const petsState = createPetsState();
@@ -127,7 +136,6 @@
     palm: '🌴',
     flamingo: '🦩',
     house: '🏠',
-    person: '🧑',
     chest: '',
   };
   const PALM_SWAY_RADIANS = 0.06;
@@ -258,15 +266,18 @@
       clearPets(petsState);
       for (const poodle of saved.poodles) addPoodle(petsState, poodle.x, poodle.y);
       restoreMermaidsFromPositions(petsState, saved.mermaids);
+      restorePeopleFromPositions(petsState, saved.people);
       // Saved coordinates belong to the saved dimensions: shift them by the same offset the
       // terrain just got, and clamp back in bounds (deserializeWorld accepts any finite coords)
-      // — otherwise a landscape-save opened in portrait strands poodles/mermaids outside the grid
-      // where they can never walk back in. Offsets are 0 when dims match, leaving just the clamp.
+      // — otherwise a landscape-save opened in portrait strands poodles/mermaids/people outside
+      // the grid where they can never walk back in. Offsets are 0 when dims match, leaving just
+      // the clamp.
       repositionPoodles(petsState.poodles, grid, offsetX, offsetY);
       // Fish/sharks are never saved (FR-027) — re-derive them from the just-restored water
       // instead of leaving whatever the fresh mount's createSeaLifeState produced (FR-028).
       resetSeaLifeState(seaLifeState, grid);
       repositionMermaids(petsState.mermaids, grid, offsetX, offsetY);
+      repositionPeople(petsState.people, grid, offsetX, offsetY);
 
       // Restore the paired undo history, if one survived a going-away flush and still agrees
       // with the world save it was written beside (FR-017: same fingerprint, same recorded
@@ -339,6 +350,7 @@
     clearBirds(birdsState);
     resetSeaLifeState(seaLifeState, newGrid);
     repositionMermaids(petsState.mermaids, newGrid, offsetX, offsetY);
+    repositionPeople(petsState.people, newGrid, offsetX, offsetY);
 
     grid = newGrid;
     canvas.width = grid.width;
@@ -576,6 +588,23 @@
       ctx.restore();
     }
 
+    for (const person of petsState.people) {
+      // When the device can't draw a running picture at all, the poke reaction degrades to an
+      // in-place hop (mirroring flamingoHopAt's bob math) using the standing picture, rather than
+      // a running glyph that would render as tofu (FR-016a, FR-019).
+      const hopping = person.state === 'running' && !personPictureSet.canRunPicture;
+      const glyph = hopping
+        ? frameFor(personPictureSet, person.variant, 'standing')
+        : frameFor(personPictureSet, person.variant, person.state);
+      const hop = hopping ? -Math.abs(Math.sin((PERSON_RUN_DURATION - person.timer) * 0.3)) * 6 : 0;
+
+      ctx.save();
+      ctx.translate(person.x, person.y + hop);
+      if (person.facing * WALK_GLYPH_NATIVE_FACING === -1) ctx.scale(-1, 1);
+      ctx.fillText(glyph, 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = `${OBJECT_FOOTPRINT_SIZE / 3}px sans-serif`;
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - (lastFrameNow - p.spawnedAt) / PARTICLE_LIFETIME_MS);
@@ -684,12 +713,14 @@
         eraseBirdsInBrushLine(birdsState, from, pos, radius, now);
         eraseSeaLifeInBrushLine(seaLifeState, from, pos, radius);
         eraseMermaidsInBrushLine(petsState, from, pos, POKE_RADIUS);
+        erasePeopleInBrushLine(petsState, from, pos, POKE_RADIUS);
       } else {
         eraseObjectsInBrush(grid, objectsState, pos.x, pos.y, radius);
         eraseButterfliesInBrush(butterfliesState, pos.x, pos.y, radius, now);
         eraseBirdsInBrush(birdsState, pos.x, pos.y, radius, now);
         eraseSeaLifeInBrush(seaLifeState, pos.x, pos.y, radius);
         eraseMermaidsInBrush(petsState, pos.x, pos.y, POKE_RADIUS);
+        erasePeopleInBrush(petsState, pos.x, pos.y, POKE_RADIUS);
       }
     }
     if (tool === 'wand') {
@@ -769,6 +800,11 @@
         playTrill();
         return;
       }
+      if (pokePersonAt(petsState, pos.x, pos.y)) {
+        // No new sound for this feature (FR-016) — reuses the same trill every other poke reaction plays.
+        playTrill();
+        return;
+      }
       const poked = objectAtPoint(pos);
       if (poked !== null) {
         const now = performance.now();
@@ -795,13 +831,17 @@
       canvas.setPointerCapture(event.pointerId);
       return;
     }
+    if (tool === 'person') {
+      addPerson(grid, petsState, pos.x, pos.y, personPictureSet.drawableVariants, Math.random);
+      canvas.setPointerCapture(event.pointerId);
+      return;
+    }
     if (
       tool === 'rainbow' ||
       tool === 'unicorn' ||
       tool === 'palm' ||
       tool === 'flamingo' ||
       tool === 'house' ||
-      tool === 'person' ||
       tool === 'chest'
     ) {
       // Another finger may still be mid-paint (tool switched under it). Its action is pending in

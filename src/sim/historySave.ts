@@ -1,7 +1,8 @@
 import { HISTORY_DEPTH, type WorldState } from './history';
-import { OBJECT_KINDS } from './objects';
+import { OBJECT_KINDS, migrateLegacyPersonObjects } from './objects';
 import { encodeBase64, decodeBase64 } from './save';
-import type { ObjectKind, PlacedObject } from './types';
+import type { Grid, ObjectKind, PersonVariant, PlacedObject } from './types';
+import { PERSON_CAP } from './pets';
 
 /** Bumped whenever this wire format's shape changes; deserializeHistory rejects any other value. Independent of save.ts's SAVE_VERSION. */
 export const HISTORY_SAVE_VERSION = 1;
@@ -40,6 +41,12 @@ interface WireHistoryMermaid {
   y: number;
 }
 
+interface WireHistoryPerson {
+  x: number;
+  y: number;
+  variant: PersonVariant;
+}
+
 interface WireHistoryStep {
   elements: string;
   colorAux: string;
@@ -48,6 +55,7 @@ interface WireHistoryStep {
   grassHeight: string;
   byKind: Record<string, WireHistoryObject[]>;
   mermaids?: WireHistoryMermaid[];
+  people?: WireHistoryPerson[];
 }
 
 interface WireHistory {
@@ -77,6 +85,7 @@ function encodeStep(state: WorldState): WireHistoryStep {
     grassHeight: encodeBase64(state.grassHeight),
     byKind,
     mermaids: state.mermaids.map((m) => ({ x: m.x, y: m.y })),
+    people: state.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant })),
   };
 }
 
@@ -147,6 +156,16 @@ function isWireHistoryMermaidShape(value: unknown): value is WireHistoryMermaid 
   return isFiniteNumber(obj.x) && isFiniteNumber(obj.y);
 }
 
+function isPersonVariant(value: unknown): value is PersonVariant {
+  return value === 'neutral' || value === 'man' || value === 'woman';
+}
+
+function isWireHistoryPersonShape(value: unknown): value is WireHistoryPerson {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return isFiniteNumber(obj.x) && isFiniteNumber(obj.y) && isPersonVariant(obj.variant);
+}
+
 /** Tolerantly parses a step's mermaids field: a missing field, a non-array, or any individually malformed entry all default to [] rather than rejecting the whole payload (FR-029), mirroring save.ts's parseMermaids. */
 function parseHistoryMermaids(value: unknown): WireHistoryMermaid[] {
   if (!Array.isArray(value)) return [];
@@ -156,6 +175,17 @@ function parseHistoryMermaids(value: unknown): WireHistoryMermaid[] {
     mermaids.push({ x: item.x, y: item.y });
   }
   return mermaids;
+}
+
+/** Structurally identical to parseHistoryMermaids (FR-025), mirroring save.ts's parsePeople. */
+function parseHistoryPeople(value: unknown): WireHistoryPerson[] {
+  if (!Array.isArray(value)) return [];
+  const people: WireHistoryPerson[] = [];
+  for (const item of value) {
+    if (!isWireHistoryPersonShape(item)) return [];
+    people.push({ x: item.x, y: item.y, variant: item.variant });
+  }
+  return people;
 }
 
 /**
@@ -231,7 +261,30 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
 
       const mermaids = parseHistoryMermaids(step.mermaids);
 
-      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids });
+      // Legacy compatibility (US4): a stored history step written before this feature held people
+      // as byKind.person PlacedObjects — same read-only migration save.ts's deserializeWorld
+      // applies (FR-026, FR-027, research.md §8).
+      const rawLegacyPersonList = rawByKind.person;
+      let migratedPeople: WireHistoryPerson[] = [];
+      if (rawLegacyPersonList !== undefined) {
+        if (!Array.isArray(rawLegacyPersonList)) return null;
+        const legacyPeople: PlacedObject[] = [];
+        for (const obj of rawLegacyPersonList) {
+          if (!isWireHistoryObjectShape(obj)) return null;
+          legacyPeople.push({ id: obj.id, kind: 'person' as unknown as ObjectKind, x: obj.x, y: obj.y, size: obj.size });
+        }
+        const legacyGrid = { width, height, elements } as unknown as Grid;
+        migratedPeople = migrateLegacyPersonObjects(legacyGrid, { byKind, nextId: 0 }, legacyPeople).map((p) => ({
+          x: p.x,
+          y: p.y,
+          variant: 'neutral' as const,
+        }));
+      }
+
+      const people = [...migratedPeople, ...parseHistoryPeople(step.people)];
+      while (people.length > PERSON_CAP) people.shift();
+
+      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids, people });
     }
 
     const cappedSteps = steps.length > HISTORY_DEPTH ? steps.slice(-HISTORY_DEPTH) : steps;

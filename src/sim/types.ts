@@ -71,7 +71,10 @@ export type Tool =
 export type BrushSize = 'small' | 'medium' | 'large';
 export type SceneId = 'empty' | 'landscape1' | 'landscape2';
 
-export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' | 'person' | 'chest';
+export type ObjectKind = 'rainbow' | 'unicorn' | 'palm' | 'flamingo' | 'house' | 'chest';
+
+/** Which person a placed walker is — chosen once at placement, kept for life (FR-012). */
+export type PersonVariant = 'neutral' | 'man' | 'woman';
 
 export interface PlacedObject {
   readonly id: number;

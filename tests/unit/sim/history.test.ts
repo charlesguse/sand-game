@@ -11,7 +11,7 @@ import {
   type ObjectsState,
 } from '../../../src/sim/objects';
 import { loadScene } from '../../../src/sim/scenes';
-import { createPetsState, type Mermaid } from '../../../src/sim/pets';
+import { createPetsState, type Mermaid, type Person } from '../../../src/sim/pets';
 import {
   EMPTY,
   SAND,
@@ -27,6 +27,7 @@ import {
   DIAMOND,
   ICE_CREAM,
   type Grid,
+  type PersonVariant,
   type SceneId,
 } from '../../../src/sim/types';
 import { CELL_BUDGET, GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
@@ -86,6 +87,23 @@ function pushMermaid(pets: ReturnType<typeof createPetsState>, x: number, y: num
   };
   pets.mermaids.push(mermaid);
   return mermaid;
+}
+
+/** Pushes a fresh default-activity person at (x, y) directly onto pets.people — mirrors exactly what restorePeopleFromPositions itself rebuilds, so these tests don't depend on addPerson's own settle behaviour. */
+function pushPerson(pets: ReturnType<typeof createPetsState>, x: number, y: number, variant: PersonVariant): Person {
+  const person: Person = {
+    id: pets.nextId++,
+    x,
+    y,
+    facing: 1,
+    state: 'standing',
+    timer: 0,
+    variant,
+    homeX: x,
+    wanderDir: 1,
+  };
+  pets.people.push(person);
+  return person;
 }
 
 const PAINT_TOOLS = ['sand', 'water', 'dirt', 'grass', 'star', 'gumdrop', 'eraser'] as const;
@@ -294,14 +312,14 @@ describe('history — every element/visible property round trip (US1, FR-024)', 
   });
 });
 
-describe('history — house/person/chest and diamonds round-trip through capture/restore (US2/US1, FR-026, FR-027, FR-029, FR-016)', () => {
+describe('history — house/palm/chest and diamonds round-trip through capture/restore (US2/US1, FR-026, FR-027, FR-029, FR-016)', () => {
   it('a world with all three new object kinds and diamond material round-trips cell-for-cell through captureWorldState/restoreWorldState', () => {
     const grid = createGrid(120, 120);
     const objects = createObjectsState();
     setCell(grid, 5, 5, DIAMOND, 3);
     setCell(grid, 6, 5, DIAMOND, 9);
     placeObject(grid, objects, 'house', 40, 40);
-    placeObject(grid, objects, 'person', 80, 40);
+    placeObject(grid, objects, 'palm', 80, 40);
     placeObject(grid, objects, 'chest', 40, 80);
 
     const state = captureWorldState(grid, objects);
@@ -314,12 +332,12 @@ describe('history — house/person/chest and diamonds round-trip through capture
     expect(getElement(grid, 5, 5)).toBe(DIAMOND);
     expect(getElement(grid, 6, 5)).toBe(DIAMOND);
     expect(objects.byKind.house.length).toBe(1);
-    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.palm.length).toBe(1);
     expect(objects.byKind.chest.length).toBe(1);
     expect(visibleSnapshot(grid, objects)).toEqual(before);
   });
 
-  it('undo/redo round-trips a house/person/chest placement and a diamond conversion together', () => {
+  it('undo/redo round-trips a house/palm/chest placement and a diamond conversion together', () => {
     const grid = createGrid(80, 80);
     const objects = createObjectsState();
     const history = new HistoryManager();
@@ -327,7 +345,7 @@ describe('history — house/person/chest and diamonds round-trip through capture
     history.beginAction(grid, objects);
     const before = visibleSnapshot(grid, objects);
     placeObject(grid, objects, 'house', 20, 20);
-    placeObject(grid, objects, 'person', 60, 20);
+    placeObject(grid, objects, 'palm', 60, 20);
     placeObject(grid, objects, 'chest', 20, 60);
     setCell(grid, 2, 2, DIAMOND, 4);
     history.commitAction(grid, objects);
@@ -336,12 +354,12 @@ describe('history — house/person/chest and diamonds round-trip through capture
     expect(visibleSnapshot(grid, objects)).toEqual(before);
     expect(history.redo(grid, objects)).toBe(true);
     expect(objects.byKind.house.length).toBe(1);
-    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.palm.length).toBe(1);
     expect(objects.byKind.chest.length).toBe(1);
     expect(getElement(grid, 2, 2)).toBe(DIAMOND);
   });
 
-  it('remaps house/person/chest objects and a diamond cell to new grid dimensions (FR-029)', () => {
+  it('remaps house/palm/chest objects and a diamond cell to new grid dimensions (FR-029)', () => {
     const grid = createGrid(100, 100);
     const objects = createObjectsState();
     setCell(grid, 4, 4, DIAMOND, 6);
@@ -956,6 +974,53 @@ describe('history — mermaids round trip across undo/redo (US4, FR-027)', () =>
     expect(pets.mermaids[0].timer).toBe(0);
     expect(pets.mermaids[0].pursuitX).toBe(-1);
     expect(pets.mermaids[0].pursuitY).toBe(-1);
+  });
+});
+
+describe('history — people round trip across undo/redo, variant included (US2/US6, FR-023, FR-024)', () => {
+  it('beginAction/commitAction/undo/redo round-trip position and variant for people of every variant', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    pushPerson(pets, 5, 5, 'man');
+    pushPerson(pets, 8, 8, 'woman');
+    pushPerson(pets, 11, 11, 'neutral');
+    history.commitAction(grid, objects, pets);
+
+    expect(pets.people).toHaveLength(3);
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(0);
+    expect(history.redo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(3);
+    expect(pets.people.map((p) => p.variant)).toEqual(['man', 'woman', 'neutral']);
+    expect(pets.people[0].x).toBe(5);
+    expect(pets.people[1].x).toBe(8);
+  });
+
+  it('a person restored via undo is a fresh default-activity walker, not whatever state/timer she had when captured', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    const person = pushPerson(pets, 6, 6, 'woman');
+    person.state = 'walking';
+    person.timer = 40;
+    history.commitAction(grid, objects, pets);
+
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 0, 0, SAND, 1);
+    history.commitAction(grid, objects, pets);
+
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].variant).toBe('woman');
+    expect(pets.people[0].state).toBe('standing');
+    expect(pets.people[0].timer).toBe(0);
   });
 });
 

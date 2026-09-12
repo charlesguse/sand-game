@@ -1,7 +1,7 @@
 import { captureWorldState, type WorldState } from './history';
-import { OBJECT_KINDS } from './objects';
-import type { ObjectKind, ObjectsState, PlacedObject, Grid } from './types';
-import type { PetsState } from './pets';
+import { OBJECT_KINDS, migrateLegacyPersonObjects } from './objects';
+import type { ObjectKind, ObjectsState, PersonVariant, PlacedObject, Grid } from './types';
+import { PERSON_CAP, type PetsState } from './pets';
 
 /** Bumped whenever the wire format changes shape; deserializeWorld rejects any other value. */
 export const SAVE_VERSION = 1;
@@ -13,6 +13,7 @@ export interface SavedWorld {
   state: WorldState;
   poodles: { x: number; y: number }[];
   mermaids: { x: number; y: number }[];
+  people: { x: number; y: number; variant: PersonVariant }[];
 }
 
 /**
@@ -107,6 +108,12 @@ interface WireMermaid {
   y: number;
 }
 
+interface WirePerson {
+  x: number;
+  y: number;
+  variant: PersonVariant;
+}
+
 interface WireWorld {
   version: number;
   width: number;
@@ -119,6 +126,7 @@ interface WireWorld {
   byKind: Record<string, WireObject[]>;
   poodles: WirePoodle[];
   mermaids?: WireMermaid[];
+  people?: WirePerson[];
 }
 
 /**
@@ -144,6 +152,7 @@ export function serializeWorld(grid: Grid, objects: ObjectsState, pets: PetsStat
 
     const poodles: WirePoodle[] = pets.poodles.map((poodle) => ({ x: poodle.x, y: poodle.y }));
     const mermaids: WireMermaid[] = pets.mermaids.map((mermaid) => ({ x: mermaid.x, y: mermaid.y }));
+    const people: WirePerson[] = pets.people.map((person) => ({ x: person.x, y: person.y, variant: person.variant }));
 
     const wire: WireWorld = {
       version: SAVE_VERSION,
@@ -157,6 +166,7 @@ export function serializeWorld(grid: Grid, objects: ObjectsState, pets: PetsStat
       byKind,
       poodles,
       mermaids,
+      people,
     };
 
     return JSON.stringify(wire);
@@ -193,6 +203,16 @@ function isMermaidShape(value: unknown): value is WireMermaid {
   return isFiniteNumber(obj.x) && isFiniteNumber(obj.y);
 }
 
+function isPersonVariant(value: unknown): value is PersonVariant {
+  return value === 'neutral' || value === 'man' || value === 'woman';
+}
+
+function isPersonShape(value: unknown): value is WirePerson {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return isFiniteNumber(obj.x) && isFiniteNumber(obj.y) && isPersonVariant(obj.variant);
+}
+
 /**
  * Tolerantly parses a wire mermaids field: a missing field, a non-array, or any individually
  * malformed entry all default to [] rather than rejecting the whole payload (FR-029) — this is
@@ -207,6 +227,17 @@ function parseMermaids(value: unknown): WireMermaid[] {
     mermaids.push({ x: item.x, y: item.y });
   }
   return mermaids;
+}
+
+/** Structurally identical to parseMermaids (FR-025) — a missing field, a non-array, or any individually malformed entry all default to []. */
+function parsePeople(value: unknown): WirePerson[] {
+  if (!Array.isArray(value)) return [];
+  const people: WirePerson[] = [];
+  for (const item of value) {
+    if (!isPersonShape(item)) return [];
+    people.push({ x: item.x, y: item.y, variant: item.variant });
+  }
+  return people;
 }
 
 /**
@@ -284,12 +315,39 @@ export function deserializeWorld(raw: string): SavedWorld | null {
 
     const mermaids = parseMermaids(wire.mermaids);
 
-    // The nested WorldState's own `mermaids` field is unused by the save-restore path (mermaid
-    // data round-trips as the sibling `mermaids` field above, mirroring `poodles` exactly) — kept
-    // empty here since restoreWorldState is called without a `pets` argument for a save restore.
-    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids: [] };
+    // Legacy compatibility (US4): a save written before this feature stored people as
+    // byKind.person PlacedObjects. Read (never write) that shape — same strictness as every
+    // other object kind above, unchanged from before this feature — and migrate it into walker
+    // positions, releasing the footprint cells it stamped solid (FR-026, FR-027, research.md §8).
+    const rawLegacyPersonList = rawByKind.person;
+    let migratedPeople: WirePerson[] = [];
+    if (rawLegacyPersonList !== undefined) {
+      if (!Array.isArray(rawLegacyPersonList)) return null;
+      const legacyPeople: PlacedObject[] = [];
+      for (const item of rawLegacyPersonList) {
+        if (!isPlacedObjectShape(item)) return null;
+        // 'person' is no longer a live ObjectKind — this cast exists solely to carry a legacy
+        // shape through migrateLegacyPersonObjects, which only ever reads x/y/size from it.
+        legacyPeople.push({ id: item.id, kind: 'person' as unknown as ObjectKind, x: item.x, y: item.y, size: item.size });
+      }
+      const legacyGrid = { width, height, elements } as unknown as Grid;
+      migratedPeople = migrateLegacyPersonObjects(legacyGrid, { byKind, nextId: 0 }, legacyPeople).map((p) => ({
+        x: p.x,
+        y: p.y,
+        variant: 'neutral' as const,
+      }));
+    }
 
-    return { version: wire.version, width, height, state, poodles, mermaids };
+    const people = [...migratedPeople, ...parsePeople(wire.people)];
+    while (people.length > PERSON_CAP) people.shift();
+
+    // The nested WorldState's own `mermaids`/`people` fields are unused by the save-restore path
+    // (mermaid/people data round-trips as the sibling `mermaids`/`people` fields above, mirroring
+    // `poodles` exactly) — kept empty here since restoreWorldState is called without a `pets`
+    // argument for a save restore.
+    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids: [], people: [] };
+
+    return { version: wire.version, width, height, state, poodles, mermaids, people };
   } catch {
     return null;
   }
