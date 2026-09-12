@@ -81,6 +81,29 @@
 >
 > Existing poodle, mermaid, and placed-object behavior must not regress.
 
+## Clarifications
+
+### Session 2026-09-12 (answered by @charlesguse on issue #61)
+
+- **Q: Is the variant random per placement, or do repeated taps on the person button
+  cycle through the variants so the child can pick deliberately?** → Random at
+  placement, kept for life — no button cycling. With one tweak: a variant does not
+  repeat until every variant the probe says this device can draw has been used once,
+  so a set of three always comes out mixed. Same zero-UI cost as plain randomness,
+  without the "all three came out the same" weakness; the randomness is injectable so
+  tests can seed it. (FR-013, FR-013a, SC-005a)
+- **Q: Is the poke reaction a brief run on the third frame, a small hop in place like
+  the flamingo, or nothing at all?** → A brief sprint on the running frame — that was
+  the point of asking for the third glyph. The runner and its ♂/♀ forms go through the
+  same probe as the other frames; on a device that cannot draw the running frame the
+  reaction falls back to the flamingo-style hop rather than being dropped.
+  (FR-016, FR-016a, FR-017, FR-018)
+- **Q: When the standing picture is unavailable, does the idle frame fall back to the
+  walking picture or to the person picture 🧑 this feature replaces?** → Fall back to
+  the walking picture. Same-person continuity across frames matters more than a
+  visually distinct pause frame on a device the maintainers may never see fail, and it
+  is the simplest branch to keep correct. (FR-019)
+
 ## User Scenarios & Testing *(mandatory)*
 
 Throughout this spec:
@@ -172,15 +195,18 @@ static figure it replaces.
 with a fixed variant and a state, assert the chosen picture is the one belonging to
 that variant in that state, across every variant × state combination, and assert the
 variant is unchanged after hundreds of frames of simulated strolling and after a
-save/restore round trip.
+save/restore round trip. Drive the variant picker with a seeded source of randomness
+and assert that consecutive placements never repeat a variant until every drawable
+variant has been used, on a font that draws all three and on one that draws only the
+neutral figure.
 
 **Acceptance Scenarios**:
 
 1. **Given** a person of a given variant, **When** she changes between standing,
    walking, and running, **Then** every frame shown belongs to that same variant.
-2. **Given** several people placed one after another, **When** the child looks at
-   them, **Then** she can get men, women, and neutral figures among them rather than
-   three identical figures always.
+2. **Given** a device that can draw all three variants, **When** the child places
+   three people one after another, **Then** she gets one neutral figure, one man, and
+   one woman — in an order she cannot predict, but never three identical figures.
 3. **Given** a device whose emoji font cannot draw a man/woman form as a single
    figure, **When** people are placed, **Then** every person is the neutral figure
    and no person is ever drawn as a figure with a gender sign stuck beside it.
@@ -205,9 +231,10 @@ becoming an empty box on one maintainer's only device.
 
 **Independent Test**: The probe is a pure function over an injected measurer and
 renderer, so unit tests can drive it with fabricated measurements: a font that has
-everything, a font missing the standing picture, a font that splits the gendered
-sequences, a font that has nothing, and a measurer that throws or returns zero —
-asserting the exact chosen picture set in each case, with no DOM.
+everything, a font missing the standing picture, a font missing the running picture,
+a font that splits the gendered sequences, a font that has nothing, and a measurer
+that throws or returns zero — asserting the exact chosen picture set in each case,
+with no DOM.
 
 **Acceptance Scenarios**:
 
@@ -215,8 +242,9 @@ asserting the exact chosen picture set in each case, with no DOM.
    opens, **Then** the button and the people use the standing/walking/running
    family, including man and woman forms.
 2. **Given** a device whose font has no standing picture, **When** the toy opens,
-   **Then** the standing frame is drawn with the substitute from the fallback
-   ladder, and nothing anywhere is an empty box.
+   **Then** the idle frame is drawn with the walking picture instead, so a paused
+   person is still the same figure as a strolling one, and nothing anywhere is an
+   empty box.
 3. **Given** a device whose font splits gendered sequences into two glyphs, **When**
    the toy opens, **Then** only neutral figures are used, everywhere, including on
    the toolbar button.
@@ -279,7 +307,9 @@ the toy is complete and demonstrable without it.
 **Independent Test**: Unit tests poke a person's cell and assert she enters the
 running state for a bounded number of frames and then returns to strolling; poke
 away from her and assert nothing about her changes; poke with the eraser selected
-and assert she is erased instead.
+and assert she is erased instead; and, with a probe result that has no running
+picture, assert the poke still produces a bounded hop-in-place reaction rather than
+nothing.
 
 **Acceptance Scenarios**:
 
@@ -292,6 +322,9 @@ and assert she is erased instead.
    **Then** she is erased rather than poked.
 4. **Given** a poked person, **When** she runs, **Then** the toy gives the same kind
    of feedback it already gives for a poked pet — this feature adds no new sound.
+5. **Given** a device whose emoji font cannot draw the running picture, **When** the
+   child pokes a person, **Then** she hops in place for a moment the way the flamingo
+   does — the poke is never a no-op, and no empty box is ever drawn.
 
 ---
 
@@ -349,10 +382,13 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
 - **Three people, three poodles, and three mermaids at once on the largest grid the
   toy uses**: the sim stays smooth.
 - **A device whose emoji font draws the standing picture as an empty box**: the
-  fallback ladder supplies a substitute for the standing frame, on the canvas *and*
-  on the toolbar button.
+  walking picture stands in as the idle frame, on the canvas *and* on the toolbar
+  button; standing and walking then look alike, which is accepted.
+- **A device whose emoji font cannot draw the running picture**: the poke reaction
+  becomes a hop in place instead of a sprint; the poke still always does something.
 - **A device whose emoji font splits 🧍‍♀️ into two glyphs**: only the neutral figure
-  is used, and the variety of men and women is quietly absent rather than broken.
+  is used, every person is that figure, and the no-repeat variant rule collapses
+  harmlessly to "always neutral" rather than stalling or breaking.
 - **The walking picture faces the opposite way on one maintainer's platform**: the
   mirroring is expressed as a single per-platform "which way does this glyph face"
   constant, so correcting it is a one-value change and not a bug hunt.
@@ -401,8 +437,9 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
 
 - **FR-010**: A person MUST be drawn as the standing picture when she is not moving,
   the walking picture while she is stepping, and the running picture while she is
-  reacting to a poke (FR-016). Frame choice MUST be a pure function of her state and
-  variant so it can be unit-tested without a canvas.
+  reacting to a poke (FR-016) — each subject to the fallback ladder in FR-019. Frame
+  choice MUST be a pure function of her state, her variant, and the resolved picture
+  set, so it can be unit-tested without a canvas.
 - **FR-011**: The drawn picture MUST be mirrored to match her facing, using the same
   horizontal-flip mechanism the poodle, fish, and mermaid already use. The direction
   the source glyph natively faces MUST be expressed as a single named constant, so a
@@ -413,47 +450,59 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
   every frame, every state change, every save/restore, and every undo/redo. She MUST
   NOT change variant mid-stride.
 - **FR-013**: Variants MUST be chosen without any reading and without any new
-  control. **Default**: each placement picks at random from whichever variants the
-  glyph probe says this device can draw as a single figure, so a handful of
-  placements yields a mix of men, women, and neutral figures.
-  [NEEDS CLARIFICATION: random-per-placement variant (a placed person is whoever she
-  is, and re-tapping is the only way to "reroll"), or repeated taps on the person
-  button cycling through the variants so the child can pick deliberately?]
+  control: a person takes her variant automatically at the moment she is placed, and
+  the child neither picks one nor is asked. Repeated taps on the person button MUST
+  NOT cycle variants or otherwise change what the button does; placing another person
+  is the only way to get a different one.
+- **FR-013a**: Variant selection MUST draw only from the variants the glyph probe says
+  this device can draw as a single figure, and MUST NOT repeat a variant until every
+  drawable variant has been used once. A run of placements no longer than the number
+  of drawable variants therefore always comes out mixed — on a device that draws all
+  three, three people are one neutral figure, one man, and one woman in some order.
+  Within that constraint the order MUST be random, and the randomness MUST be an
+  injectable input so tests can make the sequence deterministic.
 - **FR-014**: If the probe says gendered forms cannot be drawn as a single figure,
   every person MUST be the neutral figure. A gendered form MUST NEVER be drawn on a
   device where it splits into two glyphs.
 - **FR-015**: A person's own picture and the toolbar control's picture MUST come from
   the same resolved picture set, so the button and the figures on the canvas can never
   disagree about who a person is.
-- **FR-016**: A tap that lands directly on a person MUST make her react — **default**:
-  a brief run, using the running frame — and that tap MUST NOT paint or place
-  anything. The reach that counts as "on her" MUST match the existing poke reach for
-  a poodle or mermaid. A poke arriving while she is already reacting MUST be ignored.
-  The eraser MUST remain an exception: a tap on her with the eraser erases her
-  (FR-021). This feature MUST NOT introduce a new sound.
-  [NEEDS CLARIFICATION: is the poke reaction a brief run (third frame), a small hop
-  in place like the flamingo, or nothing at all?]
+- **FR-016**: A tap that lands directly on a person MUST make her break into a brief
+  run — the running picture, in her own variant — for a bounded moment, after which
+  she returns to strolling; that tap MUST NOT paint or place anything. The reach that
+  counts as "on her" MUST match the existing poke reach for a poodle or mermaid. A
+  poke arriving while she is already reacting MUST be ignored. The eraser MUST remain
+  an exception: a tap on her with the eraser erases her (FR-021). This feature MUST
+  NOT introduce a new sound.
+- **FR-016a**: The running picture and its gendered forms MUST go through the same
+  glyph probe as the standing and walking ones (FR-017). If the running picture cannot
+  be drawn on this device, the poke reaction MUST degrade to a brief hop in place —
+  the flamingo's reaction — rather than being dropped: a poke on a person MUST always
+  produce a visible reaction, on every device.
 
 ### Emoji coverage — probe, don't assume
 
 - **FR-017**: Before any person picture is used, the toy MUST determine, for this
-  device's emoji font, (a) whether each single-figure picture draws as a real glyph
-  rather than an empty box, and (b) whether each gendered form draws as one figure
-  rather than a figure plus a separate gender sign. Both checks MUST be made by
+  device's emoji font, (a) whether each single-figure picture — standing, walking,
+  **and running** — draws as a real glyph rather than an empty box, and (b) whether
+  each gendered form of all three draws as one figure rather than a figure plus a
+  separate gender sign. Both checks MUST be made by
   measurement/observation of the actual font, not assumed from a platform name or a
   user-agent string.
 - **FR-018**: The resolution MUST be a pure function that takes the measuring and
   rendering capability as injected inputs and returns the picture set to use. It MUST
   be unit-testable with no DOM and no browser harness, and MUST be covered by tests
-  for at least: everything supported, standing picture missing, gendered forms
-  splitting, nothing supported, and a measurer that fails or returns nonsense.
+  for at least: everything supported, standing picture missing, running picture
+  missing, gendered forms splitting, nothing supported, and a measurer that fails or
+  returns nonsense.
 - **FR-019**: The fallback ladder MUST be: gendered form → neutral form; standing
-  picture missing → a substitute standing frame. **Default substitute**: the walking
-  picture, which is ancient Unicode and safe on every platform the toy targets.
-  [NEEDS CLARIFICATION: when the standing picture is unavailable, should the idle
-  frame fall back to the walking picture (keeps the same figure family, but idle and
-  walking then look identical) or to the current person picture 🧑 (idle stays
-  visibly distinct, but it is a different figure from the walking/running one)?]
+  picture missing → **the walking picture**, used as the idle frame; running picture
+  missing → the hop reaction of FR-016a. Same-figure continuity across frames takes
+  priority over idle being visually distinct from walking: on a device with no
+  standing picture a person looks the same whether she is pausing or stepping, which
+  is accepted. The person picture this feature replaces MUST NOT be used as the idle
+  frame, because it is a different-looking figure from the walking and running ones
+  and would read as two people swapping places.
 - **FR-020**: The probe MUST run at most once per session per picture and its result
   MUST be reused; it MUST NOT run per person, per frame, or per draw. If the probe
   cannot run at all, the toy MUST use the safest known-drawable set rather than
@@ -503,8 +552,11 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
 - **FR-031**: The feature MUST ship plain unit tests with no DOM and no browser
   harness, covering at minimum: the glyph-probe fallback ladder (FR-018's cases),
   migration of old saved people and old saved history steps, frame and facing
-  selection across states and variants, variant stability across a save/restore and
-  an undo/redo cycle, the cap and eviction, poke behaviour, and eraser and clear-all.
+  selection across states and variants, the seeded no-repeat variant cycle (FR-013a)
+  including the single-drawable-variant case, variant stability across a save/restore
+  and an undo/redo cycle, the cap and eviction, poke behaviour including the
+  hop fallback when the running picture is undrawable (FR-016a), and eraser and
+  clear-all.
 - **FR-032**: Two checks MUST be flagged for maintainer eyeballing rather than
   assumed, one per platform, because neither maintainer can verify the other's
   device: (a) do the standing, walking, and running pictures read as the *same*
@@ -525,7 +577,8 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
   restored into a fresh figure with a default activity, the way mermaids already are.
 - **Variant**: which person a walker is — neutral, man, or woman. Chosen once from
   the set the device can actually draw, never changed, round-trips through save and
-  undo.
+  undo. The chooser holds a shuffled cycle of the drawable variants so none repeats
+  until all have been used.
 - **Picture set**: the resolved answer to "what can this device draw" — one picture
   per (variant, frame) plus the toolbar button's picture. Decided once per session
   from the probe and shared by the canvas and the toolbar.
@@ -552,7 +605,12 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
   footprints were. Restoring such a save never returns "no world".
 - **SC-005**: The glyph fallback ladder produces a drawable picture in 100% of probe
   outcomes tested, including the everything-missing and probe-unavailable cases —
-  0 empty boxes and 0 split sequences reachable by any code path.
+  0 empty boxes and 0 split sequences reachable by any code path. A poke produces a
+  visible reaction in 100% of those outcomes too, including the one with no running
+  picture.
+- **SC-005a**: On a probe result that reports all three variants drawable, 3
+  consecutive placements yield 3 distinct variants in 100% of seeded runs; on a result
+  that reports only the neutral figure, 100% of placements are that figure.
 - **SC-006**: The shipped toolbar control count is unchanged by this feature, and
   every viewport in the representative table used by specs 006/012/013 keeps the
   guarantees those specs make.
@@ -588,9 +646,11 @@ after, plus an unchanged pass of the existing object/poodle/mermaid suites.
 - **Strolling near a house is not required**: the issue calls it "a lovely touch, but
   not required". It is out of scope here to keep the change bounded; the roaming
   anchor makes it a cheap later addition.
-- **Variant randomness is uniform over the drawable variants**: no weighting, no
-  attempt to guarantee one of each. Three people may all come out the same, and that
-  is acceptable.
+- **Variant selection is a shuffled cycle, not independent draws** *(FR-013a,
+  answering #61)*: random order, but no variant repeats until every drawable variant
+  has been used once, so a set of three on a fully-capable device is always mixed.
+  This costs nothing in UI over plain randomness and removes the "all three came out
+  the same" outcome. The randomness is injected so tests can pin the order.
 - **Save/history formats gain optional fields only** *(FR-025)*: a people list
   alongside the existing poodle and mermaid lists, tolerant of absence. No version
   bump, per the issue's explicit warning and the constitution's "absence means none

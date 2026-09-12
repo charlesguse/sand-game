@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,14 +31,27 @@
 
 ## Notes
 
-- Three `[NEEDS CLARIFICATION]` markers remain by design (FR-013 variant selection,
-  FR-016 poke reaction, FR-019 standing-frame fallback). This spec was authored in the
-  headless pipeline, which does not pause for answers: the questions are posted to
-  lifecycle issue #61 instead, and each marker ships with a stated default so the spec
-  is implementable as written if no answer arrives.
+- All three `[NEEDS CLARIFICATION]` markers are resolved. They were authored in the
+  headless pipeline, which does not pause for answers, so the questions went to
+  lifecycle issue #61 with stated defaults; @charlesguse answered all three on
+  2026-09-12 and the answers are folded into the spec (see its `## Clarifications`
+  section):
+  - FR-013/FR-013a — variant is random at placement and kept for life, but drawn from
+    a shuffled cycle so no variant repeats until every drawable one has been used;
+    randomness is injectable for tests. No button cycling.
+  - FR-016/FR-016a — the poke reaction is a brief run on the running frame; the
+    running frame and its gendered forms go through the same glyph probe, and a device
+    that cannot draw it gets a flamingo-style hop instead of no reaction.
+  - FR-019 — where the standing picture is undrawable, the idle frame falls back to
+    the walking picture (same figure family), not to the person picture this feature
+    replaces.
+- Scenarios, edge cases, assumptions, and success criteria were updated to match:
+  US2 scenario 2 and SC-005a now assert the mixed set of three, US5 scenario 5 and
+  SC-005 assert the poke always reacts, US3 scenario 2 names the walking-picture idle
+  fallback, and FR-018/FR-031 add the running-picture-missing and seeded-variant-cycle
+  test cases.
 - Content quality: the spec body names existing user-visible behaviours (poodle, mermaid,
   eraser, undo) and format-compatibility constraints, which are product constraints in
   this repo rather than implementation detail. Concrete file and symbol names appear only
   inside the quoted issue block at the top, which is verbatim input, not specification.
-- Items marked incomplete require spec updates before `/speckit-plan` only if the
-  pipeline's answers change the defaults already recorded.
+- No items remain incomplete; the spec is ready for `/speckit-plan`.
