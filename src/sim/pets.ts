@@ -1,5 +1,5 @@
 import { isSolid } from './element';
-import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid, type PersonVariant } from './types';
+import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid, type PersonVariant, type PersonTone } from './types';
 import { randomHue } from './shade';
 import { GRID_WIDTH } from '../lib/layout';
 
@@ -80,6 +80,8 @@ export interface Person {
   timer: number;
   /** Which person this is — chosen once at placement (or migration), kept for life (FR-012). */
   readonly variant: PersonVariant;
+  /** Which skin tone this person has — chosen once at placement (or migration), kept for life (FR-002, FR-012). */
+  readonly tone: PersonTone;
   /** Where "home" is for roaming: set on each settle; walking stays within PERSON_ROAM_RANGE of it. */
   homeX: number;
   /** Which way the current walk burst is heading. */
@@ -92,6 +94,8 @@ export interface PetsState {
   people: Person[];
   /** Remaining shuffled drawable variants not yet used this cycle (research.md §4). */
   personVariantBag: PersonVariant[];
+  /** Remaining shuffled drawable tones not yet used this cycle — independent bag from personVariantBag (research.md §5). */
+  personToneBag: PersonTone[];
   nextId: number;
   /** Frame counter used to stagger poodle footsteps; see STEP_INTERVAL. */
   stride: number;
@@ -160,7 +164,7 @@ export const PERSON_ROAM_RANGE = 12;
 export const PERSON_RUN_DURATION = 36;
 
 export function createPetsState(): PetsState {
-  return { poodles: [], mermaids: [], people: [], personVariantBag: [], nextId: 0, stride: 0 };
+  return { poodles: [], mermaids: [], people: [], personVariantBag: [], personToneBag: [], nextId: 0, stride: 0 };
 }
 
 /** Sends every poodle, mermaid, and person home. `nextId` keeps counting so ids stay unique. */
