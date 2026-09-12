@@ -1081,3 +1081,14 @@ describe('restorePeopleFromPositions (US1/US4, FR-012, FR-023)', () => {
     expect(pets.people[1].variant).toBe('woman');
   });
 });
+
+describe('variant is fixed for life (US2, FR-012)', () => {
+  it('never changes across hundreds of frames of strolling, whatever variant she was given', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 40, 2, ALL_VARIANTS, seededRng([0.1, 0.9, 0.5]));
+    const variant = pets.people[0].variant;
+    runPeople(grid, pets, 500);
+    expect(pets.people[0].variant).toBe(variant);
+  });
+});

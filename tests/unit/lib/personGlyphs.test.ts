@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { resolvePersonPictureSet, type GlyphProbeInputs } from '../../../src/lib/personGlyphs';
+import {
+  resolvePersonPictureSet,
+  frameFor,
+  type GlyphProbeInputs,
+  type PersonPictureSet,
+  type PersonFrame,
+} from '../../../src/lib/personGlyphs';
+import type { PersonVariant } from '../../../src/sim/types';
 
 const NEUTRAL = { standing: '🧍', walking: '🚶', running: '🏃' };
 const MAN = { standing: '🧍‍♂️', walking: '🚶‍♂️', running: '🏃‍♂️' };
@@ -101,6 +108,28 @@ describe('resolvePersonPictureSet — a measurer/renderer that throws or returns
     // A throwing measurer for man's standing glyph fails that gendered check -> neutral-only,
     // but nothing else about the resolution throws or comes back empty.
     expect(result.drawableVariants).toEqual(['neutral']);
+  });
+});
+
+describe('frameFor — a pure lookup, every (variant, state) combination (US2, FR-010)', () => {
+  it('returns exactly the picture the fabricated set holds for that combination', () => {
+    const fabricated: PersonPictureSet = {
+      drawableVariants: ['neutral', 'man', 'woman'],
+      pictures: {
+        neutral: { standing: 'N-stand', walking: 'N-walk', running: 'N-run' },
+        man: { standing: 'M-stand', walking: 'M-walk', running: 'M-run' },
+        woman: { standing: 'W-stand', walking: 'W-walk', running: 'W-run' },
+      },
+      canRunPicture: true,
+      toolbarGlyph: 'N-stand',
+    };
+    const variants: readonly PersonVariant[] = ['neutral', 'man', 'woman'];
+    const frames: readonly PersonFrame[] = ['standing', 'walking', 'running'];
+    for (const variant of variants) {
+      for (const frame of frames) {
+        expect(frameFor(fabricated, variant, frame)).toBe(fabricated.pictures[variant][frame]);
+      }
+    }
   });
 });
 

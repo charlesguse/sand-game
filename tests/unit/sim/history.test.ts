@@ -11,7 +11,7 @@ import {
   type ObjectsState,
 } from '../../../src/sim/objects';
 import { loadScene } from '../../../src/sim/scenes';
-import { createPetsState, type Mermaid } from '../../../src/sim/pets';
+import { createPetsState, type Mermaid, type Person } from '../../../src/sim/pets';
 import {
   EMPTY,
   SAND,
@@ -27,6 +27,7 @@ import {
   DIAMOND,
   ICE_CREAM,
   type Grid,
+  type PersonVariant,
   type SceneId,
 } from '../../../src/sim/types';
 import { CELL_BUDGET, GRID_WIDTH, GRID_HEIGHT } from '../../../src/lib/layout';
@@ -86,6 +87,23 @@ function pushMermaid(pets: ReturnType<typeof createPetsState>, x: number, y: num
   };
   pets.mermaids.push(mermaid);
   return mermaid;
+}
+
+/** Pushes a fresh default-activity person at (x, y) directly onto pets.people — mirrors exactly what restorePeopleFromPositions itself rebuilds, so these tests don't depend on addPerson's own settle behaviour. */
+function pushPerson(pets: ReturnType<typeof createPetsState>, x: number, y: number, variant: PersonVariant): Person {
+  const person: Person = {
+    id: pets.nextId++,
+    x,
+    y,
+    facing: 1,
+    state: 'standing',
+    timer: 0,
+    variant,
+    homeX: x,
+    wanderDir: 1,
+  };
+  pets.people.push(person);
+  return person;
 }
 
 const PAINT_TOOLS = ['sand', 'water', 'dirt', 'grass', 'star', 'gumdrop', 'eraser'] as const;
@@ -956,6 +974,53 @@ describe('history — mermaids round trip across undo/redo (US4, FR-027)', () =>
     expect(pets.mermaids[0].timer).toBe(0);
     expect(pets.mermaids[0].pursuitX).toBe(-1);
     expect(pets.mermaids[0].pursuitY).toBe(-1);
+  });
+});
+
+describe('history — people round trip across undo/redo, variant included (US2/US6, FR-023, FR-024)', () => {
+  it('beginAction/commitAction/undo/redo round-trip position and variant for people of every variant', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    pushPerson(pets, 5, 5, 'man');
+    pushPerson(pets, 8, 8, 'woman');
+    pushPerson(pets, 11, 11, 'neutral');
+    history.commitAction(grid, objects, pets);
+
+    expect(pets.people).toHaveLength(3);
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(0);
+    expect(history.redo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(3);
+    expect(pets.people.map((p) => p.variant)).toEqual(['man', 'woman', 'neutral']);
+    expect(pets.people[0].x).toBe(5);
+    expect(pets.people[1].x).toBe(8);
+  });
+
+  it('a person restored via undo is a fresh default-activity walker, not whatever state/timer she had when captured', () => {
+    const grid = createGrid(20, 20);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    const history = new HistoryManager();
+
+    history.beginAction(grid, objects, pets);
+    const person = pushPerson(pets, 6, 6, 'woman');
+    person.state = 'walking';
+    person.timer = 40;
+    history.commitAction(grid, objects, pets);
+
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 0, 0, SAND, 1);
+    history.commitAction(grid, objects, pets);
+
+    expect(history.undo(grid, objects, pets)).toBe(true);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].variant).toBe('woman');
+    expect(pets.people[0].state).toBe('standing');
+    expect(pets.people[0].timer).toBe(0);
   });
 });
 

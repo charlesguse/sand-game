@@ -24,6 +24,15 @@ export interface PersonPictureSet {
 }
 
 /**
+ * Frame selection as a pure function of state, variant, and the resolved picture set (FR-010) —
+ * a person's state *is* her frame (data-model.md), so this is a direct lookup, not a computation.
+ * Both the render loop and its tests call this rather than indexing `pictures` themselves.
+ */
+export function frameFor(pictureSet: PersonPictureSet, variant: PersonVariant, frame: PersonFrame): string {
+  return pictureSet.pictures[variant][frame];
+}
+
+/**
  * The native left/right facing of the walking glyph on this platform's font (FR-011) — a single
  * named constant so a platform that draws 🚶 facing the other way is a one-value correction, not
  * a rewrite. Flagged in quickstart.md for the other maintainer to confirm/correct on their device.
