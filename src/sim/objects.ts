@@ -129,6 +129,34 @@ export function removeObject(grid: Grid, state: ObjectsState, obj: PlacedObject)
   }
 }
 
+/**
+ * Converts a legacy `byKind.person` list (from a save/history payload written before this
+ * feature) into walker positions, and releases every footprint cell those old objects stamped
+ * solid — unless a still-existing object of another kind now covers that cell (research.md §8).
+ * Read-only: this feature's own code never writes to the old shape again, so this is never called
+ * from any live placement path, only from save/history deserialization.
+ */
+export function migrateLegacyPersonObjects(
+  grid: Grid,
+  objects: ObjectsState,
+  rawPersonList: readonly PlacedObject[],
+): { x: number; y: number }[] {
+  const positions: { x: number; y: number }[] = [];
+  for (const obj of rawPersonList) {
+    positions.push({ x: Math.round(obj.x + obj.size / 2), y: Math.round(obj.y + obj.size / 2) });
+
+    for (let py = obj.y; py < obj.y + obj.size; py++) {
+      if (py < 0 || py >= grid.height) continue;
+      for (let px = obj.x; px < obj.x + obj.size; px++) {
+        if (px < 0 || px >= grid.width) continue;
+        if (isCoveredByAnyObject(objects, px, py)) continue;
+        grid.elements[py * grid.width + px] = EMPTY;
+      }
+    }
+  }
+  return positions;
+}
+
 /** True if any cell in the unicorn's zone holds an element (not EMPTY, not OBJECT). Allocates nothing. */
 export function isUnicornTouched(grid: Grid, unicorn: PlacedObject): boolean {
   const minX = Math.max(0, unicorn.x - 1);

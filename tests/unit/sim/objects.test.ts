@@ -20,6 +20,7 @@ import {
   eraseObjectsInBrush,
   eraseObjectsInBrushLine,
   clearObjects,
+  migrateLegacyPersonObjects,
   OBJECT_KINDS,
 } from '../../../src/sim/objects';
 import {
@@ -585,5 +586,57 @@ describe('objects — house joins the placeable roster, purely decorative (US2, 
   it('OBJECT_KINDS has exactly 6 entries and no longer contains \'person\' — a person is a walker, not a placed object (FR-001, FR-009)', () => {
     expect(OBJECT_KINDS).toHaveLength(6);
     expect(OBJECT_KINDS).not.toContain('person');
+  });
+});
+
+describe('migrateLegacyPersonObjects — old byKind.person footprints become walker positions (US4, FR-026, FR-027)', () => {
+  it('returns the footprint-center position and clears every footprint cell to EMPTY', () => {
+    const grid = createGrid(100, 100);
+    for (let py = 20; py < 44; py++) {
+      for (let px = 20; px < 44; px++) setCell(grid, px, py, OBJECT, 0);
+    }
+    const state = createObjectsState();
+    const legacyPerson: PlacedObject = { id: 0, kind: 'house', x: 20, y: 20, size: 24 };
+
+    const positions = migrateLegacyPersonObjects(grid, state, [legacyPerson]);
+
+    expect(positions).toEqual([{ x: 32, y: 32 }]);
+    for (let py = 20; py < 44; py++) {
+      for (let px = 20; px < 44; px++) {
+        expect(getElement(grid, px, py)).toBe(EMPTY);
+      }
+    }
+  });
+
+  it('leaves a cell solid where a surviving object of another kind still covers it', () => {
+    const grid = createGrid(100, 100);
+    for (let py = 20; py < 44; py++) {
+      for (let px = 20; px < 44; px++) setCell(grid, px, py, OBJECT, 0);
+    }
+    const state = createObjectsState();
+    // A surviving house overlaps the legacy person's old footprint.
+    placeObject(grid, state, 'house', 32, 32);
+    const survivingHouse = state.byKind.house[0];
+    const legacyPerson: PlacedObject = { id: 0, kind: 'house', x: 20, y: 20, size: 24 };
+
+    migrateLegacyPersonObjects(grid, state, [legacyPerson]);
+
+    for (let py = survivingHouse.y; py < survivingHouse.y + survivingHouse.size; py++) {
+      for (let px = survivingHouse.x; px < survivingHouse.x + survivingHouse.size; px++) {
+        expect(getElement(grid, px, py)).toBe(OBJECT);
+      }
+    }
+  });
+
+  it('never produces more than PERSON_CAP positions worth of migration data for the caller to cap (Edge Cases)', () => {
+    const grid = createGrid(200, 200);
+    const state = createObjectsState();
+    const legacyPeople: PlacedObject[] = [
+      { id: 0, kind: 'house', x: 10, y: 10, size: 24 },
+      { id: 1, kind: 'house', x: 50, y: 10, size: 24 },
+      { id: 2, kind: 'house', x: 90, y: 10, size: 24 },
+    ];
+    const positions = migrateLegacyPersonObjects(grid, state, legacyPeople);
+    expect(positions).toHaveLength(3);
   });
 });

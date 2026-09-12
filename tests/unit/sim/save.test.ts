@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, removeObject, OBJECT_KINDS } from '../../../src/sim/objects';
-import { createPetsState, addPoodle } from '../../../src/sim/pets';
+import { createPetsState, addPoodle, addMermaid, addPerson, PERSON_CAP } from '../../../src/sim/pets';
 import { restoreWorldState } from '../../../src/sim/history';
 import { step } from '../../../src/sim/step';
 import { SAND, WATER, RAINBOW_SAND, GUMDROP, ICE_CREAM, DIRT, DIAMOND, OBJECT } from '../../../src/sim/types';
@@ -287,6 +287,124 @@ describe('save — mermaids and ice cream round trip (US4, FR-026, FR-029)', () 
     expect(saved).not.toBeNull();
     if (saved === null) return;
     expect(saved.mermaids).toEqual([]);
+  });
+});
+
+describe('save — people round trip, position and variant (US2/US4, FR-023, FR-025, FR-026)', () => {
+  it('round-trips every placed person of every variant, position and variant intact', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    addPerson(grid, pets, 5, 5, ['neutral'], () => 0);
+    addPerson(grid, pets, 10, 10, ['man'], () => 0);
+    addPerson(grid, pets, 15, 15, ['woman'], () => 0);
+
+    const json = serializeWorld(grid, objects, pets);
+    const saved = deserializeWorld(json);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+
+    expect(saved.people).toHaveLength(3);
+    expect(saved.people.map((p) => p.variant)).toEqual(['neutral', 'man', 'woman']);
+    expect(saved.people[0].x).toBeCloseTo(5);
+  });
+
+  it('deserializes a wire payload shaped like today\'s (no `people` key) with people: [] and no error (FR-025)', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    delete wire.people;
+    const legacyJson = JSON.stringify(wire);
+
+    expect(() => deserializeWorld(legacyJson)).not.toThrow();
+    const saved = deserializeWorld(legacyJson);
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people).toEqual([]);
+    // Everything else still restores cleanly — a pre-feature save's people field simply doesn't
+    // exist yet, and that alone must never reject the whole picture.
+    expect(saved.poodles).toEqual([
+      { x: 3, y: 4 },
+      { x: 12, y: 6 },
+    ]);
+  });
+
+  it('defaults to people: [] when the field is present but malformed (null, or containing a bad entry), instead of rejecting the payload (FR-025)', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+
+    for (const badPeople of [null, 'not-an-array', [{ x: 1, y: 2 }], [{ x: 1, y: 2, variant: 'alien' }]]) {
+      const tampered = { ...wire, people: badPeople };
+      const tamperedJson = JSON.stringify(tampered);
+      expect(() => deserializeWorld(tamperedJson)).not.toThrow();
+      const saved = deserializeWorld(tamperedJson);
+      expect(saved).not.toBeNull();
+      if (saved === null) continue;
+      expect(saved.people).toEqual([]);
+    }
+  });
+
+  it('migrates a legacy byKind.person list into walkers at the footprint center, variant neutral (US4 Acceptance Scenario 1, FR-026)', () => {
+    const grid = createGrid(100, 100);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    placeObject(grid, objects, 'house', 30, 30);
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const byKind = wire.byKind as Record<string, unknown>;
+    const house = (byKind.house as unknown[])[0];
+    // Simulate a pre-feature save: the same footprint, but stored under the old 'person' key
+    // instead of 'house', and with no `people` field at all.
+    const tampered = { ...wire, byKind: { ...byKind, house: [], person: [house] } };
+    delete (tampered as Record<string, unknown>).people;
+
+    const saved = deserializeWorld(JSON.stringify(tampered));
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people).toHaveLength(1);
+    expect(saved.people[0].variant).toBe('neutral');
+  });
+
+  it('a malformed byKind.person entry still rejects the whole payload, same strictness as any other legacy object kind', () => {
+    const { grid, objects, pets } = buildPopulatedWorld();
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const byKind = wire.byKind as Record<string, unknown>;
+    const tampered = { ...wire, byKind: { ...byKind, person: [{ not: 'valid' }] } };
+
+    expect(deserializeWorld(JSON.stringify(tampered))).toBeNull();
+  });
+
+  it('never produces more than PERSON_CAP people even with 3 byKind.person entries plus 3 poodles and 3 mermaids present (Edge Cases)', () => {
+    const grid = createGrid(200, 200);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    for (let i = 0; i < 3; i++) addPoodle(pets, 10 + i * 5, 10);
+    for (let i = 0; i < 3; i++) {
+      setCell(grid, 20 + i * 5, 20, WATER, 0);
+      addMermaid(grid, pets, 20 + i * 5, 20);
+    }
+    const json = serializeWorld(grid, objects, pets);
+    const wire = JSON.parse(json) as Record<string, unknown>;
+    const legacyPeople = [
+      { id: 100, kind: 'person', x: 10, y: 10, size: 24 },
+      { id: 101, kind: 'person', x: 40, y: 10, size: 24 },
+      { id: 102, kind: 'person', x: 70, y: 10, size: 24 },
+    ];
+    const byKind = wire.byKind as Record<string, unknown>;
+    const tampered = { ...wire, byKind: { ...byKind, person: legacyPeople } };
+
+    const saved = deserializeWorld(JSON.stringify(tampered));
+    expect(saved).not.toBeNull();
+    if (saved === null) return;
+    expect(saved.people.length).toBeLessThanOrEqual(PERSON_CAP);
+    expect(saved.poodles).toHaveLength(3);
+    expect(saved.mermaids).toHaveLength(3);
+  });
+
+  it('SAVE_VERSION is unchanged by this feature (FR-025)', () => {
+    expect(SAVE_VERSION).toBe(1);
   });
 });
 

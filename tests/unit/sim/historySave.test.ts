@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createGrid, setCell } from '../../../src/sim/grid';
 import { createObjectsState, placeObject, OBJECT_KINDS } from '../../../src/sim/objects';
 import { HistoryManager, HISTORY_DEPTH, type WorldState } from '../../../src/sim/history';
+import { createPetsState, addPerson, PERSON_CAP } from '../../../src/sim/pets';
 import { SAND, WATER, DIRT, GRASS, RAINBOW_SAND, DIAMOND } from '../../../src/sim/types';
 import { GRID_WIDTH, GRID_HEIGHT, CELL_BUDGET } from '../../../src/lib/layout';
 import {
@@ -193,6 +194,130 @@ describe('historySave — serializeHistory/deserializeHistory round trip (US1, F
     expect(persisted).not.toBeNull();
     if (persisted === null) return;
     expect(persisted.steps[0].mermaids).toEqual([]);
+  });
+});
+
+describe('historySave — people round trip per step, position and variant (US2/US4, FR-023, FR-024, FR-025, FR-026)', () => {
+  it('round-trips people of every variant placed in a committed step', () => {
+    const grid = createGrid(60, 40);
+    const objects = createObjectsState();
+    const pets = createPetsState();
+    // Placed BEFORE beginAction, like placeObject in the byKind-missing-key tests below: the
+    // persisted undo stack holds each action's *before* snapshot, so a person must already exist
+    // when beginAction captures it in order to show up in that persisted step.
+    addPerson(grid, pets, 5, 5, ['neutral'], () => 0);
+    addPerson(grid, pets, 10, 10, ['man'], () => 0);
+    const history = new HistoryManager();
+    history.beginAction(grid, objects, pets);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects, pets);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 60, 40, fingerprint);
+    const persisted = deserializeHistory(serialized, fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people.map((p) => p.variant)).toEqual(['neutral', 'man']);
+  });
+
+  it("deserializes a step shaped like today's (no per-step `people` key) with people: [] and no error (FR-025)", () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const legacySteps = wire.steps.map((step) => {
+      const { people: _people, ...rest } = step;
+      return rest;
+    });
+    const legacy = { ...wire, steps: legacySteps };
+
+    expect(() => deserializeHistory(JSON.stringify(legacy), fingerprint)).not.toThrow();
+    const persisted = deserializeHistory(JSON.stringify(legacy), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people).toEqual([]);
+  });
+
+  it('defaults a malformed per-step people entry to [] rather than rejecting the whole step (FR-025)', () => {
+    const grid = createGrid(10, 10);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const tamperedSteps = [{ ...wire.steps[0], people: [{ x: 1, y: 2, variant: 'alien' }] }];
+    const tampered = { ...wire, steps: tamperedSteps };
+
+    const persisted = deserializeHistory(JSON.stringify(tampered), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people).toEqual([]);
+  });
+
+  it('migrates a legacy per-step byKind.person list into walkers, variant neutral (US4 Acceptance Scenario 3, FR-026)', () => {
+    const grid = createGrid(100, 100);
+    const objects = createObjectsState();
+    placeObject(grid, objects, 'house', 30, 30);
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 100, 100, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const stepByKind = wire.steps[0].byKind as Record<string, unknown>;
+    const house = (stepByKind.house as unknown[])[0];
+    const tamperedSteps = [
+      { ...wire.steps[0], byKind: { ...stepByKind, house: [], person: [house] }, people: undefined },
+    ];
+    const tampered = { ...wire, steps: tamperedSteps };
+
+    const persisted = deserializeHistory(JSON.stringify(tampered), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people).toHaveLength(1);
+    expect(persisted.steps[0].people[0].variant).toBe('neutral');
+  });
+
+  it('never produces more than PERSON_CAP people per step even with 3 byKind.person entries (Edge Cases)', () => {
+    const grid = createGrid(200, 200);
+    const objects = createObjectsState();
+    const history = new HistoryManager();
+    history.beginAction(grid, objects);
+    setCell(grid, 1, 1, SAND, 3);
+    history.commitAction(grid, objects);
+
+    const fingerprint = computeFingerprint('world');
+    const serialized = serializeHistory(history.getPersistableUndoStack(), 200, 200, fingerprint);
+    const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
+    const stepByKind = wire.steps[0].byKind as Record<string, unknown>;
+    const legacyPeople = [
+      { id: 100, kind: 'person', x: 10, y: 10, size: 24 },
+      { id: 101, kind: 'person', x: 40, y: 10, size: 24 },
+      { id: 102, kind: 'person', x: 70, y: 10, size: 24 },
+    ];
+    const tamperedSteps = [{ ...wire.steps[0], byKind: { ...stepByKind, person: legacyPeople } }];
+    const tampered = { ...wire, steps: tamperedSteps };
+
+    const persisted = deserializeHistory(JSON.stringify(tampered), fingerprint);
+    expect(persisted).not.toBeNull();
+    if (persisted === null) return;
+    expect(persisted.steps[0].people.length).toBeLessThanOrEqual(PERSON_CAP);
+  });
+
+  it('HISTORY_SAVE_VERSION is unchanged by this feature (FR-025)', () => {
+    expect(HISTORY_SAVE_VERSION).toBe(1);
   });
 });
 
