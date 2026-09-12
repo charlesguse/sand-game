@@ -23,6 +23,7 @@
   import { applyBrush, applyBrushLine } from '../sim/brush';
   import { applyWand, applyWandLine, unicornsTouchedByWandLine } from '../sim/wand';
   import { createFlashMask, updateFlashMask } from './sparkle';
+  import { createSimClock, advanceSimClock } from './simClock';
   import { createStarField, updateStarField, drawStarField, type StarField } from './stars';
   import { randomShade } from '../sim/shade';
   import {
@@ -188,6 +189,8 @@
   let imageData: ImageData;
   let flashMask: Uint8Array;
   let starField: StarField;
+  // Doesn't depend on grid size, so it's created once here rather than in onMount.
+  const simClock = createSimClock();
   // One entry per active pointer (finger), each holding that pointer's last painted grid
   // position — lets every finger paint its own continuous stroke independently (Task 3).
   const strokes = new Map<number, { x: number; y: number }>();
@@ -658,16 +661,29 @@
 
   function frame(now: number): void {
     lastFrameNow = now;
-    step(grid);
-    stepPets(grid, petsState, poodleTarget);
-    stepButterflies(grid, butterfliesState, now);
-    stepBirds(objectsState.byKind.palm, birdsState, now);
-    stepSeaLife(grid, seaLifeState);
-    applyRainbowConversions(grid, objectsState.byKind.rainbow);
-    applyChestConversions(grid, objectsState.byKind.chest);
+    // requestAnimationFrame fires once per display refresh (~30Hz on the Fire tablet, ~120Hz on
+    // some phones/tablets), but the sim's own timers (sand falling, pet/creature cadences, frame
+    // counters like FLIGHT_DURATION_FRAMES) are tuned assuming a steady 60Hz. advanceSimClock
+    // converts wall-clock elapsed time into a step count so the sim always advances at the same
+    // speed regardless of the display's refresh rate; only rendering stays tied to rAF.
+    const steps = advanceSimClock(simClock, now);
+    for (let i = 0; i < steps; i++) {
+      step(grid);
+      stepPets(grid, petsState, poodleTarget);
+      stepButterflies(grid, butterfliesState, now);
+      stepBirds(objectsState.byKind.palm, birdsState, now);
+      stepSeaLife(grid, seaLifeState);
+      applyRainbowConversions(grid, objectsState.byKind.rainbow);
+      applyChestConversions(grid, objectsState.byKind.chest);
+    }
     updateUnicorns(now);
     sweepPokeReactions(now);
     tickParticles(particles, now);
+    // No time input and no internal counter — it's a reservoir resample of the grid's current
+    // glitter cells, consumed only by render() below. It belongs with the other render-adjacent
+    // calls: running it once per sim step would repeat a full-grid scan on every extra step (the
+    // very devices running >1 step/frame are the weakest ones), for a result immediately
+    // overwritten before render() ever reads it.
     updateFlashMask(grid, flashMask);
     updateStarField(grid, starField, now);
     render();
