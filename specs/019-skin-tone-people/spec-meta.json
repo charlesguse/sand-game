@@ -2,7 +2,8 @@
   "issue": 66,
   "spec_dir": "specs/019-skin-tone-people",
   "feature_num": "019",
-  "stage": "implement",
+  "stage": "review",
   "iteration": 1,
-  "spec_branch": "spec/019-skin-tone-people"
+  "spec_branch": "spec/019-skin-tone-people",
+  "pending_re_review_from": []
 }
