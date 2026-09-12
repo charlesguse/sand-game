@@ -1,7 +1,7 @@
 import { HISTORY_DEPTH, type WorldState } from './history';
 import { OBJECT_KINDS, migrateLegacyPersonObjects } from './objects';
 import { encodeBase64, decodeBase64 } from './save';
-import type { Grid, ObjectKind, PersonVariant, PlacedObject } from './types';
+import type { Grid, ObjectKind, PersonVariant, PersonTone, PlacedObject } from './types';
 import { PERSON_CAP } from './pets';
 
 /** Bumped whenever this wire format's shape changes; deserializeHistory rejects any other value. Independent of save.ts's SAVE_VERSION. */
@@ -45,6 +45,7 @@ interface WireHistoryPerson {
   x: number;
   y: number;
   variant: PersonVariant;
+  tone?: unknown;
 }
 
 interface WireHistoryStep {
@@ -85,7 +86,7 @@ function encodeStep(state: WorldState): WireHistoryStep {
     grassHeight: encodeBase64(state.grassHeight),
     byKind,
     mermaids: state.mermaids.map((m) => ({ x: m.x, y: m.y })),
-    people: state.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant })),
+    people: state.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant, tone: p.tone })),
   };
 }
 
@@ -160,6 +161,22 @@ function isPersonVariant(value: unknown): value is PersonVariant {
   return value === 'neutral' || value === 'man' || value === 'woman';
 }
 
+/** Kept deliberately outside isWireHistoryPersonShape's boolean gate (research.md §7, FR-018), mirroring save.ts's isPersonTone — an independent resolution, not shared code. */
+function isPersonTone(value: unknown): value is PersonTone {
+  return (
+    value === 'default' ||
+    value === 'light' ||
+    value === 'mediumLight' ||
+    value === 'medium' ||
+    value === 'mediumDark' ||
+    value === 'dark'
+  );
+}
+
+function resolvedTone(raw: unknown): PersonTone {
+  return isPersonTone(raw) ? raw : 'default';
+}
+
 function isWireHistoryPersonShape(value: unknown): value is WireHistoryPerson {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
@@ -177,13 +194,13 @@ function parseHistoryMermaids(value: unknown): WireHistoryMermaid[] {
   return mermaids;
 }
 
-/** Structurally identical to parseHistoryMermaids (FR-025), mirroring save.ts's parsePeople. */
-function parseHistoryPeople(value: unknown): WireHistoryPerson[] {
+/** Structurally identical to parseHistoryMermaids (FR-025), mirroring save.ts's parsePeople — an unrecognised/missing tone resolves to 'default' rather than rejecting the entry (FR-018). */
+function parseHistoryPeople(value: unknown): { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] {
   if (!Array.isArray(value)) return [];
-  const people: WireHistoryPerson[] = [];
+  const people: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] = [];
   for (const item of value) {
     if (!isWireHistoryPersonShape(item)) return [];
-    people.push({ x: item.x, y: item.y, variant: item.variant });
+    people.push({ x: item.x, y: item.y, variant: item.variant, tone: resolvedTone(item.tone) });
   }
   return people;
 }
@@ -265,7 +282,7 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
       // as byKind.person PlacedObjects — same read-only migration save.ts's deserializeWorld
       // applies (FR-026, FR-027, research.md §8).
       const rawLegacyPersonList = rawByKind.person;
-      let migratedPeople: WireHistoryPerson[] = [];
+      let migratedPeople: { x: number; y: number; variant: PersonVariant; tone: PersonTone }[] = [];
       if (rawLegacyPersonList !== undefined) {
         if (!Array.isArray(rawLegacyPersonList)) return null;
         const legacyPeople: PlacedObject[] = [];
@@ -278,6 +295,7 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
           x: p.x,
           y: p.y,
           variant: 'neutral' as const,
+          tone: 'default' as const,
         }));
       }
 
