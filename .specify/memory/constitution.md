@@ -70,8 +70,11 @@ state what to eyeball. Do not add browser-automation test infrastructure.
   also the brush), and up to three people 🧍 who stroll about on their own
   (standing 🧍, walking 🚶, and running 🏃 when poked — the frames *are* the
   animation), never follow her finger, and each keep the neutral/man/woman
-  form they were born with. People's glyphs are probed at runtime and fall
-  back (gendered → neutral, standing → walking, running → a hop) wherever the
+  form and the skin tone they were born with (the default figure plus the
+  five Fitzpatrick modifiers, both chosen at placement with no control and no
+  reading). People's glyphs are probed at runtime and fall back (gendered →
+  neutral, standing → walking, running → a hop, an undrawable tone → drawn as
+  the default tone on that device while her saved tone is kept) wherever the
   device's emoji font would draw a box or split a figure — a picture that
   cannot be drawn is never shown, the same hidden-when-unsupported pattern as
   the 📺 and 📷 buttons (Principle II). Objects and pets render
@@ -140,4 +143,4 @@ arrive as PRs that state what changed and why, and bump the version below
 Compliance is checked at spec review and final-PR review — the two human
 gates. When a spec conflicts with a principle, the spec loses.
 
-**Version**: 1.3.0 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-09-12
+**Version**: 1.3.1 | **Ratified**: 2026-08-25 | **Last Amended**: 2026-09-12
