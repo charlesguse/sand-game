@@ -14,11 +14,15 @@ import {
   restorePeopleFromPositions,
   eraseMermaidsInBrush,
   eraseMermaidsInBrushLine,
+  erasePeopleInBrush,
+  erasePeopleInBrushLine,
   pokePoodleAt,
+  pokePersonAt,
   pickPersonVariant,
   POODLE_CAP,
   PERSON_CAP,
   PERSON_ROAM_RANGE,
+  PERSON_RUN_DURATION,
   POKE_RADIUS,
   GUMDROP_SCENT_RADIUS,
   WANDER_IDLE_DELAY,
@@ -1090,5 +1094,100 @@ describe('variant is fixed for life (US2, FR-012)', () => {
     const variant = pets.people[0].variant;
     runPeople(grid, pets, 500);
     expect(pets.people[0].variant).toBe(variant);
+  });
+
+  it('is still unchanged after a pokePersonAt run reaction (US2 Acceptance Scenario 1, FR-012)', () => {
+    const grid = withFloor(80, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 40, 2, ALL_VARIANTS, seededRng([0.1, 0.9, 0.5]));
+    const variant = pets.people[0].variant;
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    runPeople(grid, pets, PERSON_RUN_DURATION + 10);
+    expect(pets.people[0].variant).toBe(variant);
+  });
+});
+
+describe('poking a person (US5, FR-016)', () => {
+  it('breaks into a run when poked within reach, then returns to strolling', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    expect(person.state).toBe('running');
+    expect(person.timer).toBe(PERSON_RUN_DURATION);
+
+    runPeople(grid, pets, PERSON_RUN_DURATION);
+    expect(person.state).toBe('standing');
+  });
+
+  it('ignores a second poke while already running — no change to timer/state (US5 Acceptance Scenario 2)', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    pokePersonAt(pets, person.x, person.y);
+    runPeople(grid, pets, 5);
+    const timerBefore = person.timer;
+
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(false);
+    expect(person.state).toBe('running');
+    expect(person.timer).toBe(timerBefore);
+  });
+
+  it('returns false and changes nothing with no person nearby', () => {
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    const stateBefore = person.state;
+
+    expect(pokePersonAt(pets, person.x + POKE_RADIUS + 10, person.y)).toBe(false);
+    expect(person.state).toBe(stateBefore);
+  });
+
+  it('returns false with no people at all', () => {
+    const pets = createPetsState();
+    expect(pokePersonAt(pets, 10, 10)).toBe(false);
+  });
+
+  it('still transitions to running on poke even when the picture set has no running picture (US5 Acceptance Scenario 5, FR-016a) — the hop-vs-glyph choice is a render concern, not a sim one', () => {
+    // canRunPicture is a PlayArea.svelte rendering decision (see personGlyphs.test.ts); at the sim
+    // level, pokePersonAt always reacts regardless of what the picture set can draw.
+    const grid = withFloor(60, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 20);
+    const person = pets.people[0];
+    expect(pokePersonAt(pets, person.x, person.y)).toBe(true);
+    expect(person.state).toBe('running');
+  });
+});
+
+describe('erasing people (US6, FR-021)', () => {
+  it('removes a person within reach and leaves one outside untouched', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    addPerson(grid, pets, 90, 2, NEUTRAL_ONLY, Math.random);
+    erasePeopleInBrush(pets, 30, pets.people[0].y, POKE_RADIUS);
+    expect(pets.people).toHaveLength(1);
+    expect(pets.people[0].x).toBeCloseTo(90);
+  });
+
+  it('erasePeopleInBrushLine reaches every point along a fast drag, including a person straddled by the samples', () => {
+    const grid = withFloor(120, 40, 8);
+    const pets = createPetsState();
+    addPerson(grid, pets, 30, 2, NEUTRAL_ONLY, Math.random);
+    addPerson(grid, pets, 60, 2, NEUTRAL_ONLY, Math.random);
+    runPeople(grid, pets, 5);
+    erasePeopleInBrushLine(pets, { x: 20, y: pets.people[0].y }, { x: 70, y: pets.people[0].y }, POKE_RADIUS);
+    expect(pets.people).toHaveLength(0);
   });
 });

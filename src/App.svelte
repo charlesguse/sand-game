@@ -88,7 +88,7 @@
 </script>
 
 <main class:rail={arrangement === 'rail'}>
-  <PlayArea bind:this={playArea} {tool} {brushSize} onHistoryChange={handleHistoryChange} />
+  <PlayArea bind:this={playArea} {tool} {brushSize} {personPictureSet} onHistoryChange={handleHistoryChange} />
   <Toolbar
     {tool}
     {brushSize}

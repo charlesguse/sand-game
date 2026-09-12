@@ -1206,6 +1206,75 @@ export function stepMermaids(grid: Grid, state: PetsState): void {
 }
 
 /**
+ * Pokes the nearest person within POKE_RADIUS of (x, y): if there is one and she isn't already
+ * reacting, she breaks into a run — state 'running', timer PERSON_RUN_DURATION. Returns true iff
+ * a run started. A poke while already 'running' is ignored (FR-016).
+ *
+ * Unlike pokePoodleAt/pokeMermaidAt, the gate here is `state === 'running'`, not `timer > 0`: a
+ * person's timer is overloaded to mean a pause/burst countdown even while 'standing'/'walking'
+ * (data-model.md), so it is essentially always positive in those states — only 'running' is the
+ * busy state a poke must not interrupt.
+ */
+export function pokePersonAt(pets: PetsState, x: number, y: number): boolean {
+  let nearest: Person | null = null;
+  let bestDist = Infinity;
+  for (const person of pets.people) {
+    const dist = Math.hypot(person.x - x, person.y - y);
+    if (dist <= POKE_RADIUS && dist < bestDist) {
+      bestDist = dist;
+      nearest = person;
+    }
+  }
+  if (nearest === null || nearest.state === 'running') return false;
+  nearest.state = 'running';
+  nearest.timer = PERSON_RUN_DURATION;
+  return true;
+}
+
+/** Removes, in whole, every person within radius of (cx, cy) — same circular-reach shape as eraseMermaidsInBrush. */
+export function erasePeopleInBrush(pets: PetsState, cx: number, cy: number, radius: number): void {
+  for (let i = pets.people.length - 1; i >= 0; i--) {
+    const person = pets.people[i];
+    const dx = person.x - cx;
+    const dy = person.y - cy;
+    if (dx * dx + dy * dy <= radius * radius) pets.people.splice(i, 1);
+  }
+}
+
+/** Applies erasePeopleInBrush along every point on the line from `from` to `to`, Bresenham-interpolated exactly like eraseMermaidsInBrushLine. */
+export function erasePeopleInBrushLine(
+  pets: PetsState,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  radius: number,
+): void {
+  let x0 = Math.round(from.x);
+  let y0 = Math.round(from.y);
+  const x1 = Math.round(to.x);
+  const y1 = Math.round(to.y);
+
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+
+  for (;;) {
+    erasePeopleInBrush(pets, x0, y0, radius);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
+/**
  * Advances one person by one frame. Allocation-free. No `target` parameter — a person never
  * chases anything or follows a finger (FR-006). Reuses groundBelow/MAX_CLIMB/digOutOneScoop from
  * the poodle unmodified (research.md §5); drops everything pursuit-related, which a person has
