@@ -1,5 +1,5 @@
 import { isSolid } from './element';
-import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid } from './types';
+import { EMPTY, GUMDROP, ICE_CREAM, WATER, SAND, RAINBOW_SAND, type Grid, type PersonVariant } from './types';
 import { randomHue } from './shade';
 import { GRID_WIDTH } from '../lib/layout';
 
@@ -62,9 +62,36 @@ export interface Mermaid {
   driftDir: 1 | -1;
 }
 
+export type PersonState = 'standing' | 'walking' | 'running';
+
+export interface Person {
+  readonly id: number;
+  x: number;
+  y: number;
+  facing: 1 | -1;
+  /** Also the frame to draw — standing/walking/running map 1:1 to state (FR-010). */
+  state: PersonState;
+  /**
+   * Overloaded like Poodle's/Mermaid's timer field, meaning depends on state:
+   * 'standing' -> frames left in the current pause before starting to walk;
+   * 'walking'  -> frames left in the current walk burst before pausing;
+   * 'running'  -> frames left in the poke reaction before returning to 'standing'.
+   */
+  timer: number;
+  /** Which person this is — chosen once at placement (or migration), kept for life (FR-012). */
+  readonly variant: PersonVariant;
+  /** Where "home" is for roaming: set on each settle; walking stays within PERSON_ROAM_RANGE of it. */
+  homeX: number;
+  /** Which way the current walk burst is heading. */
+  wanderDir: 1 | -1;
+}
+
 export interface PetsState {
   poodles: Poodle[];
   mermaids: Mermaid[];
+  people: Person[];
+  /** Remaining shuffled drawable variants not yet used this cycle (research.md §4). */
+  personVariantBag: PersonVariant[];
   nextId: number;
   /** Frame counter used to stagger poodle footsteps; see STEP_INTERVAL. */
   stride: number;
@@ -74,6 +101,8 @@ export interface PetsState {
 export const POODLE_CAP = 3;
 /** At most three mermaids; placing a fourth retires the oldest. */
 export const MERMAID_CAP = 3;
+/** At most three people; placing a fourth retires the oldest (FR-003). */
+export const PERSON_CAP = 3;
 
 /** Frames between footsteps. Low enough to feel responsive, high enough to read as a trot. */
 const STEP_INTERVAL = 4;
@@ -119,14 +148,26 @@ export const WANDER_RANGE = 10;
 /** How close a new finger target must be to the consumed one to still count as "the same spot". */
 const CONSUMED_TARGET_SLACK = 2;
 
+/** Frames spent standing (paused) between walk bursts — a breath before ambling off again (research.md §6). */
+const PERSON_PAUSE_FRAMES = 90;
+/** Frames spent walking per burst — long enough to read as a stroll, not a twitch. */
+const PERSON_WALK_BURST_FRAMES = 120;
+/** Frames between steps while walking — slower than the poodle's trot (STEP_INTERVAL), an amble not a strobe. */
+const PERSON_STEP_INTERVAL = 10;
+/** How far from homeX a walk burst may roam, in cells. */
+export const PERSON_ROAM_RANGE = 12;
+/** Frames spent running after being poked — a new named constant, not a bare reuse of TRICK_DURATION (research.md §7). */
+export const PERSON_RUN_DURATION = 36;
+
 export function createPetsState(): PetsState {
-  return { poodles: [], mermaids: [], nextId: 0, stride: 0 };
+  return { poodles: [], mermaids: [], people: [], personVariantBag: [], nextId: 0, stride: 0 };
 }
 
-/** Sends every poodle and mermaid home. `nextId` keeps counting so ids stay unique. */
+/** Sends every poodle, mermaid, and person home. `nextId` keeps counting so ids stay unique. */
 export function clearPets(state: PetsState): void {
   state.poodles.length = 0;
   state.mermaids.length = 0;
+  state.people.length = 0;
 }
 
 /**
@@ -156,6 +197,77 @@ export function restoreMermaidsFromPositions(state: PetsState, positions: readon
     homeY: p.y,
     driftDir: 1,
   }));
+}
+
+/**
+ * Rebuilds state.people wholesale from saved/migrated {x, y, variant} entries into fresh
+ * default-activity people (state 'standing', timer 0) — mirrors restoreMermaidsFromPositions
+ * exactly, with variant carried through verbatim rather than re-picked (FR-012, FR-023).
+ */
+export function restorePeopleFromPositions(
+  state: PetsState,
+  positions: readonly { x: number; y: number; variant: PersonVariant }[],
+): void {
+  state.people = positions.map((p) => ({
+    id: state.nextId++,
+    x: p.x,
+    y: p.y,
+    facing: 1,
+    state: 'standing',
+    timer: 0,
+    variant: p.variant,
+    homeX: p.x,
+    wanderDir: 1,
+  }));
+}
+
+/**
+ * Injectable-RNG shuffle-bag variant chooser (FR-013a, research.md §4): Fisher-Yates-shuffles
+ * drawableVariants into state.personVariantBag whenever it's empty, then pops one. A
+ * single-element drawableVariants list degenerates to "always that element" with no
+ * special-casing needed.
+ */
+export function pickPersonVariant(
+  state: PetsState,
+  drawableVariants: readonly PersonVariant[],
+  rng: () => number,
+): PersonVariant {
+  if (state.personVariantBag.length === 0) {
+    const shuffled = [...drawableVariants];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    state.personVariantBag = shuffled;
+  }
+  return state.personVariantBag.pop()!;
+}
+
+/**
+ * Places a person at (x, y) with a freshly-picked variant (via pickPersonVariant); settles onto
+ * the surface below her over the following frames via the normal groundBelow check, exactly like
+ * addPoodle. Evicts the oldest person first if already at PERSON_CAP.
+ */
+export function addPerson(
+  grid: Grid,
+  state: PetsState,
+  x: number,
+  y: number,
+  drawableVariants: readonly PersonVariant[],
+  rng: () => number,
+): void {
+  if (state.people.length >= PERSON_CAP) state.people.shift();
+  state.people.push({
+    id: state.nextId++,
+    x,
+    y: groundBelow(grid, x, y),
+    facing: 1,
+    state: 'standing',
+    timer: PERSON_PAUSE_FRAMES,
+    variant: pickPersonVariant(state, drawableVariants, rng),
+    homeX: x,
+    wanderDir: 1,
+  });
 }
 
 export function addPoodle(state: PetsState, x: number, y: number): void {
@@ -214,6 +326,19 @@ export function repositionMermaids(mermaids: Mermaid[], newGrid: Grid, offsetX: 
   }
 }
 
+/**
+ * Shifts every person by (offsetX, offsetY) and clamps back in-bounds, exactly mirroring
+ * repositionPoodles/repositionMermaids (FR-028) — never dropped. Re-anchors homeX to the shifted
+ * x so strolling keeps working afterwards.
+ */
+export function repositionPeople(people: Person[], newGrid: Grid, offsetX: number, offsetY: number): void {
+  for (const person of people) {
+    person.x = Math.min(Math.max(person.x + offsetX, 0), newGrid.width - 1);
+    person.y = Math.min(Math.max(person.y + offsetY, 0), newGrid.height - 1);
+    person.homeX = person.x;
+  }
+}
+
 function cellIsSolid(grid: Grid, x: number, y: number): boolean {
   if (x < 0 || x >= grid.width || y < 0 || y >= grid.height) return false;
   return isSolid(grid.elements[y * grid.width + x]);
@@ -239,6 +364,24 @@ function groundBelow(grid: Grid, x: number, fromY: number): number {
     if (cellIsSolid(grid, col, y)) return y - 1;
   }
   return grid.height - 1;
+}
+
+/**
+ * If `entity`'s own cell is solid (buried), clears it and steps up one scoop, returning true.
+ * Shared by stepPoodle and stepPerson (research.md §5, T007) — each caller decides what a scoop
+ * means for its own state/timer, since a person has no dedicated "digging" frame the way a
+ * poodle does. Progress toward the surface is monotonic for the same reason it is in the
+ * poodle's own dig-out: only the cell already occupied is ever cleared, one scoop per frame.
+ */
+function digOutOneScoop(grid: Grid, entity: { x: number; y: number }): boolean {
+  const occupiedX = Math.round(entity.x);
+  const occupiedY = Math.round(entity.y);
+  if (!cellIsSolid(grid, occupiedX, occupiedY)) return false;
+  grid.elements[occupiedY * grid.width + occupiedX] = EMPTY;
+  // Clamp rather than let a column reaching row 0 push her to y = -1 — she'd render above the
+  // canvas top for a few frames before the settle corrects it.
+  entity.y = Math.max(0, occupiedY - 1);
+  return true;
 }
 
 /**
@@ -388,25 +531,12 @@ function stepPoodle(grid: Grid, poodle: Poodle, target: { x: number; y: number }
     return;
   }
 
-  if (cellIsSolid(grid, occupiedX, occupiedY)) {
-    // Buried: the cell she's standing in is solid. Dig it out one scoop at a
-    // time rather than in one jump, so this reads as digging rather than
-    // teleporting, and so a very deep burial can't produce a single
-    // unbounded-cost frame. Each scoop only ever clears the cell she already
-    // occupies and steps up into the space it leaves — it never digs
-    // sideways or downward, so this can't tunnel her into a pocket she can't
-    // leave. Progress toward the surface is monotonic: the cell above is
-    // exactly the one evaluated next scoop, so even if displaced sand slumps
-    // back in behind her (or above, from neighbouring columns), the total
-    // amount of solid material above her position is finite and only ever
-    // shrinks — she cannot dig forever, and once the column above her is
-    // clear the ordinary ground-settle below takes over and rests her on
-    // whatever surface she uncovered.
-    grid.elements[occupiedY * grid.width + occupiedX] = EMPTY;
-    // Clamp rather than let a column reaching row 0 push her to y = -1 —
-    // she'd render above the canvas top for a few frames before the settle
-    // corrects it.
-    poodle.y = Math.max(0, occupiedY - 1);
+  if (digOutOneScoop(grid, poodle)) {
+    // Buried: the cell she's standing in was solid, and digOutOneScoop just cleared one scoop of
+    // it. This reads as digging rather than teleporting, and a very deep burial can't produce a
+    // single unbounded-cost frame — see digOutOneScoop's own doc comment for why progress toward
+    // the surface is monotonic. Once the column above her is clear the ordinary ground-settle
+    // below takes over and rests her on whatever surface she uncovered.
     poodle.state = 'digging';
     poodle.timer = DIG_DURATION;
     return;
@@ -1075,8 +1205,73 @@ export function stepMermaids(grid: Grid, state: PetsState): void {
   for (const mermaid of state.mermaids) stepMermaid(grid, mermaid, state.stride);
 }
 
+/**
+ * Advances one person by one frame. Allocation-free. No `target` parameter — a person never
+ * chases anything or follows a finger (FR-006). Reuses groundBelow/MAX_CLIMB/digOutOneScoop from
+ * the poodle unmodified (research.md §5); drops everything pursuit-related, which a person has
+ * no equivalent of.
+ */
+function stepPerson(grid: Grid, person: Person, stride: number): void {
+  if (digOutOneScoop(grid, person)) return; // buried: one scoop this frame; no dedicated "digging" frame exists, so state/timer are untouched
+
+  person.y = groundBelow(grid, person.x, person.y);
+
+  if (person.state === 'running') {
+    person.timer--;
+    if (person.timer <= 0) {
+      person.state = 'standing';
+      person.timer = PERSON_PAUSE_FRAMES;
+    }
+    return;
+  }
+
+  if (person.state === 'standing') {
+    person.timer--;
+    if (person.timer <= 0) {
+      person.state = 'walking';
+      person.timer = PERSON_WALK_BURST_FRAMES;
+      person.wanderDir = Math.random() < 0.5 ? 1 : -1;
+    }
+    return;
+  }
+
+  // 'walking': attempt one cell-step on the staggered frame; turn around in place (without ending
+  // the burst) if blocked by the roam range, the grid edge, or a wall taller than MAX_CLIMB.
+  person.timer--;
+
+  if (person.id % PERSON_STEP_INTERVAL === stride % PERSON_STEP_INTERVAL) {
+    const nextX = person.x + person.wanderDir;
+    const withinRoam = Math.abs(nextX - person.homeX) <= PERSON_ROAM_RANGE;
+    const withinGrid = nextX >= 0 && nextX <= grid.width - 1;
+    if (withinRoam && withinGrid) {
+      const nextY = groundBelow(grid, nextX, Math.max(0, person.y - MAX_CLIMB));
+      if (person.y - nextY <= MAX_CLIMB) {
+        person.x = nextX;
+        person.y = nextY;
+      } else {
+        person.wanderDir = person.wanderDir === 1 ? -1 : 1;
+      }
+    } else {
+      person.wanderDir = person.wanderDir === 1 ? -1 : 1;
+    }
+  }
+
+  person.facing = person.wanderDir;
+
+  if (person.timer <= 0) {
+    person.state = 'standing';
+    person.timer = PERSON_PAUSE_FRAMES;
+  }
+}
+
+/** Advances every person one frame (research.md §5-6). No `target` parameter (FR-006). */
+export function stepPeople(grid: Grid, state: PetsState): void {
+  for (const person of state.people) stepPerson(grid, person, state.stride);
+}
+
 export function stepPets(grid: Grid, pets: PetsState, target: { x: number; y: number } | null): void {
   pets.stride++;
   for (const poodle of pets.poodles) stepPoodle(grid, poodle, target, pets.stride);
   stepMermaids(grid, pets);
+  stepPeople(grid, pets);
 }

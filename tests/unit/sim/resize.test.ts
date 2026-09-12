@@ -181,16 +181,16 @@ describe('resizeGrid — diamond and the new object kinds carry across at the sa
     expect(grid.shades[(30 + offsetY) * grid.width + (30 + offsetX)]).toBe(8);
   });
 
-  it('house/person/chest footprints keep their exact new position and size when they still fit, per the same caller-level repositioning contract as unicorn/rainbow/palm', () => {
+  it('house/palm/chest footprints keep their exact new position and size when they still fit, per the same caller-level repositioning contract as unicorn/rainbow', () => {
     const oldGrid = seedGrid();
     const state = createObjectsState();
     placeObject(oldGrid, state, 'house', 50, 85);
-    placeObject(oldGrid, state, 'person', 30, 85);
+    placeObject(oldGrid, state, 'palm', 30, 85);
     placeObject(oldGrid, state, 'chest', 70, 85);
 
     const { offsetX, offsetY } = resizeGrid(oldGrid, 90, 120);
 
-    for (const kind of ['house', 'person', 'chest'] as const) {
+    for (const kind of ['house', 'palm', 'chest'] as const) {
       const obj = state.byKind[kind][0];
       const newX = obj.x + offsetX;
       const newY = obj.y + offsetY;

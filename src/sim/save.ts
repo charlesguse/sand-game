@@ -284,10 +284,11 @@ export function deserializeWorld(raw: string): SavedWorld | null {
 
     const mermaids = parseMermaids(wire.mermaids);
 
-    // The nested WorldState's own `mermaids` field is unused by the save-restore path (mermaid
-    // data round-trips as the sibling `mermaids` field above, mirroring `poodles` exactly) — kept
-    // empty here since restoreWorldState is called without a `pets` argument for a save restore.
-    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids: [] };
+    // The nested WorldState's own `mermaids`/`people` fields are unused by the save-restore path
+    // (mermaid/people data round-trips as the sibling `mermaids`/`people` fields above, mirroring
+    // `poodles` exactly) — kept empty here since restoreWorldState is called without a `pets`
+    // argument for a save restore.
+    const state: WorldState = { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids: [], people: [] };
 
     return { version: wire.version, width, height, state, poodles, mermaids };
   } catch {

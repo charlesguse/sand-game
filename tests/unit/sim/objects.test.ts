@@ -20,6 +20,7 @@ import {
   eraseObjectsInBrush,
   eraseObjectsInBrushLine,
   clearObjects,
+  OBJECT_KINDS,
 } from '../../../src/sim/objects';
 import {
   EMPTY,
@@ -489,7 +490,7 @@ describe('objects — clearObjects', () => {
   });
 });
 
-describe('objects — house/person join the placeable roster, purely decorative (US2, FR-001-FR-006)', () => {
+describe('objects — house joins the placeable roster, purely decorative (US2, FR-001-FR-006)', () => {
   it('a house at the grid edge nudges fully on-canvas exactly like a rainbow does today (Scenario 1)', () => {
     const grid = createGrid(200, 200);
     const state = createObjectsState();
@@ -503,11 +504,11 @@ describe('objects — house/person join the placeable roster, purely decorative 
     expect(house.y + house.size).toBeLessThanOrEqual(grid.height);
   });
 
-  it('the per-kind cap of 3 evicts the oldest house, leaving any person/chest lists untouched (Scenario 2, SC-003)', () => {
+  it('the per-kind cap of 3 evicts the oldest house, leaving any palm/chest lists untouched (Scenario 2, SC-003)', () => {
     const grid = createGrid(200, 200);
     const state = createObjectsState();
     placeObject(grid, state, 'chest', 20, 100);
-    placeObject(grid, state, 'person', 20, 140);
+    placeObject(grid, state, 'palm', 20, 140);
 
     placeObject(grid, state, 'house', 20, 20);
     placeObject(grid, state, 'house', 60, 20);
@@ -518,48 +519,48 @@ describe('objects — house/person join the placeable roster, purely decorative 
     expect(state.byKind.house.length).toBe(3);
     expect(state.byKind.house.some((o) => o.id === firstId)).toBe(false);
     expect(state.byKind.chest.length).toBe(1);
-    expect(state.byKind.person.length).toBe(1);
+    expect(state.byKind.palm.length).toBe(1);
   });
 
-  it('the per-kind cap of 3 evicts the oldest person the same way', () => {
+  it('the per-kind cap of 3 evicts the oldest palm the same way', () => {
     const grid = createGrid(200, 200);
     const state = createObjectsState();
 
-    placeObject(grid, state, 'person', 20, 20);
-    placeObject(grid, state, 'person', 60, 20);
-    placeObject(grid, state, 'person', 100, 20);
-    const firstId = state.byKind.person[0].id;
-    placeObject(grid, state, 'person', 140, 20);
+    placeObject(grid, state, 'palm', 20, 20);
+    placeObject(grid, state, 'palm', 60, 20);
+    placeObject(grid, state, 'palm', 100, 20);
+    const firstId = state.byKind.palm[0].id;
+    placeObject(grid, state, 'palm', 140, 20);
 
-    expect(state.byKind.person.length).toBe(3);
-    expect(state.byKind.person.some((o) => o.id === firstId)).toBe(false);
+    expect(state.byKind.palm.length).toBe(3);
+    expect(state.byKind.palm.some((o) => o.id === firstId)).toBe(false);
   });
 
-  it('erasing across a house and a person in one interpolated drag removes both fully, with no leftover OBJECT cell (Scenario 3, SC-004)', () => {
+  it('erasing across a house and a palm in one interpolated drag removes both fully, with no leftover OBJECT cell (Scenario 3, SC-004)', () => {
     const grid = createGrid(200, 60);
     const state = createObjectsState();
     placeObject(grid, state, 'house', 20, 20);
-    placeObject(grid, state, 'person', 80, 20);
+    placeObject(grid, state, 'palm', 80, 20);
     const [house] = state.byKind.house;
-    const [person] = state.byKind.person;
+    const [palm] = state.byKind.palm;
 
     eraseObjectsInBrushLine(grid, state, { x: 0, y: 30 }, { x: 199, y: 30 }, 1);
 
     expect(state.byKind.house.length).toBe(0);
-    expect(state.byKind.person.length).toBe(0);
+    expect(state.byKind.palm.length).toBe(0);
     for (let py = house.y; py < house.y + house.size; py++) {
       for (let px = house.x; px < house.x + house.size; px++) {
         expect(getElement(grid, px, py)).toBe(EMPTY);
       }
     }
-    for (let py = person.y; py < person.y + person.size; py++) {
-      for (let px = person.x; px < person.x + person.size; px++) {
+    for (let py = palm.y; py < palm.y + palm.size; py++) {
+      for (let px = palm.x; px < palm.x + palm.size; px++) {
         expect(getElement(grid, px, py)).toBe(EMPTY);
       }
     }
   });
 
-  it('clearObjects/clearGrid empty the canvas of every kind including houses/people/chests and any diamonds (Scenario 4, FR-025)', () => {
+  it('clearObjects/clearGrid empty the canvas of every kind including houses/chests and any diamonds (Scenario 4, FR-025)', () => {
     const grid = createGrid(200, 200);
     const state = createObjectsState();
     placeObject(grid, state, 'rainbow', 20, 20);
@@ -567,18 +568,22 @@ describe('objects — house/person join the placeable roster, purely decorative 
     placeObject(grid, state, 'palm', 100, 20);
     placeObject(grid, state, 'flamingo', 140, 20);
     placeObject(grid, state, 'house', 20, 80);
-    placeObject(grid, state, 'person', 60, 80);
     placeObject(grid, state, 'chest', 100, 80);
     setCell(grid, 5, 5, DIAMOND, 3);
 
     clearObjects(state);
     clearGridState(grid);
 
-    for (const kind of ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest'] as const) {
+    for (const kind of OBJECT_KINDS) {
       expect(state.byKind[kind]).toEqual([]);
     }
     for (let i = 0; i < grid.elements.length; i++) {
       expect(grid.elements[i]).toBe(EMPTY);
     }
+  });
+
+  it('OBJECT_KINDS has exactly 6 entries and no longer contains \'person\' — a person is a walker, not a placed object (FR-001, FR-009)', () => {
+    expect(OBJECT_KINDS).toHaveLength(6);
+    expect(OBJECT_KINDS).not.toContain('person');
   });
 });

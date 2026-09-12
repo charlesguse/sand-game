@@ -168,14 +168,13 @@ describe('save — codec round trip (Task 1)', () => {
 });
 
 describe('save — a byKind key missing for an ObjectKind reads as empty rather than rejecting the payload (FR-028)', () => {
-  it('a payload missing the house/person/chest keys still deserializes, with those kinds empty', () => {
+  it('a payload missing the house/chest keys still deserializes, with those kinds empty', () => {
     const { grid, objects, pets } = buildPopulatedWorld();
     const json = serializeWorld(grid, objects, pets);
     const wire = JSON.parse(json) as Record<string, unknown>;
     const byKind = wire.byKind as Record<string, unknown>;
-    const { house, person, chest, ...rest } = byKind;
+    const { house, chest, ...rest } = byKind;
     void house;
-    void person;
     void chest;
     const tampered = { ...wire, byKind: rest };
 
@@ -183,11 +182,10 @@ describe('save — a byKind key missing for an ObjectKind reads as empty rather 
     expect(saved).not.toBeNull();
     if (saved === null) return;
     expect(saved.state.byKind.house).toEqual([]);
-    expect(saved.state.byKind.person).toEqual([]);
     expect(saved.state.byKind.chest).toEqual([]);
     // Every other, still-present kind is unaffected.
     for (const kind of OBJECT_KINDS) {
-      if (kind === 'house' || kind === 'person' || kind === 'chest') continue;
+      if (kind === 'house' || kind === 'chest') continue;
       expect(saved.state.byKind[kind]).toEqual(objects.byKind[kind]);
     }
   });
@@ -224,7 +222,7 @@ describe('save — a byKind key missing for an ObjectKind reads as empty rather 
     setCell(grid, 6, 5, DIAMOND, 9);
     step(grid); // a diamond mid-fall
     placeObject(grid, objects, 'house', 10, 10);
-    placeObject(grid, objects, 'person', 40, 10);
+    placeObject(grid, objects, 'palm', 40, 10);
     placeObject(grid, objects, 'chest', 10, 30);
 
     const json = serializeWorld(grid, objects, pets);
@@ -234,7 +232,7 @@ describe('save — a byKind key missing for an ObjectKind reads as empty rather 
 
     expect(Array.from(saved.state.elements)).toEqual(Array.from(grid.elements));
     expect(Array.from(saved.state.colorAux)).toEqual(Array.from(grid.shades));
-    for (const kind of ['house', 'person', 'chest'] as const) {
+    for (const kind of ['house', 'palm', 'chest'] as const) {
       expect(saved.state.byKind[kind]).toEqual(objects.byKind[kind]);
     }
   });

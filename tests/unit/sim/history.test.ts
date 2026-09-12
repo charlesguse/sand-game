@@ -294,14 +294,14 @@ describe('history — every element/visible property round trip (US1, FR-024)', 
   });
 });
 
-describe('history — house/person/chest and diamonds round-trip through capture/restore (US2/US1, FR-026, FR-027, FR-029, FR-016)', () => {
+describe('history — house/palm/chest and diamonds round-trip through capture/restore (US2/US1, FR-026, FR-027, FR-029, FR-016)', () => {
   it('a world with all three new object kinds and diamond material round-trips cell-for-cell through captureWorldState/restoreWorldState', () => {
     const grid = createGrid(120, 120);
     const objects = createObjectsState();
     setCell(grid, 5, 5, DIAMOND, 3);
     setCell(grid, 6, 5, DIAMOND, 9);
     placeObject(grid, objects, 'house', 40, 40);
-    placeObject(grid, objects, 'person', 80, 40);
+    placeObject(grid, objects, 'palm', 80, 40);
     placeObject(grid, objects, 'chest', 40, 80);
 
     const state = captureWorldState(grid, objects);
@@ -314,12 +314,12 @@ describe('history — house/person/chest and diamonds round-trip through capture
     expect(getElement(grid, 5, 5)).toBe(DIAMOND);
     expect(getElement(grid, 6, 5)).toBe(DIAMOND);
     expect(objects.byKind.house.length).toBe(1);
-    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.palm.length).toBe(1);
     expect(objects.byKind.chest.length).toBe(1);
     expect(visibleSnapshot(grid, objects)).toEqual(before);
   });
 
-  it('undo/redo round-trips a house/person/chest placement and a diamond conversion together', () => {
+  it('undo/redo round-trips a house/palm/chest placement and a diamond conversion together', () => {
     const grid = createGrid(80, 80);
     const objects = createObjectsState();
     const history = new HistoryManager();
@@ -327,7 +327,7 @@ describe('history — house/person/chest and diamonds round-trip through capture
     history.beginAction(grid, objects);
     const before = visibleSnapshot(grid, objects);
     placeObject(grid, objects, 'house', 20, 20);
-    placeObject(grid, objects, 'person', 60, 20);
+    placeObject(grid, objects, 'palm', 60, 20);
     placeObject(grid, objects, 'chest', 20, 60);
     setCell(grid, 2, 2, DIAMOND, 4);
     history.commitAction(grid, objects);
@@ -336,12 +336,12 @@ describe('history — house/person/chest and diamonds round-trip through capture
     expect(visibleSnapshot(grid, objects)).toEqual(before);
     expect(history.redo(grid, objects)).toBe(true);
     expect(objects.byKind.house.length).toBe(1);
-    expect(objects.byKind.person.length).toBe(1);
+    expect(objects.byKind.palm.length).toBe(1);
     expect(objects.byKind.chest.length).toBe(1);
     expect(getElement(grid, 2, 2)).toBe(DIAMOND);
   });
 
-  it('remaps house/person/chest objects and a diamond cell to new grid dimensions (FR-029)', () => {
+  it('remaps house/palm/chest objects and a diamond cell to new grid dimensions (FR-029)', () => {
     const grid = createGrid(100, 100);
     const objects = createObjectsState();
     setCell(grid, 4, 4, DIAMOND, 6);

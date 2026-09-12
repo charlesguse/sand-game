@@ -3,16 +3,17 @@ import {
   FOG,
   GRASS,
   OBJECT,
-  STAR_POWER,
   type Grid,
   type ObjectKind,
   type ObjectsState,
+  type PersonVariant,
   type PlacedObject,
+  STAR_POWER,
 } from './types';
 import { OBJECT_KINDS } from './objects';
 import { usesHueColor } from './element';
 import { randomBurnLife, randomCloudRainDelay, randomFogRiseCooldown } from './shade';
-import { createPetsState, restoreMermaidsFromPositions, type PetsState } from './pets';
+import { createPetsState, restoreMermaidsFromPositions, restorePeopleFromPositions, type PetsState } from './pets';
 
 /** Undo/redo stack depth cap, each direction (FR-019, FR-020). */
 export const HISTORY_DEPTH = 10;
@@ -25,6 +26,7 @@ export interface WorldState {
   readonly grassHeight: Uint8Array;
   readonly byKind: Record<ObjectKind, PlacedObject[]>;
   readonly mermaids: { x: number; y: number }[];
+  readonly people: { x: number; y: number; variant: PersonVariant }[];
 }
 
 function cloneObjectList(list: PlacedObject[]): PlacedObject[] {
@@ -55,6 +57,7 @@ export function captureWorldState(grid: Grid, objects: ObjectsState, pets: PetsS
     grassHeight: new Uint8Array(grid.grassHeight),
     byKind: cloneObjectsByKind(objects.byKind),
     mermaids: pets.mermaids.map((m) => ({ x: m.x, y: m.y })),
+    people: pets.people.map((p) => ({ x: p.x, y: p.y, variant: p.variant })),
   };
 }
 
@@ -160,6 +163,7 @@ export function restoreWorldState(
 
   objects.byKind = cloneObjectsByKind(state.byKind);
   restoreMermaidsFromPositions(pets, state.mermaids);
+  restorePeopleFromPositions(pets, state.people);
 
   return true;
 }
@@ -263,16 +267,23 @@ export function remapWorldState(
     byKind[kind] = kept;
   }
 
-  // Mermaids are clamped into the new bounds, never dropped — unlike a PlacedObject's footprint,
-  // a lone (x, y) pair is always clampable with zero information loss beyond landing at the edge
-  // instead of exactly where she was (research.md §9). They never participate in
-  // wouldRemapLosslessly's reject-the-whole-snapshot decision for the same reason.
+  // Mermaids (and, identically, people) are clamped into the new bounds, never dropped — unlike a
+  // PlacedObject's footprint, a lone (x, y[, variant]) tuple is always clampable with zero
+  // information loss beyond landing at the edge instead of exactly where she was (research.md §9).
+  // They never participate in wouldRemapLosslessly's reject-the-whole-snapshot decision for the
+  // same reason.
   const mermaids = state.mermaids.map((m) => ({
     x: Math.min(Math.max(m.x + offsetX, 0), newWidth - 1),
     y: Math.min(Math.max(m.y + offsetY, 0), newHeight - 1),
   }));
 
-  return { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids };
+  const people = state.people.map((p) => ({
+    x: Math.min(Math.max(p.x + offsetX, 0), newWidth - 1),
+    y: Math.min(Math.max(p.y + offsetY, 0), newHeight - 1),
+    variant: p.variant,
+  }));
+
+  return { elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids, people };
 }
 
 /**
@@ -341,6 +352,12 @@ function worldMatches(pending: WorldState, grid: Grid, objects: ObjectsState, pe
   if (pending.mermaids.length !== pets.mermaids.length) return false;
   for (let i = 0; i < pending.mermaids.length; i++) {
     if (pending.mermaids[i].x !== pets.mermaids[i].x || pending.mermaids[i].y !== pets.mermaids[i].y) return false;
+  }
+  if (pending.people.length !== pets.people.length) return false;
+  for (let i = 0; i < pending.people.length; i++) {
+    const a = pending.people[i];
+    const b = pets.people[i];
+    if (a.x !== b.x || a.y !== b.y || a.variant !== b.variant) return false;
   }
   return true;
 }

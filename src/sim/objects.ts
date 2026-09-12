@@ -16,11 +16,11 @@ import {
 import { randomHue, randomShade } from './shade';
 import { setGlitter } from './grid';
 
-export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'person', 'chest'];
+export const OBJECT_KINDS: ObjectKind[] = ['rainbow', 'unicorn', 'palm', 'flamingo', 'house', 'chest'];
 
 export function createObjectsState(): ObjectsState {
   return {
-    byKind: { rainbow: [], unicorn: [], palm: [], flamingo: [], house: [], person: [], chest: [] },
+    byKind: { rainbow: [], unicorn: [], palm: [], flamingo: [], house: [], chest: [] },
     nextId: 0,
   };
 }

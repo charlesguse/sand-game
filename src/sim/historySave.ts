@@ -231,7 +231,9 @@ export function deserializeHistory(raw: string, expectedFingerprint: string): Pe
 
       const mermaids = parseHistoryMermaids(step.mermaids);
 
-      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids });
+      // `people` is added to this wire shape and parsed in Phase 6 (US4) of this feature; kept
+      // empty here so this step's WorldState always satisfies the shape history.ts now requires.
+      steps.push({ elements, colorAux, cloud, glitter, grassHeight, byKind, mermaids, people: [] });
     }
 
     const cappedSteps = steps.length > HISTORY_DEPTH ? steps.slice(-HISTORY_DEPTH) : steps;

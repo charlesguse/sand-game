@@ -197,7 +197,7 @@ describe('historySave — serializeHistory/deserializeHistory round trip (US1, F
 });
 
 describe('historySave — a byKind key missing for an ObjectKind reads as empty rather than rejecting the step (FR-028)', () => {
-  it('a step missing the house/person/chest keys still deserializes, with those kinds empty for that step', () => {
+  it('a step missing the house/chest keys still deserializes, with those kinds empty for that step', () => {
     const grid = createGrid(10, 10);
     const objects = createObjectsState();
     placeObject(grid, objects, 'rainbow', 4, 4);
@@ -211,9 +211,8 @@ describe('historySave — a byKind key missing for an ObjectKind reads as empty 
     const serialized = serializeHistory(history.getPersistableUndoStack(), 10, 10, fingerprint);
     const wire = JSON.parse(serialized) as { steps: Record<string, unknown>[] };
     const byKind = wire.steps[0].byKind as Record<string, unknown>;
-    const { house, person, chest, ...rest } = byKind;
+    const { house, chest, ...rest } = byKind;
     void house;
-    void person;
     void chest;
     const tamperedSteps = [{ ...wire.steps[0], byKind: rest }];
     const tampered = { ...wire, steps: tamperedSteps };
@@ -222,7 +221,6 @@ describe('historySave — a byKind key missing for an ObjectKind reads as empty 
     expect(persisted).not.toBeNull();
     if (persisted === null) return;
     expect(persisted.steps[0].byKind.house).toEqual([]);
-    expect(persisted.steps[0].byKind.person).toEqual([]);
     expect(persisted.steps[0].byKind.chest).toEqual([]);
     expect(persisted.steps[0].byKind.rainbow).toEqual(rainbowBefore);
   });
