@@ -50,6 +50,26 @@
 > toolbar button never changes tone; and a constitution amendment at finalize appending
 > "and skin tone" to the pets clause added in #64.
 
+## Clarifications
+
+### Session 2026-09-12 — maintainer reply on issue #66
+
+- **Q: On a device where the untoned standing picture is already missing (spec 018 uses
+  walking as the idle frame), is a tone judged on the frames actually drawn, or must its
+  standing picture be drawable anyway?** → Judge it on the pictures actually drawn. The two
+  resolutions run in a fixed, test-pinned order: spec 018's frame ladder first, then the
+  tone check against its output. This keeps the most tones on exactly the device most
+  likely to have a limited font, and the continuity rule only cares about frames she is
+  ever shown in. Where standing *is* drawn, a missing toned stander still fails the tone.
+  Folded into FR-012.
+- **Q: What happens when a restored person's stored tone is one this device cannot draw?**
+  → Keep her stored tone in the save; draw her in the default tone here. Two maintainers
+  swap worlds between an iPad and a Fire, and flattening everyone to yellow forever because
+  one device's font is poorer would be data loss the child would notice. The substitution
+  lives in the resolved picture set — undrawable tones map to that appearance's
+  default-tone pictures — so the render path stays a direct lookup with no per-frame branch
+  and no allocation. Folded into FR-017.
+
 ## User Scenarios & Testing *(mandatory)*
 
 Throughout this spec, and continuing spec 018's vocabulary:
@@ -169,7 +189,8 @@ are both unknowns here.
 **Independent Test**: The resolution stays a pure function over the injected probe, so
 unit tests can feed it fabricated measurements: every toned picture fine; one tone that
 splits on exactly one frame of one form; all five modifier tones splitting; gendered
-forms splitting *and* tones splitting; a probe that throws; a probe that returns zero or
+forms splitting *and* tones splitting; the untoned stander missing so spec 018's frame
+ladder has already dropped standing; a probe that throws; a probe that returns zero or
 nonsense widths — asserting the exact resolved tone set each time, with no DOM.
 
 **Acceptance Scenarios**:
@@ -192,6 +213,11 @@ nonsense widths — asserting the exact resolved tone set each time, with no DOM
    — and the toy still opens without a visible delay on the slowest device it targets.
 7. **Given** any probe outcome at all, **When** the toolbar is drawn, **Then** the
    person button shows the untoned neutral standing figure, unchanged from today.
+8. **Given** a font that cannot draw the *untoned* standing figure, so spec 018 already
+   uses the walking picture when a person pauses, **When** the toy opens, **Then** a tone
+   is kept or dropped on the strength of the frames actually drawn there — walking and
+   running — and is not dropped merely because its standing picture is missing on a device
+   that never shows standing.
 
 ---
 
@@ -244,9 +270,11 @@ who changes who she is between sessions reads as a different person appearing. T
 the same property. It is P2 only because story 1 is demonstrable without it.
 
 **Independent Test**: Unit tests over save/restore, undo/redo, and grid re-derivation
-asserting person count, positions, forms, *and* tones before and after; plus a test that
-two worlds differing only in one person's tone are not treated as the same state by the
-history's change detection.
+asserting person count, positions, forms, *and* tones before and after; a test that
+restores a person whose stored tone the probe reports as undrawable and asserts she draws
+as default while the stored tone survives a further save; plus a test that two worlds
+differing only in one person's tone are not treated as the same state by the history's
+change detection.
 
 **Acceptance Scenarios**:
 
@@ -261,6 +289,11 @@ history's change detection.
 4. **Given** two otherwise identical worlds that differ only in one person's tone,
    **When** the history decides whether anything changed, **Then** it sees them as
    different.
+5. **Given** a world saved on a device that draws all six tones and opened on one whose
+   font draws only some, **When** a person's stored tone is one this device cannot draw,
+   **Then** she is drawn in the default tone here — never as a figure with a coloured
+   square — and her stored tone is kept, so saving again and reopening on the first device
+   brings her back in her own tone.
 
 ---
 
@@ -297,8 +330,10 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
 
 - **A font that draws the walker in a tone but not the stander** (the concrete risk the
   issue names, since 🧍 with a modifier is Emoji 12.0 while 🚶🏃 with one are Emoji 2.0):
-  resolved by the all-or-nothing tone rule, with the interaction against spec 018's
-  standing→walking ladder settled in FR-012.
+  resolved by the all-or-nothing tone rule — the tone is dropped, because standing is a
+  frame she is shown in. If that same font cannot draw the *untoned* stander either, spec
+  018 has already replaced the idle frame with walking, and FR-012's fixed ordering means
+  the tone is judged on walking and running alone and survives.
 - **A font that draws toned neutral figures but splits toned gendered ones**: tones are
   judged against the forms that are drawable, so this device may still have six tones of
   neutral figures rather than losing tones it could have drawn.
@@ -308,7 +343,12 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
 - **Probe throws or returns zero/garbage widths**: treated the same as "not drawable",
   degrading only the pictures it was asked about, never the whole picture set.
 - **A saved world holding a tone this device cannot draw** (saved on the iPad, opened on
-  the Fire tablet, or the font changed under an OS update): resolved by FR-017.
+  the Fire tablet, or the font changed under an OS update): she is drawn in the default
+  tone here while her stored tone is kept, so carrying the world back to the other tablet
+  brings her own tone back (FR-017).
+- **A world round-tripped through the weaker device** (opened on the Fire tablet, played
+  with, saved again, reopened on the iPad): because nothing rewrites the stored tone, the
+  people the Fire drew as default come back in their own tones.
 - **A hand-edited or corrupt save with a nonsense tone value**: that person reads as
   default tone; the rest of the world still restores.
 - **The child places six people over time on a device with only two drawable tones**:
@@ -379,12 +419,13 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
   same figure across her frames (spec 018 FR-019's continuity rule).
 - **FR-012**: The tone check MUST be evaluated against the pictures the toy will actually
   draw after spec 018's own fallbacks have been applied — not against raw table entries
-  that this device never shows. [NEEDS CLARIFICATION: On a device where the *untoned*
-  standing picture is already missing, spec 018 uses the walking picture as the idle
-  frame. Should a tone then be judged on walking and running only (the frames actually
-  drawn), or must its standing picture also be drawable even though standing is never
-  shown there? The first keeps more tones on exactly the device most likely to be
-  limited; the second is a simpler, stricter rule.]
+  that this device never shows. The two resolutions MUST run in a fixed order: **spec
+  018's frame ladder first, then the tone check against that ladder's output**. So on a
+  device whose *untoned* standing picture is missing and whose idle frame is therefore the
+  walking picture, a tone is judged on the frames actually drawn there (walking and
+  running) and its standing picture being undrawable MUST NOT disqualify it. Where
+  standing *is* drawn, a missing toned standing picture still disqualifies the tone under
+  FR-011. This ordering MUST be pinned by test, not left implicit.
 - **FR-013**: An undrawable tone MUST simply be absent from the bag. If no modifier tone
   is drawable, the bag MUST collapse to the default alone and keep working — no stall, no
   empty selection, no exception, and no visible difference from today's behaviour.
@@ -404,13 +445,15 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
 ### Persistence, history, and migration
 
 - **FR-017**: Save/restore and undo/redo MUST round-trip each person's tone alongside her
-  position and form. [NEEDS CLARIFICATION: What should happen when a restored person's
-  stored tone is one this device cannot draw (a world saved on one maintainer's tablet
-  and opened on the other's, or a font changed by an OS update)? Options: draw her in the
-  default tone for this session while keeping her stored tone intact, so she looks right
-  again on the device that can draw it; permanently rewrite her to default on restore; or
-  keep and draw the stored tone anyway — which FR-014 forbids, since it would put a
-  coloured square on the canvas.]
+  position and form. When a restored person's stored tone is one *this* device cannot draw
+  (a world saved on one maintainer's tablet and opened on the other's, or a font changed by
+  an OS update), her stored tone MUST be **kept** — in memory and in everything written
+  back out — while she is **drawn in the default tone for this session**, so she looks
+  right again on a device whose font can draw her. Restore MUST NOT permanently rewrite her
+  tone to default, and no save or history write MUST replace a stored tone with the one
+  that happened to be drawn. The substitution MUST live in the resolved picture set: every
+  undrawable tone maps to that appearance's default-tone pictures, so drawing stays the
+  direct lookup of FR-022 with no per-frame branch and no allocation.
 - **FR-018**: Tone MUST be carried as a **tolerant optional field** in both the
   saved-world and the saved-history shapes: a missing tone reads as default, an
   unrecognised or malformed tone reads as default for that person only, and neither ever
@@ -450,9 +493,13 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
   *and* tones undrawable; a probe that throws; a probe returning zero or non-finite
   widths); the two-bag no-repeat rule under seeded randomness (six placements yield six
   distinct tones; three placements yield three distinct forms *and* three distinct tones;
-  a single-drawable-tone device never stalls); save and history round-trip of tone;
-  restore of a spec-018 payload with no tone field; restore of a payload with a malformed
-  tone; and the composition order of FR-005.
+  a single-drawable-tone device never stalls); the FR-012 ordering (frame ladder first,
+  tone check against its output — a tone whose standing picture is missing survives on a
+  device where standing is not drawn, and is dropped on one where it is); save and history
+  round-trip of tone; restore of a person whose stored tone this device cannot draw,
+  asserting she draws as default while the stored tone survives a further save; restore of
+  a spec-018 payload with no tone field; restore of a payload with a malformed tone; and
+  the composition order of FR-005.
 - **FR-027**: Two checks MUST be flagged for maintainer eyeballing on each platform
   rather than assumed, since neither maintainer can verify the other's device (CLAUDE.md):
   (a) do the toned figures read as the *same* person across standing, walking, and
@@ -470,12 +517,15 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
 
 - **Tone**: which of six skin tones a person is — default or one of five modifiers.
   Chosen once at placement from the drawable set, never changed, round-trips through save
-  and undo as a tolerant optional field that defaults to default.
+  and undo as a tolerant optional field that defaults to default. A stored tone this device
+  cannot draw is still hers: kept as stored, drawn as default only for this session.
 - **Appearance**: a person's (form, tone) pair. Fixed for life; the frame varies inside
   it. The unit that "the same person across frames" is measured against.
 - **Picture set**: the resolved answer to "what can this device draw", extended from spec
-  018's nine pictures to fifty-four plus the drawable-tone list. Decided once per session
-  and shared by the canvas and the toolbar.
+  018's nine pictures to fifty-four plus the drawable-tone list, and holding the fallback
+  that sends every undrawable tone to the default-tone pictures of the same appearance so
+  drawing never has to branch. Decided once per session and shared by the canvas and the
+  toolbar.
 - **Tone bag**: the no-repeat chooser over drawable tones, independent of the existing
   form bag, driven by injectable randomness, collapsing harmlessly to a single option when
   only the default tone is drawable.
@@ -497,7 +547,9 @@ eraser reach, clear-all, and the cap of three are unaffected by tone.
   canvas and on the toolbar.
 - **SC-004**: 100% of placed people survive a save/restore cycle, an undo/redo cycle, and
   a grid re-derivation with the same count, the same positions (within the existing remap
-  tolerance), the same form, and **the same tone** — zero tone drift.
+  tolerance), the same form, and **the same tone** — zero tone drift. This holds on a
+  device that cannot draw a stored tone too: she is drawn default there, but 100% of stored
+  tones come back unchanged on the next save.
 - **SC-005**: 100% of people in a spec-018 save or stored history restore successfully as
   default-tone people; a payload with one malformed tone still restores every person, with
   only the malformed one falling back to default. Restoring such a payload never returns

@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,12 +31,12 @@
 
 ## Notes
 
-- Two [NEEDS CLARIFICATION] markers remain by design and are posted to lifecycle issue
-  #66 rather than blocking the draft:
-  - **FR-012** — how the tone check interacts with spec 018's standing→walking fallback
-    on a device that cannot draw the untoned standing picture.
-  - **FR-017** — what a restored person should look like when her stored tone is one this
-    device cannot draw.
+- Both [NEEDS CLARIFICATION] markers were answered by the maintainer on lifecycle issue
+  #66 and are now resolved in the spec (see its **Clarifications** section):
+  - **FR-012** — the frame ladder resolves first, then the tone check runs against its
+    output, so a tone is judged only on the frames this device actually draws.
+  - **FR-017** — a stored tone this device cannot draw is kept as stored and drawn as
+    default for the session; nothing rewrites it on restore or on the next save.
 - The three decisions the issue itself flagged as open (uniform vs weighted draw, whether
   the toolbar button changes tone, the constitution amendment) were resolved with the
   issue's own recommendations and recorded in Assumptions / FR-015 / FR-028 rather than
