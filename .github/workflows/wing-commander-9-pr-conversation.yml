@@ -71,7 +71,7 @@ jobs:
           if jq -e '.labels | any(.name == "model:opus")' <<<"$pr" >/dev/null; then
             tier="claude-opus-5"
           fi
-          same_repo="$(jq -r 'if .isCrossRepository then "false" else "true" end' <<<"$pr")"
+          same_repo="$(jq -r 'if .isCrossRepository == false then "true" else "false" end' <<<"$pr")"
           echo "tier=$tier" >> "$GITHUB_OUTPUT"
           echo "same-repo=$same_repo" >> "$GITHUB_OUTPUT"
           echo "PR conversation model for this run: $tier" >> "$GITHUB_STEP_SUMMARY"
