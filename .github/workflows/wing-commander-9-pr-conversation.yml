@@ -1,0 +1,125 @@
+name: "Wing Commander · 9 pr conversation"
+
+# Review-comment handling on finalize PRs (spec/<slug> -> main). A
+# maintainer's review, review-thread comment, or PR comment is classified
+# and routed by the stage: fold the request back into implement, spin off a
+# new issue/PR, handle a manual step, or just reply. Comments on any other
+# PR short-circuit inside the stage with no reply. Purely event-triggered —
+# deliberately no workflow_dispatch entry point.
+
+on:
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  # Default tier from vars.WING_COMMANDER_PR_CONVERSATION_MODEL
+  # (claude-sonnet-5 when unset); the model:opus label on the PR (finalize
+  # mirrors the lifecycle issue's labels onto it) escalates to claude-opus-5.
+  #
+  # This `if:` is only the bot-exclusion half of the security gate. Every
+  # human commenter goes through to the stage, whose first step checks
+  # OWNER/MEMBER/COLLABORATOR and posts a notice-and-stop reply otherwise —
+  # don't move that check up here, or an unauthorized commenter gets silence
+  # instead of a reply. There is no original-requester carve-out here
+  # (unlike clarify). A review with an empty body (a bare approve/request
+  # changes) has nothing to classify, so it starts no run.
+  #
+  # Same-repo gate (sand-game addition, not in the reference wrapper): the
+  # stage identifies a finalize PR by its head branch name alone, and Max's
+  # fork runs Wing Commander too, so a fork PR from its own spec/NNN-* branch
+  # would otherwise qualify — never hand the stage a fork's head ref. The
+  # issue_comment payload carries no head repo, so this job looks it up and
+  # the stage only runs for same-repo PRs. A failed lookup fails this job
+  # loudly rather than guessing either way.
+  resolve-model:
+    if: >-
+      (
+        (github.event_name == 'issue_comment' &&
+         github.event.issue.pull_request != null &&
+         github.event.comment.user.type != 'Bot')
+        ||
+        (github.event_name == 'pull_request_review_comment' &&
+         github.event.comment.user.type != 'Bot')
+        ||
+        (github.event_name == 'pull_request_review' &&
+         github.event.review.body != '' &&
+         github.event.review.user.type != 'Bot')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      model: ${{ steps.tier.outputs.tier }}
+      same-repo: ${{ steps.tier.outputs.same-repo }}
+    steps:
+      - name: Resolve model tier and PR origin
+        id: tier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL_VAR: ${{ vars.WING_COMMANDER_PR_CONVERSATION_MODEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          pr="$(gh pr view "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --json labels,isCrossRepository)"
+          tier="${MODEL_VAR:-claude-sonnet-5}"
+          if jq -e '.labels | any(.name == "model:opus")' <<<"$pr" >/dev/null; then
+            tier="claude-opus-5"
+          fi
+          same_repo="$(jq -r 'if .isCrossRepository == false then "true" else "false" end' <<<"$pr")"
+          echo "tier=$tier" >> "$GITHUB_OUTPUT"
+          echo "same-repo=$same_repo" >> "$GITHUB_OUTPUT"
+          echo "PR conversation model for this run: $tier" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$same_repo" != "true" ]; then
+            echo "PR #$PR_NUMBER is from a fork; pipeline branches only live in this repository, so the PR conversation stage is skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  pr-conversation:
+    needs: resolve-model
+    if: needs.resolve-model.outputs.same-repo == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+      id-token: write
+    uses: charlesguse/wing-commander/.github/workflows/pr-conversation.yml@main
+    with:
+      pr-number: ${{ github.event.pull_request.number || github.event.issue.number }}
+      event-kind: >-
+        ${{
+          github.event_name == 'pull_request_review' && 'review'
+          || github.event_name == 'pull_request_review_comment' && 'review-comment'
+          || 'issue-comment'
+        }}
+      comment-id: ${{ github.event.comment.id || 0 }}
+      review-id: ${{ github.event.review.id || 0 }}
+      body: ${{ github.event.review.body || github.event.comment.body || '' }}
+      thread-path: ${{ github.event.comment.path || '' }}
+      thread-diff-hunk: ${{ github.event.comment.diff_hunk || '' }}
+      actor-login: ${{ github.event.review.user.login || github.event.comment.user.login }}
+      actor-association: ${{ github.event.review.author_association || github.event.comment.author_association }}
+      model: ${{ needs.resolve-model.outputs.model }}
+      # An in-scope fold-in re-drives implement through this wrapper (which
+      # declares fold_queue_token), and a `stop` request cancels that run.
+      implement-workflow: wing-commander-5-implement.yml
+      confirm-categories: ${{ vars.WING_COMMANDER_PR_CONVERSATION_CONFIRM_CATEGORIES || '' }}
+      confirm-environment: ${{ vars.WING_COMMANDER_PR_CONVERSATION_CONFIRM_ENVIRONMENT || 'pr-conversation-confirm' }}
+      spec-prefix: ${{ vars.WING_COMMANDER_SPEC_PREFIX || 'spec/' }}
+      spec-draft-prefix: ${{ vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/' }}
+      plan-prefix: ${{ vars.WING_COMMANDER_PLAN_PREFIX || 'plan/' }}
+      tasks-prefix: ${{ vars.WING_COMMANDER_TASKS_PREFIX || 'tasks/' }}
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+    secrets:
+      claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+      speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
+      speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}

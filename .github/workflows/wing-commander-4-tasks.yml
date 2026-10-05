@@ -20,7 +20,7 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.merged == true &&
-       startsWith(github.event.pull_request.head.ref, 'plan/'))
+       startsWith(github.event.pull_request.head.ref, vars.WING_COMMANDER_PLAN_PREFIX || 'plan/'))
     permissions:
       contents: write
       pull-requests: write
@@ -33,13 +33,26 @@ jobs:
       head-ref: ${{ github.event.pull_request.head.ref }}
       slug: ${{ inputs.slug }}
       restart: ${{ github.event_name == 'workflow_dispatch' }}
+      model: ${{ vars.WING_COMMANDER_PLAN_MODEL || 'claude-sonnet-5' }}
+      spec-draft-prefix: ${{ vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/' }}
+      spec-prefix: ${{ vars.WING_COMMANDER_SPEC_PREFIX || 'spec/' }}
+      plan-prefix: ${{ vars.WING_COMMANDER_PLAN_PREFIX || 'plan/' }}
+      tasks-prefix: ${{ vars.WING_COMMANDER_TASKS_PREFIX || 'tasks/' }}
+      impl-prefix: ${{ vars.WING_COMMANDER_IMPL_PREFIX || 'impl/' }}
       tasks-review: ${{ vars.WING_COMMANDER_TASKS_REVIEW || 'auto' }}
       next-workflow: wing-commander-5-implement.yml
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+      findings-filing-enabled: ${{ fromJSON(vars.WING_COMMANDER_TASKS_FINDINGS_FILING_ENABLED || 'false') }}
+      findings-label-prefix: ${{ vars.WING_COMMANDER_FINDINGS_LABEL_PREFIX || 'found-by' }}
+      findings-cap: ${{ fromJSON(vars.WING_COMMANDER_FINDINGS_CAP || '3') }}
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
       speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
       speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}
 
   # A merged tasks PR (pr review mode) is the acceptance signal — agent-free
   # hand-off to implementation. The permissions grant must cover every job
@@ -50,7 +63,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'tasks/')
+      startsWith(github.event.pull_request.head.ref, vars.WING_COMMANDER_TASKS_PREFIX || 'tasks/')
     permissions:
       contents: write
       pull-requests: write
@@ -61,9 +74,21 @@ jobs:
     with:
       mode: approved
       head-ref: ${{ github.event.pull_request.head.ref }}
+      spec-draft-prefix: ${{ vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/' }}
+      spec-prefix: ${{ vars.WING_COMMANDER_SPEC_PREFIX || 'spec/' }}
+      plan-prefix: ${{ vars.WING_COMMANDER_PLAN_PREFIX || 'plan/' }}
+      tasks-prefix: ${{ vars.WING_COMMANDER_TASKS_PREFIX || 'tasks/' }}
+      impl-prefix: ${{ vars.WING_COMMANDER_IMPL_PREFIX || 'impl/' }}
       next-workflow: wing-commander-5-implement.yml
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+      findings-filing-enabled: ${{ fromJSON(vars.WING_COMMANDER_TASKS_FINDINGS_FILING_ENABLED || 'false') }}
+      findings-label-prefix: ${{ vars.WING_COMMANDER_FINDINGS_LABEL_PREFIX || 'found-by' }}
+      findings-cap: ${{ fromJSON(vars.WING_COMMANDER_FINDINGS_CAP || '3') }}
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
       speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
       speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}

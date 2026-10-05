@@ -22,7 +22,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.merged == true &&
        github.event.pull_request.base.ref == 'main' &&
-       startsWith(github.event.pull_request.head.ref, 'spec-draft/'))
+       startsWith(github.event.pull_request.head.ref, vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/'))
     permissions:
       contents: write
       pull-requests: write
@@ -35,10 +35,23 @@ jobs:
       slug: ${{ inputs.slug }}
       merged: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged }}
       pr-number: ${{ github.event.pull_request.number }}
+      model: ${{ vars.WING_COMMANDER_PLAN_MODEL || 'claude-sonnet-5' }}
+      spec-draft-prefix: ${{ vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/' }}
+      spec-prefix: ${{ vars.WING_COMMANDER_SPEC_PREFIX || 'spec/' }}
+      plan-prefix: ${{ vars.WING_COMMANDER_PLAN_PREFIX || 'plan/' }}
+      tasks-prefix: ${{ vars.WING_COMMANDER_TASKS_PREFIX || 'tasks/' }}
+      impl-prefix: ${{ vars.WING_COMMANDER_IMPL_PREFIX || 'impl/' }}
       plan-review: ${{ vars.WING_COMMANDER_PLAN_REVIEW || 'pr' }}
       next-workflow: wing-commander-4-tasks.yml
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+      findings-filing-enabled: ${{ fromJSON(vars.WING_COMMANDER_PLAN_FINDINGS_FILING_ENABLED || 'false') }}
+      findings-label-prefix: ${{ vars.WING_COMMANDER_FINDINGS_LABEL_PREFIX || 'found-by' }}
+      findings-cap: ${{ fromJSON(vars.WING_COMMANDER_FINDINGS_CAP || '3') }}
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
       speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
       speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}

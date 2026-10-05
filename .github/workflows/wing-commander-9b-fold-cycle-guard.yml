@@ -1,0 +1,37 @@
+name: "Wing Commander · 9b fold cycle guard"
+
+# Companion to the PR conversation stage. When a review fold-in's implement
+# run is cancelled before it ever starts (e.g. a newer run took its
+# concurrency slot), this agent-free guard posts a notice on the lifecycle
+# issue and re-dispatches implement at most once. The wrapper owns the
+# trigger and passes github.event.workflow_run.* in explicitly. The
+# `workflows:` entry must match the implement wrapper's `name:` exactly.
+
+on:
+  workflow_run:
+    workflows:
+      - "Wing Commander · 5 implement"
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  fold-cycle-guard:
+    if: github.event.workflow_run.conclusion == 'cancelled'
+    permissions:
+      contents: write
+      issues: write
+      actions: write
+      id-token: write
+    uses: charlesguse/wing-commander/.github/workflows/fold-cycle-guard.yml@main
+    with:
+      run-id: ${{ format('{0}', github.event.workflow_run.id) }}
+      conclusion: ${{ github.event.workflow_run.conclusion }}
+      implement-workflow: wing-commander-5-implement.yml
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+    secrets:
+      speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
+      speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}
