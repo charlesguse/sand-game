@@ -29,6 +29,14 @@ jobs:
   # instead of a reply. There is no original-requester carve-out here
   # (unlike clarify). A review with an empty body (a bare approve/request
   # changes) has nothing to classify, so it starts no run.
+  #
+  # Same-repo gate (sand-game addition, not in the reference wrapper): the
+  # stage identifies a finalize PR by its head branch name alone, and Max's
+  # fork runs Wing Commander too, so a fork PR from its own spec/NNN-* branch
+  # would otherwise qualify — never hand the stage a fork's head ref. The
+  # issue_comment payload carries no head repo, so this job looks it up and
+  # the stage only runs for same-repo PRs. A failed lookup fails this job
+  # loudly rather than guessing either way.
   resolve-model:
     if: >-
       (
@@ -48,23 +56,32 @@ jobs:
       pull-requests: read
     outputs:
       model: ${{ steps.tier.outputs.tier }}
+      same-repo: ${{ steps.tier.outputs.same-repo }}
     steps:
-      - name: Resolve model tier
+      - name: Resolve model tier and PR origin
         id: tier
         env:
           GH_TOKEN: ${{ github.token }}
           MODEL_VAR: ${{ vars.WING_COMMANDER_PR_CONVERSATION_MODEL }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
+          set -euo pipefail
+          pr="$(gh pr view "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --json labels,isCrossRepository)"
           tier="${MODEL_VAR:-claude-sonnet-5}"
-          if gh pr view "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name' | grep -qx 'model:opus'; then
+          if jq -e '.labels | any(.name == "model:opus")' <<<"$pr" >/dev/null; then
             tier="claude-opus-5"
           fi
+          same_repo="$(jq -r 'if .isCrossRepository then "false" else "true" end' <<<"$pr")"
           echo "tier=$tier" >> "$GITHUB_OUTPUT"
+          echo "same-repo=$same_repo" >> "$GITHUB_OUTPUT"
           echo "PR conversation model for this run: $tier" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$same_repo" != "true" ]; then
+            echo "PR #$PR_NUMBER is from a fork; pipeline branches only live in this repository, so the PR conversation stage is skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   pr-conversation:
     needs: resolve-model
+    if: needs.resolve-model.outputs.same-repo == 'true'
     permissions:
       contents: write
       pull-requests: write
