@@ -26,8 +26,17 @@ jobs:
     with:
       issue-number: ${{ github.event.issue.number }}
       comment-id: ${{ github.event.comment.id }}
+      model: ${{ vars.WING_COMMANDER_SPEC_MODEL || 'claude-opus-5' }}
+      spec-draft-prefix: ${{ vars.WING_COMMANDER_SPEC_DRAFT_PREFIX || 'spec-draft/' }}
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+      findings-filing-enabled: ${{ fromJSON(vars.WING_COMMANDER_CLARIFY_FINDINGS_FILING_ENABLED || 'false') }}
+      findings-label-prefix: ${{ vars.WING_COMMANDER_FINDINGS_LABEL_PREFIX || 'found-by' }}
+      findings-cap: ${{ fromJSON(vars.WING_COMMANDER_FINDINGS_CAP || '3') }}
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
       speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
       speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}

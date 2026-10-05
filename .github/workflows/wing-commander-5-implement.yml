@@ -16,11 +16,49 @@ on:
         required: false
         default: "1"
         type: string
+      fold_queue_token:
+        description: >
+          Fold-queue ticket the pipeline sends when a PR review folds work
+          back into implement. Empty for a manual dispatch or this wrapper's
+          own iteration+1 self-dispatch. Declared so the pipeline's
+          `-f fold_queue_token=` dispatch is not rejected as an unexpected
+          input.
+        required: false
+        default: ""
+        type: string
 
 permissions: {}
 
 jobs:
+  # Default tier from vars.WING_COMMANDER_IMPLEMENT_MODEL (claude-sonnet-5 when
+  # unset); the model:opus label on the lifecycle issue escalates to
+  # claude-opus-5 regardless of the variable. The label is a wrapper-side
+  # convention — the published stage only sees the resolved model input.
+  resolve-model:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      model: ${{ steps.tier.outputs.tier }}
+      escalation-model: ${{ vars.WING_COMMANDER_IMPLEMENT_ESCALATION_MODEL || 'claude-opus-5' }}
+      summary-model: ${{ vars.WING_COMMANDER_SUMMARY_MODEL || 'claude-haiku-4-5' }}
+    steps:
+      - name: Resolve model tier
+        id: tier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODEL_VAR: ${{ vars.WING_COMMANDER_IMPLEMENT_MODEL }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          tier="${MODEL_VAR:-claude-sonnet-5}"
+          if gh issue view "$ISSUE" -R "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name' | grep -qx 'model:opus'; then
+            tier="claude-opus-5"
+          fi
+          echo "tier=$tier" >> "$GITHUB_OUTPUT"
+          echo "Implementation model for this cycle: $tier" >> "$GITHUB_STEP_SUMMARY"
+
   implement:
+    needs: resolve-model
     permissions:
       contents: write
       issues: write
@@ -31,14 +69,28 @@ jobs:
       spec-dir: ${{ inputs.spec_dir }}
       issue-number: ${{ fromJSON(inputs.issue) }}
       iteration: ${{ fromJSON(inputs.iteration) }}
+      fold-queue-token: ${{ inputs.fold_queue_token }}
+      model: ${{ needs.resolve-model.outputs.model }}
+      escalation-model: ${{ needs.resolve-model.outputs.escalation-model }}
+      summary-model: ${{ needs.resolve-model.outputs.summary-model }}
       max-iterations: ${{ fromJSON(vars.WING_COMMANDER_MAX_ITERATIONS || '5') }}
+      spec-prefix: ${{ vars.WING_COMMANDER_SPEC_PREFIX || 'spec/' }}
       self-workflow: wing-commander-5-implement.yml
       next-workflow: wing-commander-6-finalize.yml
       # This project is a Svelte + Vite app: the implement/converge agents
       # need the Node toolchain to install, build, and run vitest.
       extra-allowed-tools: "Bash(npm:*),Bash(npx:*),Bash(node:*)"
+      runner: ${{ vars.WING_COMMANDER_RUNNER || 'ubuntu-latest' }}
+      container-image: ${{ vars.WING_COMMANDER_CONTAINER_IMAGE || '' }}
+      findings-filing-enabled: ${{ fromJSON(vars.WING_COMMANDER_IMPLEMENT_FINDINGS_FILING_ENABLED || 'true') }}
+      findings-label-prefix: ${{ vars.WING_COMMANDER_FINDINGS_LABEL_PREFIX || 'found-by' }}
+      findings-cap: ${{ fromJSON(vars.WING_COMMANDER_FINDINGS_CAP || '3') }}
+      no-write-paths: ${{ vars.WING_COMMANDER_IMPLEMENT_NO_WRITE_PATHS || '.claude/' }}
+      write-boundary-label-prefix: ${{ vars.WING_COMMANDER_WRITE_BOUNDARY_LABEL_PREFIX || 'route-out-of-boundary' }}
     secrets:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
       speckit-app-id: ${{ secrets.WING_COMMANDER_APP_ID }}
       speckit-app-private-key: ${{ secrets.WING_COMMANDER_APP_PRIVATE_KEY }}
+      container-registry-username: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_USERNAME }}
+      container-registry-password: ${{ secrets.WING_COMMANDER_CONTAINER_REGISTRY_PASSWORD }}
