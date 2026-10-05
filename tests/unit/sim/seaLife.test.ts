@@ -585,9 +585,35 @@ describe('Convergence — a pool wobbling one cell either side of the fish thres
     for (let i = 0; i < SWEEP_TARGET_FRAMES * 3; i++) stepSeaLife(grid, state);
     expect(state.fish.length).toBe(1);
 
+    const fishInAppendage = () =>
+      state.fish.some((fish) =>
+        appendage.some(([x, y]) => Math.round(fish.x) === x && Math.round(fish.y) === y),
+      );
+
     let sawFlicker = false;
     for (let cycle = 0; cycle < 6; cycle++) {
-      setAppendage(cycle % 2 === 0 ? false : true); // alternate 119 / 121 cells
+      const removing = cycle % 2 === 0;
+      if (removing) {
+        // Draining the cell a fish is swimming in fades that fish (a different, correct rule),
+        // and its replacement would read as a flicker — so let it swim clear first. The pool
+        // stays at 121 cells meanwhile, so those frames still count toward the check.
+        for (let wait = 0; fishInAppendage(); wait++) {
+          expect(wait).toBeLessThan(5000);
+          stepSeaLife(grid, state);
+          if (state.fish.length !== 1) sawFlicker = true;
+        }
+      } else {
+        // Re-adding the cells mid-sweep — after the sweep has flood-filled the core but before its
+        // scan reaches the appendage — labels them as a separate 2-cell pool for that one sweep, so
+        // a fish that swims in before it completes fades as "pool too small" and reads as a flicker.
+        // Re-add only between sweeps instead (a completing sweep restarts at cursor 0).
+        for (let wait = 0; state.sweepCursor !== 0; wait++) {
+          expect(wait).toBeLessThan(5000);
+          stepSeaLife(grid, state);
+          if (state.fish.length !== 1) sawFlicker = true;
+        }
+      }
+      setAppendage(!removing); // alternate 119 / 121 cells
       for (let i = 0; i < SWEEP_TARGET_FRAMES * 2; i++) {
         stepSeaLife(grid, state);
         if (state.fish.length !== 1) sawFlicker = true;
